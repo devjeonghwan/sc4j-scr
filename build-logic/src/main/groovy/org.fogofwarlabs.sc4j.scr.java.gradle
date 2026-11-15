@@ -1,0 +1,327 @@
+// The conventions of the SC:R builds. A project applies it before its Java plugins react; the root project registers checkPrivatePaths and
+// the sc4j.data check of the integration tier.
+
+// The LWJGL version of the engine and the classifier of its native libraries on this platform.
+def operatingSystemName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+def nativePlatform = operatingSystemName.contains('windows') ? 'windows' : operatingSystemName.contains('linux') ? 'linux' : null
+if (nativePlatform == null) {
+    throw new GradleException('Not supported operating system: ' + System.getProperty('os.name'))
+}
+ext.LWJGL_VERSION = '3.3.6'
+ext.LWJGL_NATIVES = 'natives-' + nativePlatform + (System.getProperty('os.arch').toLowerCase(Locale.ROOT) in ['aarch64', 'arm64'] ? '-arm64' : '')
+
+// The licence files of every distribution: LICENSE, NOTICE and the third-party licence texts of licenses/ that NOTICE names. A
+// distribution folder carries all three, a jar LICENSE and NOTICE in META-INF/. checkDistributionLicenses fails when a file is missing,
+// when NOTICE does not name a text of licenses/ or names one that does not exist.
+def licenseNames = ['LICENSE', 'NOTICE']
+def licenseTextFolder = rootProject.file('licenses')
+def licenseTextReference = ~/licenses\/[A-Za-z0-9_.-]*[A-Za-z0-9]/
+def licenseFiles = rootProject.files(licenseNames)
+ext.licenseFiles = licenseFiles
+ext.licenseTexts = licenseTextFolder
+def checkDistributionLicenses = { File directory ->
+    def texts = licenseTextFolder.listFiles().findAll { file -> file.isFile() }.collect { file -> 'licenses/' + file.name }
+    def missing = (licenseNames + texts).findAll { path -> !new File(directory, path).isFile() }
+    if (!missing.isEmpty()) {
+        throw new GradleException('The distribution ' + directory + ' lacks ' + missing.join(', ') + '.')
+    }
+    def named = (new File(directory, 'NOTICE').getText('UTF-8') =~ licenseTextReference).collect { match -> match }.toSet()
+    def problems = []
+    def unnamed = texts.findAll { path -> !named.contains(path) }
+    if (!unnamed.isEmpty()) {
+        problems << 'does not name ' + unnamed.join(', ')
+    }
+    def unknown = named.findAll { path -> !texts.contains(path) }
+    if (!unknown.isEmpty()) {
+        problems << 'names the missing ' + unknown.join(', ')
+    }
+    if (!problems.isEmpty()) {
+        throw new GradleException('The NOTICE of ' + directory + ' ' + problems.join(' and ') + '.')
+    }
+}
+ext.checkDistributionLicenses = checkDistributionLicenses
+
+// These options must precede JVM startup: the JDK caches its default temporary directory during initialization.
+[Test, JavaExec].each { taskType ->
+    tasks.withType(taskType).configureEach { processTask ->
+        def temporaryDirectory = layout.buildDirectory.dir("tmp/${processTask.name}-io")
+        ext.processTemporaryDirectory = temporaryDirectory
+        ext.processStorageArguments = ['-XX:-UsePerfData', '-Djava.io.tmpdir=' + temporaryDirectory.get().asFile.absolutePath]
+        jvmArgs processStorageArguments
+        doFirst {
+            def directory = processTask.processTemporaryDirectory.get().asFile
+            if (!directory.isDirectory() && !directory.mkdirs()) {
+                throw new GradleException("Cannot create the JVM temporary directory: " + directory)
+            }
+        }
+    }
+}
+
+// Every jar carries LICENSE and NOTICE in META-INF/. The base jar type org.gradle.jvm.tasks.Jar covers the jars of plugins too (the
+// javadoc jar of the publishing plugin), which do not extend the Jar type of the build script. A mod jar gets them from the mod plugin.
+tasks.withType(org.gradle.jvm.tasks.Jar).configureEach { task ->
+    if (!(task.name == 'jar' && pluginManager.hasPlugin('org.fogofwarlabs.sc4j.mod'))) {
+        metaInf {
+            from(licenseFiles)
+        }
+    }
+}
+
+// installMod copies the mod jar into an existing install: the development install build/dev-install of the included engine build, else
+// the Gradle property sc4j.install (the mod plugin's default).
+pluginManager.withPlugin('org.fogofwarlabs.sc4j.mod') {
+    def engineBuild = gradle.includedBuilds.find { build -> build.name == 'sc4j' }
+    if (engineBuild != null) {
+        sc4jMod.install = new File(engineBuild.projectDir, 'build/dev-install')
+    }
+    def install = sc4jMod.install
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.allTasks.any { task -> task.project == project && task.name == 'installMod' }) {
+            def folder = install.getOrNull()?.asFile
+            if (folder == null) {
+                throw new GradleException('installMod needs an SC4J install: set the Gradle property sc4j.install, or run devInstall in the ' +
+                                          'engine checkout ../sc4j first.')
+            }
+            if (!folder.isDirectory()) {
+                throw new GradleException('installMod needs an SC4J install, but ' + folder + ' does not exist: run devInstall in the engine ' +
+                                          'checkout first.')
+            }
+        }
+    }
+}
+
+plugins.withId('java') {
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+}
+
+// An application with native libraries loads them from lib/natives; the JavaCPP options serve FFmpeg, the engine's video default.
+plugins.withId('application') {
+    tasks.named('startScripts') {
+        defaultJvmOpts = providers.provider {
+            application.applicationDefaultJvmArgs + ['-XX:-UsePerfData', '-Djava.io.tmpdir=APP_HOME_PLACEHOLDER/.cache/tmp'] +
+            (project.configurations.findByName('nativeLibraries') != null ? [
+                '--enable-native-access=ALL-UNNAMED',
+                '-Dorg.lwjgl.librarypath=APP_HOME_PLACEHOLDER/lib/natives',
+                '-Djava.library.path=APP_HOME_PLACEHOLDER/lib/natives',
+                '-Dorg.lwjgl.system.SharedLibraryExtractPath=APP_HOME_PLACEHOLDER/.cache/natives',
+                '-Dorg.bytedeco.javacpp.cachedir=APP_HOME_PLACEHOLDER/.cache/javacpp',
+                '-Dorg.bytedeco.javacpp.platform.linkpath=APP_HOME_PLACEHOLDER/lib/natives',
+                '-Dorg.bytedeco.javacpp.platform.preloadpath=APP_HOME_PLACEHOLDER/lib/natives',
+                '-Dorg.bytedeco.javacpp.pathsFirst=true',
+                '-Dorg.bytedeco.javacpp.cacheLibraries=false'
+            ] : [])
+        }.get()
+        doLast {
+            def windowsText = windowsScript.text.replace('APP_HOME_PLACEHOLDER', '%APP_HOME%')
+            def windowsPreparation = 'if not exist "%APP_HOME%\\.cache\\tmp\\" mkdir "%APP_HOME%\\.cache\\tmp"\r\n' +
+                                     'if not exist "%APP_HOME%\\.cache\\tmp\\" (\r\n' +
+                                     '    echo ERROR: Cannot create the JVM temporary directory. 1>&2\r\n    exit /b 1\r\n)\r\n\r\n'
+            windowsText = windowsText.replace('@rem Add default JVM options here.', windowsPreparation + '@rem Add default JVM options here.')
+            windowsText = windowsText.replace('%JAVA_EXE% -version', '%JAVA_EXE% %DEFAULT_JVM_OPTS% -version')
+            // The Java runtime of the user package (<install>/java, beside launcher/ and runtime/) comes before JAVA_HOME and PATH.
+            def windowsJava = 'if exist "%APP_HOME%\\..\\java\\bin\\java.exe" set "JAVA_HOME=%APP_HOME%\\..\\java"\r\n\r\n'
+            windowsText = windowsText.replace('@rem Find java.exe', windowsJava + '@rem Find java.exe')
+            windowsScript.text = windowsText
+            def unixText = unixScript.text.replace('APP_HOME_PLACEHOLDER', '\'"$APP_HOME"\'')
+            def unixPreparation = 'mkdir -p "$APP_HOME/.cache/tmp" || die "Cannot create the JVM temporary directory"\n' +
+                                  '[ -d "$APP_HOME/.cache/tmp" ] || die "The JVM temporary path is not a directory"\n\n'
+            unixText = unixText.replace('# Add default JVM options here.', unixPreparation + '# Add default JVM options here.')
+            def unixJava = 'if [ -x "$APP_HOME/../java/bin/java" ] ; then\n    JAVA_HOME=$APP_HOME/../java\nfi\n\n'
+            unixScript.text = unixText.replace('# Determine the Java command to use to start the JVM.',
+                unixJava + '# Determine the Java command to use to start the JVM.')
+        }
+    }
+    // Every application distribution carries LICENSE, NOTICE and licenses/ at its root; the install task fails when its folder misses one of
+    // them.
+    distributions.main.contents {
+        from(licenseFiles)
+        from(licenseTextFolder) { into 'licenses' }
+    }
+    tasks.named('installDist', Sync) { task ->
+        doLast {
+            checkDistributionLicenses(task.destinationDir)
+        }
+    }
+}
+
+// External test inputs, passed as Gradle properties (-P<name>=<path>, or <name>=<path> in the user's GRADLE_USER_HOME/gradle.properties) and
+// forwarded as system properties. The shared test fixture org.fogofwarlabs.sc4j.scr.core.test.ExternalInput reads them.
+def externalTestProperties = [
+    'sc4j.data',                  // SC:R installation (CASC storage, Maps, x86_64/StarCraft.exe)
+    'sc4j.replays',               // STARDATA replay corpus root (stardata_original_replays)
+    'sc4j.replays.limit',         // corpus file limit of the replay parse test
+    'sc4j.maps',                  // the client's maps folder with the large EUD maps (scr-client/build/install/sc4j/maps)
+    'sc4j.corpus'                 // replay corpus folder that the corpus survey plays (any folder layout)
+]
+
+plugins.withType(JavaLibraryPlugin).configureEach {
+    dependencies {
+        testImplementation platform("org.junit:junit-bom:5.11.4")
+        testImplementation "org.junit.jupiter:junit-jupiter"
+        testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    }
+
+    // Warnings are printed in full so that they can be counted. javac reports every
+    // lint category; javadoc and javac lift their default limit of 100 printed warnings per task.
+    // Javadoc leaves out the doclint group "missing" by default: it reports the getters documented
+    // with @return only as "no main description". Missing comments and tags are checked by the style checker
+    // instead; -Psc4j.javadoc.doclint=all restores the full javadoc default for a raw count.
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += ['-Xlint:all', '-Xmaxwarns', '100000']
+    }
+    tasks.withType(Javadoc).configureEach {
+        options.addBooleanOption('Xdoclint:' + providers.gradleProperty('sc4j.javadoc.doclint').getOrElse('all,-missing'), true)
+        options.addStringOption('Xmaxwarns', '100000')
+        options.addStringOption('Xmaxerrs', '100000')
+        options.tags('apiNote:a:API Note:', 'implSpec:a:Implementation Requirements:')
+    }
+
+    // Unit tier: the tests tagged integration or corpus need input from outside the repository and run in tasks of their own. The external
+    // properties are forwarded blank to it so a -P value never turns it into an external run.
+    def unitTest = tasks.named('test') {
+        useJUnitPlatform {
+            excludeTags 'integration', 'corpus'
+        }
+        externalTestProperties.each { name -> systemProperty name, '' }
+    }
+
+    // Integration tier: the tests marked @RequiresInstallation (tag integration), with the SC:R installation sc4j.data.
+    def integrationTest = tasks.register('integrationTest', Test) {
+        description = 'Runs the integration tier: the tests that need the SC:R installation (sc4j.data).'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'integration'
+            excludeTags 'corpus'
+        }
+        shouldRunAfter unitTest
+    }
+
+    // Corpus tier: the tests marked @CorpusTest (tag corpus): long runs and tests over the external folders other than the installation. A
+    // test whose declared folder is not set is skipped.
+    def corpusTest = tasks.register('corpusTest', Test) {
+        description = 'Runs the corpus tier over the external replay corpus and the other external folders.'
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'corpus'
+        }
+        shouldRunAfter integrationTest
+    }
+
+    [integrationTest, corpusTest].each { task ->
+        task.configure {
+            externalTestProperties.each { name -> systemProperty name, providers.gradleProperty(name).getOrElse('') }
+            // Changed external inputs must rerun the tier.
+            outputs.upToDateWhen { false }
+        }
+    }
+
+    // The folder-driven tests (replays/detection, replays/native, maps, captures/lan, ... of the test resources) write one result table per
+    // test task (org.fogofwarlabs.sc4j.scr.core.test.TestResultUtils).
+    [unitTest, integrationTest, corpusTest].each { task ->
+        task.configure {
+            systemProperty 'sc4j.golden.results', layout.buildDirectory.dir('golden-results/' + task.name).get().asFile.absolutePath
+        }
+    }
+}
+
+// Private path check: no source, build or documentation file of the build names a private local path. It reads the
+// files of every leaf module (without build output; the root project too when it has no modules, without the folders of the builds it
+// includes), the top-level files of the parent modules and of the build, gradle/, build-logic/ and the documents in docs/, but not the
+// ignore file, which lists the folder, nor the top-level files it keeps local (its "/<name>" lines). "check" (and so "build") of every Java
+// module runs it.
+if (project == rootProject) {
+    def privatePathPattern = ~/(?<![\w.])\.local[\/\\]/
+    def ignoreFile = file('.gitignore')
+    def localTopLevelFiles = (ignoreFile.isFile() ? ignoreFile.readLines('UTF-8') : []).findAll { line -> line ==~ /\/[^\/*]+\/?/ }.collect { line ->
+        line.substring(1).replaceAll(/\/$/, '')
+    }
+    def includedBuildFolders = gradle.includedBuilds.collect { build -> build.projectDir.toPath() }.findAll { folder ->
+        folder.startsWith(rootDir.toPath())
+    }.collect { folder -> rootDir.toPath().relativize(folder).toString().replace('\\', '/') + '/**' }
+    def privatePathFileTypes = ['**/*.java', '**/*.gradle', '**/*.kts', '**/*.properties', '**/*.json', '**/*.css', '**/*.txt', '**/*.tsv',
+                                '**/*.md', '**/*.xml', '**/*.fxml', '**/*.html', '**/*.py', '**/*.sh', '**/*.bat', '**/*.cmd', '**/*.yml',
+                                '**/*.toml', '**/LICENSE', '**/NOTICE', '**/gradlew']
+    def privatePathFiles = files(
+        fileTree(rootDir) {
+            if (subprojects.isEmpty()) {
+                include privatePathFileTypes
+                exclude 'build/**', '.gradle/**', 'build-logic/**', 'docs/**', 'gradle/**'
+                exclude includedBuildFolders
+            } else {
+                include privatePathFileTypes.collect { type -> type.substring(3) }
+                exclude '*/**'
+            }
+            exclude '.gitignore'
+            exclude localTopLevelFiles
+        },
+        fileTree(file('gradle')) { include privatePathFileTypes },
+        fileTree(file('build-logic')) {
+            include privatePathFileTypes
+            exclude '**/build/**', '**/.gradle/**'
+        },
+        fileTree(file('docs')) { include privatePathFileTypes },
+        subprojects.collect { module ->
+            module.childProjects.isEmpty()
+                ? fileTree(module.projectDir) {
+                include privatePathFileTypes
+                exclude 'build/**', '.gradle/**'
+            }
+                : fileTree(module.projectDir) {
+                include privatePathFileTypes.collect { type -> type.substring(3) }
+                exclude '*/**'
+            }
+        })
+    def privatePathReport = layout.buildDirectory.file('reports/private-paths.txt')
+    tasks.register('checkPrivatePaths') {
+        description = 'Checks that no source, build or documentation file names a private local path.'
+        group = 'verification'
+        inputs.files(privatePathFiles)
+        inputs.property('pattern', privatePathPattern.toString())
+        outputs.file(privatePathReport)
+        doLast {
+            def problems = []
+            privatePathFiles.each { file ->
+                file.readLines('UTF-8').eachWithIndex { line, index ->
+                    if (line =~ privatePathPattern) {
+                        problems << file.path + ':' + (index + 1) + ': ' + line.trim()
+                    }
+                }
+            }
+            if (!problems.isEmpty()) {
+                throw new GradleException('No repository file may name a private local path:\n  ' + problems.join('\n  '))
+            }
+            privatePathReport.get().asFile.text = 'No private path: ' + privatePathFiles.files.size() + ' files checked.\n'
+        }
+    }
+
+    // The integration tier needs the SC:R installation: fail before any task runs instead of skipping every test.
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.allTasks.any { task -> task.name == 'integrationTest' }) {
+            def data = providers.gradleProperty('sc4j.data').getOrElse('')
+
+            if (data.isBlank()) {
+                throw new GradleException("integrationTest needs the SC:R installation: set the Gradle property sc4j.data, either as the line " +
+                                          "'sc4j.data=<installation directory>' in %USERPROFILE%\\.gradle\\gradle.properties (GRADLE_USER_HOME) " +
+                                          "or with -Psc4j.data=<installation directory> (CI: ORG_GRADLE_PROJECT_sc4j.data).")
+            }
+
+            if (!new File(data).isDirectory()) {
+                throw new GradleException("integrationTest needs the SC:R installation, but the Gradle property sc4j.data names no directory: " +
+                                          data)
+            }
+        }
+    }
+}
+plugins.withId('java') {
+    tasks.named('check') {
+        dependsOn ':checkPrivatePaths'
+    }
+}

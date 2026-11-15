@@ -1,0 +1,7 @@
+# Known divergences of the native recording comparison (NativeRecordingComparisonTest, integrationTest).
+# One line per pair and differing sample: <id> TAB <sample> TAB <first differing recorded frame> TAB <note>.
+# <id> is the pair's id in this folder (native/<source>/<id>.rep); write it as native/<id> in every text.
+# The sample "simulation" names the frame where the SC4J simulation stopped before the recording did.
+# A pair that is not listed must reproduce every comparison sample; a listed line must keep its sample and frame.
+# Silent divergences carry a group: N1 construction cancel, N2 halted Terran construction, N3 a unit field long
+# before the RNG, N4 RNG source counters before the RNG state, N5 RNG before units, N6 combat (units and RNG within one stride).

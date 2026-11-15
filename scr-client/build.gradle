@@ -1,0 +1,132 @@
+plugins {
+    id 'java-library'
+    id 'application'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+    id 'org.fogofwarlabs.sc4j.scr.natives'
+}
+
+tasks.withType(Test).configureEach {
+    // The GPU tests load the game data and a whole HD image set in one JVM.
+    maxHeapSize = '2g'
+    systemProperty 'sc4j.render.smoke', providers.gradleProperty('sc4j.render.smoke').getOrElse('false')
+}
+
+dependencies {
+    implementation "org.fogofwarlabs.sc4j:sc4j-base:$sc4jVersion"
+    // The mod API of the entry org.fogofwarlabs.sc4j.scr.ScrMod; at run time the runtime provides it, scr.jar does not hold it.
+    implementation "org.fogofwarlabs.sc4j:sc4j-engine:$sc4jVersion"
+    implementation project(':scr-data')
+    implementation project(':scr-game')
+    implementation project(':scr-render')
+    implementation project(':scr-net')
+
+    // Shared test fixtures: the external inputs and the tier annotations (org.fogofwarlabs.sc4j.scr.core.test).
+    testImplementation testFixtures(project(':scr-data'))
+    // Shared game test fixtures (InstallationTestResources, GameTestResources) and the replays, saves and maps of the scr-game test
+    // resources, read as files from their source directory.
+    testImplementation testFixtures(project(':scr-game'))
+    testRuntimeOnly files('../scr-game/src/test/resources')
+    // The engine's Beacon.Link session and community part played by hand (RecordingBeaconLink, RecordingCommunitySession) of the
+    // community screen tests.
+    testImplementation testFixtures("org.fogofwarlabs.sc4j:sc4j-engine:$sc4jVersion")
+
+    implementation platform("org.lwjgl:lwjgl-bom:$LWJGL_VERSION")
+    implementation 'org.lwjgl:lwjgl'
+    implementation 'org.lwjgl:lwjgl-opengl'
+    // Ogg Vorbis decoding of remastered sounds (stb_vorbis).
+    implementation 'org.lwjgl:lwjgl-stb'
+    nativeLibraries project(path: ':scr-render', configuration: 'nativeLibraries')
+    nativeLibraries "org.lwjgl:lwjgl-openal:$LWJGL_VERSION:$LWJGL_NATIVES"
+
+    // The native libraries of the engine's video default (FFmpeg through JavaCPP; the jars come with sc4j-engine), staged with the
+    // client's own for its tests, its run task and the install.
+    nativeLibraries 'org.bytedeco:javacpp:1.5.11:windows-x86_64'
+    nativeLibraries 'org.bytedeco:ffmpeg:7.1-1.5.11:windows-x86_64'
+}
+
+application {
+    // The start scripts and the distribution (build/install/sc4j) carry the product name, not the module name.
+    applicationName = 'sc4j'
+    mainClass = 'org.fogofwarlabs.sc4j.scr.client.Main'
+}
+
+// installDist syncs the install folder; keep the files the client writes next to the executable.
+tasks.named('installDist', Sync) {
+    preserve {
+        include '.cache/**'
+        include 'replays/**'
+        include 'save/**'
+        include 'logs/**'
+        include 'data/**'
+        include 'maps/**'
+        include 'characters/**'
+        include 'sc4j-settings.json'
+    }
+}
+
+def defaultRunRoot = layout.buildDirectory.dir('run')
+def runRoot = providers.gradleProperty('sc4j.root').map { configured ->
+    configured.isBlank() ? defaultRunRoot.get().asFile : layout.settingsDirectory.file(configured).asFile
+}.orElse(defaultRunRoot.map { directory -> directory.asFile })
+def runTemporaryDirectory = layout.dir(runRoot.map { directory -> new File(directory, '.cache/tmp') })
+def runNativeDirectory = runRoot.map { directory -> new File(directory, 'lib/natives') }
+def stageRunNativeLibraries = tasks.register('stageRunNativeLibraries', Sync) {
+    description = 'Stages the existing native libraries under the development run root.'
+    from tasks.named('stageNativeLibraries')
+    into runNativeDirectory
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+tasks.named('run', JavaExec) {
+    dependsOn stageRunNativeLibraries
+    processTemporaryDirectory = runTemporaryDirectory
+    setJvmArgs(jvmArgs.findAll { argument -> !processStorageArguments.contains(argument) })
+    processStorageArguments = ['-XX:-UsePerfData', '-Djava.io.tmpdir=' + runTemporaryDirectory.get().asFile.absolutePath]
+    jvmArgs processStorageArguments
+
+    systemProperty 'sc4j.root', runRoot.get().absolutePath
+    systemProperty 'sc4j.data', providers.gradleProperty('sc4j.data').getOrElse('')
+    systemProperty 'org.lwjgl.librarypath', runNativeDirectory.get().absolutePath
+    systemProperty 'java.library.path', runNativeDirectory.get().absolutePath
+    systemProperty 'org.lwjgl.system.SharedLibraryExtractPath', new File(runRoot.get(), '.cache/natives').absolutePath
+    systemProperty 'org.bytedeco.javacpp.cachedir', new File(runRoot.get(), '.cache/javacpp').absolutePath
+    systemProperty 'org.bytedeco.javacpp.platform.linkpath', runNativeDirectory.get().absolutePath
+    systemProperty 'org.bytedeco.javacpp.platform.preloadpath', runNativeDirectory.get().absolutePath
+}
+
+// Client game boundary: the client's interface code reaches the SC:R simulation only through the session's read-only
+// ScrGameView, its ScrPresentation and commands. No main source names the SC:R Game type or asks for a session's game, except the session
+// that owns and runs the game (ClientSession) and the two surfaces over it (ScrGameView, ScrPresentation); the mod entry (ScrMod) is outside
+// the client package. "check" (and so "build") runs it.
+def gameOwners = ['ClientSession.java', 'ScrGameView.java', 'ScrPresentation.java']
+def gameTypePattern = ~/\borg\.fogofwarlabs\.sc4j\.scr\.game\.state\.Game\b(?!\w)/
+def gameAccessPattern = ~/\.getGame\(\)/
+def clientSources = fileTree('src/main/java/org/fogofwarlabs/sc4j/scr/client') { include '**/*.java' }
+def clientBoundaryReport = layout.buildDirectory.file('reports/client-game-boundary.txt')
+def checkClientGameBoundary = tasks.register('checkClientGameBoundary') {
+    description = 'Checks that the client reaches the SC:R game only through ScrGameView, ScrPresentation and commands.'
+    group = 'verification'
+    inputs.files(clientSources)
+    outputs.file(clientBoundaryReport)
+    doLast {
+        def problems = []
+        clientSources.each { file ->
+            if (!gameOwners.contains(file.name)) {
+                file.readLines('UTF-8').eachWithIndex { line, index ->
+                    if (line =~ gameTypePattern || line =~ gameAccessPattern) {
+                        problems << file.path + ':' + (index + 1) + ': ' + line.trim()
+                    }
+                }
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new GradleException('The client must reach the SC:R game only through ScrGameView, ScrPresentation and commands:\n  ' +
+                                      problems.join('\n  '))
+        }
+        clientBoundaryReport.get().asFile.text = 'No game access outside the session and its surfaces: ' + clientSources.files.size() +
+                                                 ' files checked.\n'
+    }
+}
+tasks.named('check') {
+    dependsOn checkClientGameBoundary
+}

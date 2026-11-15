@@ -1,0 +1,32 @@
+plugins {
+    id 'java-library'
+    // Shared game test fixtures (org.fogofwarlabs.sc4j.scr.game.test): InstallationTestResources, GameTestResources, ReplayRunScenario,
+    // SharedReplayRunScenario, StateDigestCheck, CommandAcceptanceCheck, CommandValidityCheck, ReplaySurveyCheck.
+    id 'java-test-fixtures'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+}
+
+dependencies {
+    api "org.fogofwarlabs.sc4j:sc4j-base:$sc4jVersion"
+    api project(':scr-data')
+
+    testFixturesApi testFixtures(project(':scr-data'))
+    testFixturesApi platform("org.junit:junit-bom:5.11.4")
+    testFixturesApi "org.junit.jupiter:junit-jupiter-api"
+
+    testImplementation testFixtures(project(':scr-data'))
+    // SCRECBIN recording reader (org.fogofwarlabs.screcorder.format.recording) of the native recording pairs (replays/native).
+    testImplementation project(':sc-recorder')
+}
+
+tasks.withType(Test).configureEach {
+    maxHeapSize = '2g'
+}
+
+// The test resources folder (replays, saves and maps) as the variant of this project with the usage sc4j-test-resources.
+configurations.consumable('testResourceElements') {
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, 'sc4j-test-resources'))
+    outgoing.artifact(file('src/test/resources')) {
+        type = ArtifactTypeDefinition.DIRECTORY_TYPE
+    }
+}

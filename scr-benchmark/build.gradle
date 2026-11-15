@@ -1,0 +1,76 @@
+plugins {
+    id 'java'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+}
+
+// JMH benchmarks of the engine (src/jmh/java). They read the SC:R installation and replay files from outside the
+// repository: gradlew.bat --no-daemon :scr-benchmark:jmh -Psc4j.data=<installation> -Psc4j.benchmark.replays=<a.rep>,<b.rep>
+// -Psc4j.benchmark.args passes further JMH options, for example "-wi 0 -i 1 -r 1s" for a smoke run.
+sourceSets {
+    jmh {
+        java.srcDirs = ['src/jmh/java']
+        resources.srcDirs = ['src/jmh/resources']
+        compileClasspath += sourceSets.main.runtimeClasspath
+    }
+}
+
+dependencies {
+    jmhImplementation project(':scr-game')
+
+    jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
+    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
+}
+
+// build compiles the benchmarks so that they keep compiling with the engine.
+tasks.named('classes') {
+    finalizedBy tasks.named('jmhClasses')
+}
+
+// The lint category "processing" is left out: the JMH annotation processor claims only the JMH annotations, and javac
+// reports the other annotations (NotNull, Nullable) as unclaimed.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all,-processing', '-Xmaxwarns', '100000']
+}
+
+tasks.register('jmh', JavaExec) {
+    description = "Runs the JMH benchmarks (sc4j.data and sc4j.benchmark.replays are required)."
+    group = "benchmark"
+    dependsOn jmhClasses
+    mainClass = 'org.openjdk.jmh.Main'
+    classpath = sourceSets.jmh.compileClasspath + sourceSets.jmh.runtimeClasspath
+
+    def data = providers.gradleProperty('sc4j.data').getOrElse('')
+    def replays = providers.gradleProperty('sc4j.benchmark.replays').getOrElse('')
+    def extraArguments = providers.gradleProperty('sc4j.benchmark.args').getOrElse('')
+    def resultFile = layout.buildDirectory.file("reports/jmh/results.json")
+
+    // The forked benchmark JVMs inherit the system properties of this JVM.
+    systemProperty 'sc4j.data', data
+
+    doFirst {
+        if (data.isBlank() || replays.isBlank()) {
+            throw new GradleException("jmh needs the SC:R installation and the replays to play: set the Gradle properties sc4j.data " +
+                                      "(for example in %USERPROFILE%\\.gradle\\gradle.properties, or -Psc4j.data=<directory>) and " +
+                                      "sc4j.benchmark.replays (-Psc4j.benchmark.replays=<file.rep>,<file.rep>).")
+        }
+
+        resultFile.get().asFile.parentFile.mkdirs()
+    }
+
+    def requiredJvmArguments = (processStorageArguments + ['-Dsc4j.data=' + data]).collect { argument ->
+        argument.contains(' ') ? '"' + argument + '"' : argument
+    }.join(' ')
+    // JMH's alternate-JVM metadata subprocess does not receive benchmark fork arguments.
+    environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' ' + requiredJvmArguments).trim()
+    def benchmarkArguments = extraArguments.isBlank() ? [] : extraArguments.trim().split(/\s+/).toList()
+    def appendIndex = benchmarkArguments.indexOf('-jvmArgsAppend')
+    if (appendIndex >= 0 && appendIndex + 1 < benchmarkArguments.size()) {
+        benchmarkArguments[appendIndex + 1] += ' ' + requiredJvmArguments
+    } else {
+        benchmarkArguments += ['-jvmArgsAppend', requiredJvmArguments]
+    }
+    args = ['-rf', 'json',
+            '-rff', resultFile.get().asFile.absolutePath,
+            '-p', 'replay=' + replays] + benchmarkArguments
+}

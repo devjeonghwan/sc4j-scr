@@ -1,0 +1,20 @@
+# Known problem replays of the native comparison's detection (NativeRecordingComparisonTest, integrationTest).
+# One line per pair whose detection is not ok: <id> TAB <class: suspicious or error> TAB <signals> TAB <note>.
+# <id> is the pair's id in this folder (native/<source>/<id>.rep); write it as native/<id> in every text.
+# A pair that is not listed must be ok; a listed pair must keep its class. Remove an entry when its replay becomes ok.
+# A native-equal pair with signals is a survey false alarm and stays listed with that evidence.
+CWAL_00000004	suspicious	order@14470	survey signals only: the replay command buffer runs the stale entries of the deferred overflow frame 14194 as native does, and the native recording (native/CWAL_00000004) is equal on every sample to its end
+CWAL_00000008	suspicious	selection@20206,order@20206	survey signals only: native recording (native/CWAL_00000008) equal on every sample to its end (the stale vision command at frame 15952 keeps player 1's own sight)
+CWAL_00000019	suspicious	selection@6823,order@7504,foreign@9055,target@11658	survey signals only: native recording (native/CWAL_00000019) equal on every sample to its end
+CWAL_00000020	suspicious	selection@4212,order@4833	every native recording sample equal; survey signals only
+CWAL_00000024	suspicious	selection@15592,order@15724,foreign@15811,target@21340	native recording (native/CWAL_00000024) equal on every sample to its end (replay command buffer); survey signals only
+CWAL_00000025	suspicious	foreign@11487,selection@14715	native recording (native/CWAL_00000025) equal to its end; the survey signals are a false alarm
+CWAL_00000026	suspicious	order@8960,foreign@10148,selection@10390,target@12184	every native recording sample equal (native/CWAL_00000026): survey false alarm
+CWAL_00000027	suspicious	selection@4160,foreign@4648,order@4888,target@10729	every native recording sample equal (native/CWAL_00000027): survey false alarm
+CWAL_00000029	suspicious	selection@5802,order@5814,foreign@6096	every native recording sample equal (native/CWAL_00000029): survey false alarm
+CWAL_00000035	suspicious	selection@19615,order@19615,target@24076	native recording (native/CWAL_00000035) equal on every sample to its end (replay command buffer); survey signals only
+CWAL_00000036	suspicious	order@59168	every native recording sample equal (native/CWAL_00000036): survey false alarm
+CWAL_00000037	suspicious	selection@14678,order@14678,target@17416	native recording (native/CWAL_00000037) equal to its end; the survey signals are a false alarm
+CWAL_00000039	suspicious	selection@17993,order@17993,target@19359	native recording (native/CWAL_00000039) equal to its end (Halo Rockets limit); the survey signals are a false alarm
+CWAL_00000042	suspicious	selection@11491,order@11491,target@14457	native recording (native/CWAL_00000042) equal on every sample to its end (replay command buffer); survey signals only
+CWAL_00000043	suspicious	selection@16582,order@16582,target@17334	native recording (native/CWAL_00000043) equal on every sample to its end (the vision command keeps the issuer's own sight); the replay command buffer runs the deferred overflow frame 16474 from stale entries (11 frames whose run differs from the recorded commands), and the Halo Rockets limit applies

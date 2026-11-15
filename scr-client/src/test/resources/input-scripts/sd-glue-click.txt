@@ -1,0 +1,18 @@
+# SD graphics, 16:9 pillarboxed window: the main menu buttons take mouse clicks at their drawn place (the glue lays out, hit
+# tests and draws in window coordinates; only its GL target is the SD compose target). Single Player opens the game type
+# popup (sd-click-single.png), Esc closes it, Options opens the options popup (sd-click-options.png).
+# Run: --settings none --renderer classic --window 1600x900 --hidden --no-grab --frames 1000000 --input-script <this>.
+# For a 4:3 window (1280x960) use the points 0.308,0.254 (Single Player) and 0.1328,0.74 (Options).
+wait 600
+pause 3000
+click 0.5,0.5 left
+pause 6000
+click 0.3556,0.2544 left
+pause 2000
+shot sd-click-single.png
+key ESCAPE
+pause 3000
+click 0.2175,0.74 left
+pause 2000
+shot sd-click-options.png
+exit

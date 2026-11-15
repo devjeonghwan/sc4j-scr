@@ -1,0 +1,20 @@
+# Queue slot click (statdata 2..6, 0x1403f1ef0 -> 0x1403aa0f0): select the Command Center, train SCVs, click the queue slots;
+# each click sends Cancel Train 0x20 with slot id - 2. Run: --campaign bw-terran-1 --renderer classic --window 1280x720 --hidden --frames 4000 --input-script <this>.
+wait 150
+click 0.449,0.49
+wait 10
+key S
+wait 5
+key S
+pause 1500
+shot queue-cancel-b1.png
+wait 3
+click 0.4297,0.958
+pause 600
+shot queue-cancel-b2.png
+wait 3
+click 0.4297,0.875
+pause 600
+shot queue-cancel-b3.png
+wait 3
+exit

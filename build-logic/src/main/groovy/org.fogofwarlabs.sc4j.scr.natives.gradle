@@ -1,0 +1,49 @@
+// Native libraries of a module: the configuration nativeLibraries holds the archives of the native libraries, stageNativeLibraries unpacks
+// them into build/native-libraries for the module's tests and run tasks, and an application distribution gets them in lib/natives.
+pluginManager.apply('org.fogofwarlabs.sc4j.scr.java')
+
+def nativeLibraries = configurations.create('nativeLibraries') {
+    canBeConsumed = true
+    canBeResolved = true
+}
+def nativeDirectory = layout.buildDirectory.dir('native-libraries')
+def stageNativeLibraries = tasks.register('stageNativeLibraries', Sync) {
+    description = 'Stages the existing native dependencies outside the Java runtime classpath.'
+    from({ nativeLibraries.collect { archive -> zipTree(archive) } }) {
+        include '**/*.dll', '**/*.so', '**/*.so.*'
+        exclude 'META-INF/**', '**/*.sha1', '**/*.git'
+        eachFile { details -> details.path = details.name }
+        includeEmptyDirs = false
+    }
+    into nativeDirectory
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    doLast {
+        def directory = nativeDirectory.get().asFile
+        def libraries = directory.isDirectory() ? directory.listFiles().findAll { file ->
+            file.isFile() && file.name != 'libraries.list'
+        }.collect { file -> file.name }.sort() : []
+        if (libraries.isEmpty()) {
+            throw new GradleException('No native libraries were staged.')
+        }
+        new File(directory, 'libraries.list').setText(libraries.join('\n') + '\n', 'UTF-8')
+    }
+}
+[Test, JavaExec].each { taskType ->
+    tasks.withType(taskType).configureEach {
+        dependsOn stageNativeLibraries
+        systemProperty 'org.lwjgl.librarypath', nativeDirectory.get().asFile.absolutePath
+        systemProperty 'java.library.path', nativeDirectory.get().asFile.absolutePath
+        systemProperty 'org.lwjgl.system.SharedLibraryExtractPath', layout.buildDirectory.dir('tmp/native-extract').get().asFile.absolutePath
+        systemProperty 'org.bytedeco.javacpp.cachedir', layout.buildDirectory.dir('tmp/javacpp-cache').get().asFile.absolutePath
+        systemProperty 'org.bytedeco.javacpp.platform.linkpath', nativeDirectory.get().asFile.absolutePath
+        systemProperty 'org.bytedeco.javacpp.platform.preloadpath', nativeDirectory.get().asFile.absolutePath
+        systemProperty 'org.bytedeco.javacpp.pathsFirst', 'true'
+        systemProperty 'org.bytedeco.javacpp.cacheLibraries', 'false'
+        jvmArgs '--enable-native-access=ALL-UNNAMED'
+    }
+}
+plugins.withId('application') {
+    distributions.main.contents {
+        from(stageNativeLibraries) { into 'lib/natives' }
+    }
+}

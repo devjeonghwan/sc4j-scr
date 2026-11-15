@@ -1,0 +1,13 @@
+# Alt + left click on the minimap (0x140362cb7) sends the minimap ping command 0x58; when it executes (0x140377f10) the
+# own ping shows blink.dds.grp in tblink row 0x11 (green), shrinking over 20 frames of 100 ms. Classic 1280x720 window.
+# Run: --campaign bw-terran-1 --renderer classic --window 1280x720 --hidden --frames 3000 --input-script <this>.
+wait 150
+click 0.207,0.861 left alt
+pause 300
+shot minimap-ping-early.png
+pause 1100
+shot minimap-ping-late.png
+pause 1500
+shot minimap-ping-gone.png
+wait 3
+exit

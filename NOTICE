@@ -1,0 +1,89 @@
+SC4J SC:R mod
+Copyright 2026 Fog of War Labs (https://fogofwarlabs.org)
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+
+StarCraft is a trademark of Blizzard Entertainment, Inc. SC4J is not affiliated with or endorsed by Blizzard Entertainment.
+The SC:R mod reads the game data of a user-owned StarCraft: Remastered installation; its distributions carry no such data.
+
+Third-party material
+====================
+
+The SC:R mod and its distributions carry the following third-party material. Each entry names its licence and where its full licence
+text lives.
+
+Fonts
+-----
+
+The SC:R mod ships no third-party font: it uses the fonts of the user's own installation.
+
+Libraries in the distributions
+------------------------------
+
+Each distribution (the SC:R client, the recorder) carries LICENSE, this NOTICE and the folder licenses/ with the licence texts named
+below; the mod jar and the other jars carry LICENSE and NOTICE in META-INF/. Which distribution carries which library is given in
+brackets.
+
+LWJGL 3.3.6 (org.lwjgl: lwjgl, lwjgl-glfw, lwjgl-opengl, lwjgl-openal, lwjgl-stb, with their Windows natives; SC:R client)
+  BSD 3-Clause License. Text: licenses/LWJGL-BSD-3-Clause.txt.
+  lwjgl-opengl: Khronos OpenGL registry licence (MIT style). Text: licenses/Khronos-OpenGL-MIT.txt.
+  The natives contain third-party libraries under their own licences:
+  - GLFW 3.5.0 (glfw.dll): zlib/libpng License. Text: licenses/GLFW-zlib.txt.
+  - OpenAL Soft 1.24.1 (OpenAL.dll): GNU Library General Public License 2 or later, taken under the GNU Lesser General Public
+    License 2.1. Text: licenses/LGPL-2.1.txt. Sources: https://github.com/kcat/openal-soft.
+  - stb (lwjgl_stb.dll): MIT License or public domain (Unlicense); SC4J takes it under the MIT License. Text: licenses/stb-MIT.txt.
+  - libffi 3.4.6 (lwjgl.dll): MIT License. Text: licenses/libffi-MIT.txt.
+
+JavaCPP 1.5.11 (org.bytedeco:javacpp, with its windows-x86_64 natives; SC:R client)
+  Apache License 2.0 (LICENSE) or GNU General Public License 2 or later, or GPL 2 with the Classpath Exception
+  (licenses/GPL-2.0-with-Classpath-Exception.txt); SC4J takes it under the Apache License 2.0.
+  Its natives include the Microsoft Visual C++ and Universal C runtime libraries (msvcp140, vcruntime140, concrt140, vcomp140,
+  libomp140, ucrtbase, api-ms-win-*.dll), redistributable under the Microsoft Visual Studio licence terms.
+
+JavaCPP Presets for FFmpeg 7.1-1.5.11 (org.bytedeco:ffmpeg, the LGPL build, with its windows-x86_64 natives; SC:R client)
+  Presets: Apache License 2.0 (LICENSE) or GNU General Public License 2 with the Classpath Exception; SC4J takes them under the Apache
+  License 2.0.
+  FFmpeg 7.1 libraries (avcodec, avdevice, avfilter, avformat, avutil, swresample, swscale): GNU Lesser General Public License 3 or
+  later (the build's own licence string). Text: licenses/LGPL-3.0.txt with licenses/GPL-3.0.txt.
+  Sources: https://ffmpeg.org and https://github.com/bytedeco/javacpp-presets (ffmpeg, 1.5.11).
+  Built into the FFmpeg libraries (versions from ffmpeg/cppbuild.sh of javacpp-presets 1.5.11):
+  - zlib 1.3.1: zlib License. Text: licenses/zlib.txt.
+  - LAME 3.100 (www.mp3dev.org): GNU Library General Public License 2 or later, taken under the GNU Lesser General Public License
+    2.1. Text: licenses/LGPL-2.1.txt.
+  - Speex 1.2.1: BSD 3-Clause License. Text: licenses/Speex-BSD-3-Clause.txt.
+  - Opus 1.3.1: BSD 3-Clause License. Text: licenses/Opus-BSD-3-Clause.txt.
+  - libvpx 1.14.1: BSD 3-Clause License. Text: licenses/libvpx-BSD-3-Clause.txt.
+  - libwebp 1.4.0: BSD 3-Clause License. Text: licenses/libwebp-BSD-3-Clause.txt.
+  - OpenH264 2.4.1: BSD 2-Clause License. Text: licenses/OpenH264-BSD-2-Clause.txt.
+  - libaom 3.9.1: BSD 2-Clause License. Text: licenses/libaom-BSD-2-Clause.txt.
+  - SVT-AV1 2.2.1: BSD 3-Clause Clear License. Text: licenses/SVT-AV1-BSD-3-Clause-Clear.txt.
+  - OpenCORE AMR 0.1.6: Apache License 2.0 (LICENSE). Its notice file: licenses/opencore-amr-NOTICE.txt.
+  - VisualOn AMR-WB encoder 0.1.3: Apache License 2.0 (LICENSE). Its notice: "Additional Codecs. These files are Copyright
+    2003-2010 VisualOn, but released under the Apache2 License."
+  - OpenSSL 3.3.2: Apache License 2.0 (LICENSE).
+  - FreeType 2.13.3: FreeType License. Text: licenses/FreeType-FTL.txt.
+    Portions of this software are copyright (C) 2024 The FreeType Project (www.freetype.org). All rights reserved.
+  - libxml2 2.9.12: MIT License. Text: licenses/libxml2-MIT.txt.
+  - Intel Media SDK dispatcher (mfx_dispatch 1.35.1): BSD 3-Clause License. Text: licenses/mfx_dispatch-BSD-3-Clause.txt.
+  - SRT 1.5.3: Mozilla Public License 2.0. Text: licenses/MPL-2.0.txt. Sources: https://github.com/Haivision/srt (v1.5.3).
+  - zimg 3.0.5: WTFPL 2. Text: licenses/zimg-WTFPL.txt.
+  - nv-codec-headers 12.2.72.0 (NVIDIA codec API headers): MIT License. Text: licenses/nv-codec-headers-MIT.txt.
+  - Vulkan headers (1.3.277 or later, from the build system): Apache License 2.0 (LICENSE). Copyright 2015-2024 The Khronos
+    Group Inc.
+  - GCC runtime (libgcc, libstdc++): GNU General Public License 3 with the GCC Runtime Library Exception 3.1. Texts:
+    licenses/GPL-3.0.txt and licenses/GCC-Runtime-Library-Exception-3.1.txt.
+
+JetBrains Java Annotations 23.0.0 (org.jetbrains:annotations; every distribution with a Java class path)
+  Apache License 2.0 (LICENSE).
+
+Build and test tools (not in the distributions)
+-----------------------------------------------
+
+Gradle Wrapper (gradle/wrapper/gradle-wrapper.jar)
+  Apache License 2.0 (LICENSE of this repository holds the text).
+
+JUnit 5 (tests only)
+  Eclipse Public License 2.0.
+
+JMH 1.37 (benchmarks only)
+  GNU General Public License 2 with the Classpath Exception.

@@ -1,0 +1,64 @@
+pluginManagement {
+    // The engine checkout gives the mod plugin when it is there: the Gradle property sc4j.engine.dir, else ../sc4j next to this
+    // checkout; -Psc4j.engine.local=false takes the published one.
+    def engineFolder = file(providers.gradleProperty('sc4j.engine.dir').getOrElse('../sc4j'))
+    if (new File(engineFolder, 'sc4j-engine').isDirectory() && providers.gradleProperty('sc4j.engine.local').getOrElse('true') != 'false') {
+        includeBuild(new File(engineFolder, 'build-logic'))
+    }
+    // The conventions of the SC:R builds (org.fogofwarlabs.sc4j.scr.*).
+    includeBuild('build-logic') {
+        name = 'scr-build-logic'
+    }
+    repositories {
+        mavenCentral()
+        maven {
+            url = 'https://central.sonatype.com/repository/maven-snapshots/'
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+    }
+    plugins {
+        id 'org.fogofwarlabs.sc4j.mod' version providers.gradleProperty('sc4jVersion').get()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+        maven {
+            url = 'https://central.sonatype.com/repository/maven-snapshots/'
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+    }
+}
+
+rootProject.name = 'scr'
+
+// The engine checkout (sc4j.engine.dir, else ../sc4j), when it is there, gives the engine modules (org.fogofwarlabs.sc4j:*) of this
+// build; -Psc4j.engine.local=false resolves the published ones of sc4jVersion.
+def engineFolder = file(providers.gradleProperty('sc4j.engine.dir').getOrElse('../sc4j'))
+if (new File(engineFolder, 'sc4j-engine').isDirectory() && providers.gradleProperty('sc4j.engine.local').getOrElse('true') != 'false') {
+    includeBuild(engineFolder) {
+        name = 'sc4j'
+    }
+}
+
+// The SC:R mod: every module lives in scr-<part> (project :scr-<part>).
+List<String> scrModules = [
+    'data',
+    'game',
+    'render',
+    'net',
+    'client',
+    // JMH benchmarks (the frame benchmark of the replay simulation).
+    'benchmark'
+]
+
+for (item in scrModules) {
+    include(':scr-' + item)
+}
+// The read-only frame recorder of the native game (SCRECBIN recordings) that the scr-game tests read.
+include ':sc-recorder'

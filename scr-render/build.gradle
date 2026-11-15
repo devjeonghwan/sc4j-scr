@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+    id 'org.fogofwarlabs.sc4j.scr.natives'
+}
+
+tasks.withType(Test).configureEach {
+    // The GPU tests load HD and SD assets in one JVM (the game module uses the same heap).
+    maxHeapSize = '2g'
+    systemProperty 'sc4j.render.smoke', providers.gradleProperty('sc4j.render.smoke').getOrElse('false')
+}
+
+dependencies {
+    api "org.fogofwarlabs.sc4j:sc4j-base:$sc4jVersion"
+    api project(':scr-data')
+
+    // Shared test fixtures: the external inputs and the tier annotations (org.fogofwarlabs.sc4j.scr.core.test).
+    testImplementation testFixtures(project(':scr-data'))
+
+    implementation platform("org.lwjgl:lwjgl-bom:$LWJGL_VERSION")
+    implementation 'org.lwjgl:lwjgl'
+    implementation 'org.lwjgl:lwjgl-opengl'
+    implementation 'org.lwjgl:lwjgl-stb'
+
+    nativeLibraries "org.lwjgl:lwjgl:$LWJGL_VERSION:$LWJGL_NATIVES"
+    nativeLibraries "org.lwjgl:lwjgl-glfw:$LWJGL_VERSION:$LWJGL_NATIVES"
+    nativeLibraries "org.lwjgl:lwjgl-opengl:$LWJGL_VERSION:$LWJGL_NATIVES"
+    nativeLibraries "org.lwjgl:lwjgl-stb:$LWJGL_VERSION:$LWJGL_NATIVES"
+}

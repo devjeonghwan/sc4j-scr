@@ -1,0 +1,10 @@
+# Repro of the key/character double event: in a live game, O on the game menu opens Options (the page's WS_HOTKEY is the
+# character event 0x18); the options popup must stay open. Run: --campaign bw-terran-1 --hidden --input-script <this>.
+wait 150
+key F10
+wait 30
+key O
+wait 40
+shot game-menu-options-key.png
+wait 3
+exit

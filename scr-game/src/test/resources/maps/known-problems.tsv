@@ -1,0 +1,5 @@
+# Known outcomes of the map detection (MapDetectionTest, integrationTest) that are not ok: native-confirmed game ends.
+# One line per map: <name> TAB <class: suspicious or error> TAB <signals> TAB <note with the native evidence>.
+# <name> is the map file name without extension; write it as maps/<source>/<name> in every text.
+# A map that is not listed must run its frames without a signal; a listed map must keep its class and signals.
+zergling-defense	error	eud_failure@2	its triggers read EUD address 0 at frame 2; the native game shows the EUD error notice there and ends the game (native run)

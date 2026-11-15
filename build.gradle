@@ -1,0 +1,91 @@
+plugins {
+    id 'org.fogofwarlabs.sc4j.mod'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+}
+
+allprojects {
+    group = 'org.fogofwarlabs.sc4j'
+}
+
+// The SC:R mod: the native id boundary of its modules, then scr.jar from the classes and resources of every mod module (the benchmark
+// module, JMH only, is not part of the mod) and its copy into an install.
+
+// Native id boundary: the SC:R mod keeps its native ids as the int holders of scr.content (ScrUnitIds ...) and
+// the engine identities of ScrUnits ... mapped by ScrNativeIds; the package scr.data.type.constant declares no enum and no source names
+// a native id enum (UnitType, WeaponType, UpgradeType, TechType, OrderType, Race) in that package. "check" (and so "build")
+// runs it for every module of the SC:R mod and the recorder.
+def nativeIdEnumPattern = ~/org[.\/]fogofwarlabs[.\/]sc4j[.\/]scr[.\/]data[.\/]type[.\/]constant[.\/](UnitType|WeaponType|UpgradeType|TechType|OrderType|Race)\b/
+def constantPackage = 'org/fogofwarlabs/sc4j/scr/data/type/constant/'
+
+configure(subprojects) { module ->
+    def sourceFiles = module.fileTree(module.file('src')) { include '**/*.java' }
+    def report = module.layout.buildDirectory.file('reports/native-id-boundary.txt')
+    def checkNativeIdBoundary = module.tasks.register('checkNativeIdBoundary') {
+        description = 'Checks that no native id enum of scr.data.type.constant is declared or named; the native ids are the scr.content holders.'
+        group = 'verification'
+        inputs.files(sourceFiles)
+        outputs.file(report)
+        doLast {
+            def problems = []
+            sourceFiles.each { file ->
+                def constant = file.path.replace('\\', '/').contains(constantPackage)
+                file.readLines('UTF-8').eachWithIndex { line, index ->
+                    if (line =~ nativeIdEnumPattern || constant && line =~ /^\s*(public\s+)?enum\s/) {
+                        problems << file.path + ':' + (index + 1) + ': ' + line.trim()
+                    }
+                }
+            }
+            if (!problems.isEmpty()) {
+                throw new GradleException(module.path + ' must not declare or name a native id enum of scr.data.type.constant:\n  ' +
+                                          problems.join('\n  '))
+            }
+            report.get().asFile.text = 'No native id enum: ' + sourceFiles.files.size() + ' files checked.\n'
+        }
+    }
+    module.plugins.withId('java') {
+        module.tasks.named('check') {
+            dependsOn checkNativeIdBoundary
+        }
+    }
+}
+
+evaluationDependsOnChildren()
+
+// The module folders of the mod and their compiler arguments (mod.properties); the clone of SC:R Crossover reads the same file.
+def modProperties = new Properties()
+file('mod.properties').withReader('UTF-8') { reader -> modProperties.load(reader) }
+def modModuleNames = modProperties.getProperty('modules').split(',').toList()
+def modModules = modModuleNames.collect { name -> project(':' + name) }
+
+// -parameters records the parameter names in the class files: javac names the constructor parameters of an anonymous class after those of
+// its superclass's constructor, which it knows from a class file only when they are recorded there. Without it a class compiled against the
+// class file of its superclass (another module, or an incremental compile) gets other bytes than when both are compiled together.
+def modCompilerArgs = modProperties.getProperty('compilerArgs').split(' ').toList()
+modModules.each { module ->
+    module.tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += modCompilerArgs
+    }
+}
+
+// The mod jar scr.jar: the classes and resources of the mod modules; sc4j-mod.json and meta/ come from the scr-client resources.
+sc4jMod {
+    id = 'scr'
+    sourceSets = modModules.collect { module -> module.sourceSets.main }
+}
+
+// installMod also sets the shared game folder: when the Gradle property sc4j.data names the SC:R installation and the install has no shared
+// settings file yet, userdata/shared-settings.json is created with it as the value of the shared StarCraft: Remastered folder setting
+// (shared name starcraft-remastered) of the SC:R mod and its clones.
+tasks.named('installMod') {
+    def install = sc4jMod.install
+    def installation = providers.gradleProperty('sc4j.data').getOrElse('')
+    inputs.property('sharedGameFolder', installation)
+    doLast {
+        def sharedSettingsFile = install.file('userdata/shared-settings.json').get().asFile
+        if (!installation.isBlank() && !sharedSettingsFile.exists()) {
+            sharedSettingsFile.parentFile.mkdirs()
+            def value = new File(installation).absolutePath.replace('\\', '\\\\').replace('"', '\\"')
+            sharedSettingsFile.setText('{\n  "format": 1,\n  "values": {"starcraft-remastered": "' + value + '"}\n}\n', 'UTF-8')
+        }
+    }
+}

@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+    // The in-memory LAN scenario (InMemoryLanScenario) of the LAN tests, shared with the tests of SC:R Crossover.
+    id 'java-test-fixtures'
+    id 'org.fogofwarlabs.sc4j.scr.java'
+}
+
+dependencies {
+    api project(':scr-game')
+
+    testFixturesImplementation platform("org.junit:junit-bom:5.11.4")
+    testFixturesImplementation "org.junit.jupiter:junit-jupiter-api"
+
+    testImplementation testFixtures(project(':scr-data'))
+    // The SC:R Storm games over Beacon.Link run with real nodes and clients on 127.0.0.1 behind emulated NATs.
+    testImplementation testFixtures("org.fogofwarlabs.sc4j:sc4j-beaconlink:$sc4jVersion")
+}
+
+// The EUD maps of LanEudSessionMapsTest hold more than the default 512 MB (뱀서류 also in single player).
+tasks.withType(Test).configureEach {
+    maxHeapSize = '2g'
+}
+
+// Live LAN discovery check against SC:R: gradlew :scr-net:lanProbe --args="browse|host [toon] [game]"
+tasks.register('lanProbe', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.fogofwarlabs.sc4j.scr.net.lan.LanProbeScenario'
+    standardInput = System.in
+}
