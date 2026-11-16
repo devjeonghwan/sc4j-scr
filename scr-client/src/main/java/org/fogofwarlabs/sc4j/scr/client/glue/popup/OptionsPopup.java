@@ -1158,8 +1158,7 @@ public final class OptionsPopup extends GluePopup {
      * @throws IOException if the popup art cannot be read
      */
     @Override
-    protected void drawControlFrame(@NotNull GlueCanvas canvas, @NotNull DialogControl control, float left, float top, boolean hovered)
-    throws IOException {
+    protected void drawControlFrame(@NotNull GlueCanvas canvas, @NotNull DialogControl control, float left, float top, boolean hovered) throws IOException {
         String art = this.getPaletteFolder() + POPUP_PANEL_IMAGE;
 
         if (canvas.hasImage(art)) {

@@ -1464,8 +1464,7 @@ public abstract class GlueScreen implements Scene<GlueContext, GlueCanvas> {
      * @param top     its top edge in interface pixels
      * @throws IOException if the dialog sheet or the icon cannot be read
      */
-    private void drawFramedEditText(@NotNull GlueCanvas canvas, @NotNull DialogControl control, @NotNull EditControl edit, float left, float top)
-    throws IOException {
+    private void drawFramedEditText(@NotNull GlueCanvas canvas, @NotNull DialogControl control, @NotNull EditControl edit, float left, float top) throws IOException {
         int slot = this.getEditFontSlot(canvas, control);
         int lineSlot = InterfaceFonts.toInputLineBox(slot);
         float line = canvas.getLineHeight(lineSlot, FIELD_LINE_SAMPLE);
@@ -1533,8 +1532,7 @@ public abstract class GlueScreen implements Scene<GlueContext, GlueCanvas> {
      * @param hovered whether the pointer is on the enabled control
      * @throws IOException if the dialog sheet cannot be read
      */
-    protected void drawControlFrame(@NotNull GlueCanvas canvas, @NotNull DialogControl control, float left, float top, boolean hovered)
-    throws IOException {
+    protected void drawControlFrame(@NotNull GlueCanvas canvas, @NotNull DialogControl control, float left, float top, boolean hovered) throws IOException {
         String sheet = this.getDialogSheet();
 
         canvas.drawBar(sheet,

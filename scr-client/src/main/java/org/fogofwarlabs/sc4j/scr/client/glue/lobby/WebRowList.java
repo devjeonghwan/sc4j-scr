@@ -125,8 +125,7 @@ final class WebRowList {
      * @throws IOException           if an image cannot be read
      * @throws IllegalStateException if the list has no scroll bar yet
      */
-    void draw(@NotNull GlueCanvas canvas, float left, float top, float width, float height, int rowCount, @NotNull RowPainter painter)
-    throws IOException {
+    void draw(@NotNull GlueCanvas canvas, float left, float top, float width, float height, int rowCount, @NotNull RowPainter painter) throws IOException {
         WebScrollBar bar = this.requireScrollBar();
         float rowWidth = rowCount * this.rowHeight > height ? width - WebScrollBar.WIDTH : width;
 
@@ -160,8 +159,7 @@ final class WebRowList {
      * @throws IOException           if an image cannot be read
      * @throws IllegalStateException if the list has no scroll bar yet
      */
-    void drawFramed(@NotNull GlueCanvas canvas, float left, float top, float width, float height, int rowCount, @NotNull RowPainter painter)
-    throws IOException {
+    void drawFramed(@NotNull GlueCanvas canvas, float left, float top, float width, float height, int rowCount, @NotNull RowPainter painter) throws IOException {
         WebPanelStyleUtils.drawRoundedFrame(canvas, left, top, width, height, WebPanelStyleUtils.BORDER);
         this.draw(canvas,
                   left + FRAME_PADDING, top + FRAME_PADDING,

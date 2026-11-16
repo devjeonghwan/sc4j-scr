@@ -2,8 +2,8 @@ package org.fogofwarlabs.sc4j.scr.client.ui.dialog;
 
 import org.fogofwarlabs.sc4j.engine.client.dialog.DialogKey;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
-import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrControlType;
 import org.fogofwarlabs.sc4j.scr.client.ui.menu.ChatHistory;
+import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrControlType;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
 import org.jetbrains.annotations.NotNull;
@@ -126,9 +126,9 @@ final class ListBoxTest {
         MessageLines lines = new MessageLines();
         ChatHistory history = new ChatHistory();
 
-        lines.setLayout(text -> new int[] {text.length});
+        lines.setLayout(text -> new int[]{text.length});
         lines.setHostClock(() -> 0);
-        lines.setPlayerNames(new byte[][] {"Own".getBytes(StandardCharsets.UTF_8), "Other".getBytes(StandardCharsets.UTF_8)});
+        lines.setPlayerNames(new byte[][]{"Own".getBytes(StandardCharsets.UTF_8), "Other".getBytes(StandardCharsets.UTF_8)});
         lines.setNameColors(player -> player == LOCAL_PLAYER ? RED : BLUE);
         lines.setLocalPlayer(LOCAL_PLAYER);
         lines.setChatListener((line, style, color) -> history.add(new String(line, StandardCharsets.UTF_8), style, color));

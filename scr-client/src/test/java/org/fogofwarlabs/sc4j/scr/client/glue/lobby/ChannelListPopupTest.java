@@ -87,8 +87,7 @@ final class ChannelListPopupTest {
     @TempDir
     @Nullable Path directory;
 
-    private @NotNull String drawFrame(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private @NotNull String drawFrame(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         Path root = this.directory;
 
         Assertions.assertNotNull(root);
