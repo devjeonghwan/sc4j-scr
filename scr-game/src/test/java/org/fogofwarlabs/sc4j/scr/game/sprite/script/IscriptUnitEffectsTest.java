@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 /**
- * Checks image offsets, attack flags and unit movement effects.
+ * Checks image offsets, attack flags, unit movement effects and the direction target of {@code setspawnframe}.
  */
 @RequiresInstallation
 final class IscriptUnitEffectsTest {
@@ -55,6 +55,27 @@ final class IscriptUnitEffectsTest {
      * The byte size of a {@code move} instruction.
      */
     private static final int MOVE_SIZE = 2;
+    /**
+     * The iscript of the Floor Missile Trap.
+     */
+    private static final int FLOOR_MISSILE_TRAP_SCRIPT = 345;
+    /**
+     * The Special State 2 animation (the hide animation of a trap), which starts with {@code setspawnframe 20} and {@code wait 1} in
+     * {@link #FLOOR_MISSILE_TRAP_SCRIPT}.
+     */
+    private static final int HIDE_ANIMATION = 14;
+    /**
+     * The opcode of {@code setspawnframe}.
+     */
+    private static final int SET_SPAWN_FRAME_OPCODE = 0x23;
+    /**
+     * The operands of the {@code setspawnframe} at the Floor Missile Trap's hide entry.
+     */
+    private static final int @NotNull [] SET_SPAWN_FRAME_OPERANDS = {20};
+    /**
+     * The byte size of a {@code setspawnframe} instruction.
+     */
+    private static final int SET_SPAWN_FRAME_SIZE = 2;
     /**
      * The opcode of {@code wait}.
      */
@@ -204,6 +225,31 @@ final class IscriptUnitEffectsTest {
      */
     private static final int SET_SPEED_PREVIEW_LIMIT = 3;
     /**
+     * The program counter advance over {@code setspawnframe 20} and {@code wait 1}.
+     */
+    private static final int SET_SPAWN_FRAME_ADVANCE = 4;
+    /**
+     * The exact horizontal position of the unit that runs {@code setspawnframe 20}: {@link #UNIT_POSITION_X} and half a pixel.
+     */
+    private static final int SPAWN_FRAME_FIXED_X = 0x8080;
+    /**
+     * The exact vertical position of the unit that runs {@code setspawnframe 20}: {@link #UNIT_POSITION_Y} and half a pixel.
+     */
+    private static final int SPAWN_FRAME_FIXED_Y = 0x10080;
+    /**
+     * The horizontal direction target {@code 16} pixels ahead of {@link #SPAWN_FRAME_FIXED_X} in direction {@code 160} ({@code 20 * 8}):
+     * {@code (0x8080 - 2896) >> 8}.
+     */
+    private static final int SPAWN_FRAME_TARGET_X = 117;
+    /**
+     * The vertical direction target {@code 16} pixels ahead of {@link #SPAWN_FRAME_FIXED_Y} in direction {@code 160}: {@code (0x10080 + 2896) >> 8}.
+     */
+    private static final int SPAWN_FRAME_TARGET_Y = 267;
+    /**
+     * The direction target of the unit before {@code setspawnframe 20}.
+     */
+    private static final int OLD_DIRECTION_TARGET = 0;
+    /**
      * The width and height of the test map in tiles.
      */
     private static final int MAP_DIMENSION = 1;
@@ -238,6 +284,7 @@ final class IscriptUnitEffectsTest {
     private static int repeatAttackOffset;
     private static int setSpeedOffset;
     private static int movementOffset;
+    private static int spawnFrameOffset;
 
     @BeforeAll
     static void loadGameData() throws IOException {
@@ -248,11 +295,15 @@ final class IscriptUnitEffectsTest {
         verticalOffset     = SpriteScenario.findSequence(script, VERTICAL_OFFSET_SEQUENCE);
         repeatAttackOffset = SpriteScenario.findSequence(script, REPEAT_ATTACK_SEQUENCE);
         setSpeedOffset     = SpriteScenario.findSequence(script, SET_SPEED_SEQUENCE);
+        spawnFrameOffset   = gameData.getIscript().getAnimationOffset(FLOOR_MISSILE_TRAP_SCRIPT, HIDE_ANIMATION);
         movementOffset     = gameData.getIscript().getAnimationOffset(MARINE_SCRIPT, WALKING_ANIMATION);
 
         Assertions.assertEquals(MOVE_OPCODE, gameData.getIscript().decodeInstruction(movementOffset).getOpcode());
         Assertions.assertArrayEquals(MOVE_OPERANDS, gameData.getIscript().decodeInstruction(movementOffset).getOperands());
         Assertions.assertEquals(WAIT_OPCODE, gameData.getIscript().decodeInstruction(movementOffset + MOVE_SIZE).getOpcode());
+        Assertions.assertEquals(SET_SPAWN_FRAME_OPCODE, gameData.getIscript().decodeInstruction(spawnFrameOffset).getOpcode());
+        Assertions.assertArrayEquals(SET_SPAWN_FRAME_OPERANDS, gameData.getIscript().decodeInstruction(spawnFrameOffset).getOperands());
+        Assertions.assertEquals(WAIT_OPCODE, gameData.getIscript().decodeInstruction(spawnFrameOffset + SET_SPAWN_FRAME_SIZE).getOpcode());
     }
 
     @AfterAll
@@ -524,6 +575,47 @@ final class IscriptUnitEffectsTest {
                                 () -> game.getIscriptExecutor().executeImagePreview(image, sprite, SET_SPEED_PREVIEW_LIMIT));
 
         Assertions.assertEquals(setSpeedOffset, image.getProgramCounter());
+        Assertions.assertEquals(0, game.getRandom().getTotalRandomCounts());
+    }
+
+    @Test
+    void execute_should_set_the_direction_target_sixteen_pixels_ahead_in_the_spawn_frame_direction() {
+        Game game = Game.create(gameData, new GameMap(MAP_DIMENSION, MAP_DIMENSION, TILESET, new int[MAP_TILE_COUNT]), new LcgRandom(RANDOM_SEED));
+        Sprite sprite = SpriteScenario.createSprite(game, SPRITE_TYPE, 0, 0, 0);
+        SpriteImage image = SpriteScenario.createImage(game, IMAGE_TYPE, 0, 0);
+
+        image.setProgramCounter(spawnFrameOffset);
+
+        Unit unit = createUnit(game, UNIT_POSITION_X, UNIT_POSITION_Y);
+
+        unit.setFixedPositionX(SPAWN_FRAME_FIXED_X);
+        unit.setFixedPositionY(SPAWN_FRAME_FIXED_Y);
+        unit.setHeading(HEADING);
+        unit.setMovementDirection(HEADING);
+        unit.setDirectionTargetX(OLD_DIRECTION_TARGET);
+        unit.setDirectionTargetY(OLD_DIRECTION_TARGET);
+
+        Assertions.assertTrue(game.getIscriptExecutor().execute(image, sprite, unit));
+
+        Assertions.assertEquals(SPAWN_FRAME_TARGET_X, unit.getDirectionTargetX());
+        Assertions.assertEquals(SPAWN_FRAME_TARGET_Y, unit.getDirectionTargetY());
+        Assertions.assertEquals(HEADING, unit.getHeading());
+        Assertions.assertEquals(HEADING, unit.getMovementDirection());
+        Assertions.assertEquals(UNIT_POSITION_X, unit.getPositionX());
+        Assertions.assertEquals(UNIT_POSITION_Y, unit.getPositionY());
+        Assertions.assertEquals(spawnFrameOffset + SET_SPAWN_FRAME_ADVANCE, image.getProgramCounter());
+        Assertions.assertEquals(REMAINING_WAIT, image.getWait());
+
+        image.setProgramCounter(spawnFrameOffset);
+
+        Assertions.assertThrows(IllegalStateException.class, () -> game.getIscriptExecutor().execute(image, sprite, null));
+
+        Assertions.assertEquals(spawnFrameOffset, image.getProgramCounter());
+
+        Assertions.assertThrows(UnsupportedOperationException.class,
+                                () -> game.getIscriptExecutor().executeImagePreview(image, sprite, PREVIEW_INSTRUCTION_LIMIT));
+
+        Assertions.assertEquals(spawnFrameOffset, image.getProgramCounter());
         Assertions.assertEquals(0, game.getRandom().getTotalRandomCounts());
     }
 }
