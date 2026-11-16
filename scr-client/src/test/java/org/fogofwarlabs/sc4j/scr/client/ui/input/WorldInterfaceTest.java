@@ -20,11 +20,13 @@ import org.fogofwarlabs.sc4j.scr.game.presentation.LocalSelection;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteEffect;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteEffectPool;
+import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.test.GameTestResources;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -91,6 +93,12 @@ final class WorldInterfaceTest {
     private static final int SUPPLY_DEPOT_TYPE = 109;
     private static final byte PLACE_BUILDING_ORDER = 0x1e;
 
+    /**
+     * The last frame searched for a dying unit, and the frames both sessions are compared after the click.
+     */
+    private static final long DEATH_SEARCH_END = 16_000;
+    private static final int DEATH_COMPARED_FRAMES = 240;
+
     private static final int BUILD_OPCODE = 0x0C;
     private static final int HOTKEY_OPCODE = 0x13;
     private static final int RIGHT_CLICK_OPCODE = 0x60;
@@ -123,6 +131,74 @@ final class WorldInterfaceTest {
         }
 
         return units;
+    }
+
+    /**
+     * Finds a unit of the dead list that plays its death animation in a shown sprite whose main image can be clicked.
+     *
+     * @param pool the unit pool
+     * @return the dying unit, or {@code null}
+     */
+    private static @Nullable Unit findClickableDyingUnit(@NotNull UnitPool pool) {
+        for (int index = pool.getFirstDeadIndex(); index != 0; index = pool.getNextCreatedIndex(index)) {
+            Unit unit = pool.getUnit(index);
+            Sprite sprite = unit.getSpriteOrNull();
+            SpriteImage main = sprite == null ? null : sprite.getMainImage();
+
+            if (main != null && (sprite.getFlags() & Sprite.FLAG_HIDDEN) == 0 && (main.getFlags() & SpriteImage.FLAG_CLICKABLE) != 0 &&
+                main.hasGraphics()) {
+                return unit;
+            }
+        }
+
+        return null;
+    }
+
+    private static void assertSameUnitSlots(@NotNull UnitPool expected, @NotNull UnitPool actual, long frame) {
+        Assertions.assertEquals(expected.getFirstFreeIndex(), actual.getFirstFreeIndex(), "first free unit at frame " + frame);
+
+        for (int index = 1; index <= expected.getCapacity(); index++) {
+            Assertions.assertEquals(expected.isAllocated(index), actual.isAllocated(index), "allocation of unit " + index + " at frame " + frame);
+            Assertions.assertEquals(expected.getGeneration(index), actual.getGeneration(index), "generation of unit " + index + " at frame " + frame);
+        }
+    }
+
+    @Test
+    void a_click_on_a_dying_unit_should_keep_the_unit_slots_of_the_replay() throws IOException {
+        try (ClientSession clicked = startAtInteractionFrame(); ClientSession reference = startAtInteractionFrame()) {
+            Game game = clicked.getGame();
+            UnitPool pool = game.getUnitSystem().requireUnitPool();
+            UnitPool referencePool = reference.getGame().getUnitSystem().requireUnitPool();
+            Unit dying = null;
+
+            while (dying == null && clicked.getLastCompletedFrame() < DEATH_SEARCH_END) {
+                Assertions.assertTrue(clicked.stepFrame(false) && reference.stepFrame(false));
+                dying = findClickableDyingUnit(pool);
+            }
+
+            Assertions.assertNotNull(dying, "a unit dies in the replay");
+
+            // Makes the local player an enemy of the dying unit.
+            int localPlayer = dying.getOwnerIndex() == 0 ? 1 : 0;
+            ConsoleModel console = new ConsoleModel(new ScrGameView(game), new ScrPresentation(game));
+
+            console.setOwnLocalSelection(localPlayer);
+            console.update(localPlayer, CommandCard.Perspective.PLAYER, false, GAME_SPEED_SETTING, REPLAY_SPEED);
+
+            WorldInterface world = new WorldInterface(console, new RecordingCommandSink(), true);
+            Sprite sprite = dying.requireSprite();
+
+            game.getInterfaceLink().setLocalSelection(world);
+            world.handleLeftPress(sprite.getX(), sprite.getY(), false);
+            world.handleLeftRelease(sprite.getX(), sprite.getY(), false, false, false, false, 0, 0, 1, 1);
+
+            Assertions.assertFalse(console.getSelection().contains(dying), "a dying unit is not picked");
+
+            for (int frame = 0; frame < DEATH_COMPARED_FRAMES; frame++) {
+                Assertions.assertTrue(clicked.stepFrame(false) && reference.stepFrame(false));
+                assertSameUnitSlots(referencePool, pool, clicked.getLastCompletedFrame());
+            }
+        }
     }
 
     @Test

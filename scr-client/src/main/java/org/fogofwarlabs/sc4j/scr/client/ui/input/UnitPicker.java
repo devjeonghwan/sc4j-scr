@@ -17,7 +17,9 @@ import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteEffectPool;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
 import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
+import org.fogofwarlabs.sc4j.scr.game.unit.UnitStatusFlags;
 import org.fogofwarlabs.sc4j.scr.game.unit.finder.UnitSpatialIndex;
+import org.fogofwarlabs.sc4j.scr.game.visibility.LocalVision;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,8 +31,8 @@ import java.util.Map;
 
 /**
  * Finds units under the pointer and in drag rectangles from the current game state.
- * Pointer picking visits allocated pool entries and resolves candidates by the draw-order key ({@link SpriteDrawOrder#computeKey}, a higher
- * key compared unsigned wins), image coverage and placement area.
+ * Pointer picking takes its candidates from the unit finder, keeps those the local view sees and resolves them by the draw-order key
+ * ({@link SpriteDrawOrder#computeKey}, a higher key compared unsigned wins), image coverage and placement area.
  * Rectangle collection retains spatial-finder order. Decoded image bounds are cached by image type and frame.
  * <p>
  * It is the SC:R pick order of the engine ({@link UnitPickOrder}) and the engine {@link TargetPicker} of the SC:R map input: the map input hands
@@ -51,6 +53,40 @@ public final class UnitPicker implements UnitPickOrder, TargetPicker {
      * The shift of the image type in a frame bounds key ({@code imageType << 16 | frame}).
      */
     private static final int IMAGE_TYPE_SHIFT = 16;
+    /**
+     * The pixels the pointer's candidate query reaches before the point, and past it beyond the minimum query dimensions.
+     */
+    private static final int PICK_MARGIN = 0x20;
+    /**
+     * The mask of the visibility BYTE that the sprite test compares.
+     */
+    private static final int BYTE_MASK = 0xFF;
+    /**
+     * Status bits whose presence requires the unit to be detected.
+     */
+    private static final int DETECTION_STATUS = UnitStatusFlags.REQUIRES_DETECTOR | UnitStatusFlags.CLOAKED;
+
+    /**
+     * Tests whether the local view sees a pointer candidate: its sprite is visible to the vision mask's low BYTE, and a cloaked unit or one requiring
+     * detection is detected by the vision mask. A revealed replay or observer view sees every candidate.
+     *
+     * @param unit       the candidate
+     * @param sprite     the candidate's sprite
+     * @param visionMask the replay vision mask in a replay or observer view, the comparison mask in a game
+     * @param revealed   whether a replay or observer view reveals the map
+     * @return {@code true} if the candidate is seen, {@code false} otherwise
+     */
+    private static boolean isSeen(@NotNull Unit unit, @NotNull Sprite sprite, int visionMask, boolean revealed) {
+        if (revealed) {
+            return true;
+        }
+
+        if ((sprite.getVisibilityFlags() & visionMask & BYTE_MASK) == 0) {
+            return false;
+        }
+
+        return (unit.getStatus() & DETECTION_STATUS) == 0 || (unit.getDetectionFlags() & visionMask) != 0;
+    }
 
     /**
      * Returns the type of a remembered building: the low WORD of its fog sprite effect's life value.
@@ -225,7 +261,9 @@ public final class UnitPicker implements UnitPickOrder, TargetPicker {
     }
 
     /**
-     * Finds the unit under a map position.
+     * Finds the unit under a map position. The candidates are the units of an unexpanded finder query around the point
+     * ({@link UnitSpatialIndex#findAllInRectangleUnexpanded}, which advances the shared search counter) whose sprite's clickable bounds hold it.
+     * A subunit stands for its parent, which the local view must see and whose type must be selectable ({@link #canBeSelected(Unit)}).
      *
      * @param x the map x coordinate
      * @param y the map y coordinate
@@ -235,25 +273,30 @@ public final class UnitPicker implements UnitPickOrder, TargetPicker {
      */
     public @Nullable Unit pickUnit(int x, int y) throws IOException {
         UnitPool pool = this.view.getUnitSystem().getUnitPool();
+        UnitSpatialIndex finder = this.view.getUnitSystem().getUnitSpatialIndex();
 
-        if (pool == null) {
+        if (pool == null || finder == null) {
             return null;
         }
 
         ScrUnitTypeView units = this.view.requireGameData().getUnitTypes();
+        LocalVision vision = this.view.getLocalVision();
+        boolean replayOrObserver = vision.isReplayOrObserver();
+        int visionMask = replayOrObserver ? vision.getReplayMask() : vision.getComparisonMask();
+        boolean revealed = replayOrObserver && vision.isRevealed();
+        // The finder query skips dying and hidden units.
+        int[] candidates = finder.findAllInRectangleUnexpanded(x - PICK_MARGIN, y - PICK_MARGIN,
+                                                               x + PICK_MARGIN + finder.getMinimumQueryDimension(true),
+                                                               y + PICK_MARGIN + finder.getMinimumQueryDimension(false));
         Unit best = null;
         int bestKey = 0;
         int bestSize = 0;
 
-        for (int index = 1; index <= pool.getCapacity(); index++) {
-            if (!pool.isAllocated(index)) {
-                continue;
-            }
-
+        for (int index : candidates) {
             Unit candidate = pool.getUnit(index);
             Sprite sprite = candidate.getSpriteOrNull();
 
-            if (sprite == null || (sprite.getFlags() & Sprite.FLAG_HIDDEN) != 0 || !this.isInClickableBounds(sprite, x, y)) {
+            if (sprite == null || !this.isInClickableBounds(sprite, x, y)) {
                 continue;
             }
 
@@ -261,7 +304,7 @@ public final class UnitPicker implements UnitPickOrder, TargetPicker {
             Unit unit = (units.getFlags(candidate.getUnitId()) & UnitTypeFlags.SUBUNIT) != 0 && parent != null ? parent : candidate;
             Sprite unitSprite = unit.getSpriteOrNull();
 
-            if (!canBeSelected(unit) || unitSprite == null) {
+            if (unitSprite == null || !isSeen(unit, unitSprite, visionMask, revealed) || !canBeSelected(unit)) {
                 continue;
             }
 
