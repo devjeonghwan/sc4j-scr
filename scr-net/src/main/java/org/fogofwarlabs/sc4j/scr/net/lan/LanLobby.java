@@ -8,6 +8,7 @@ import org.fogofwarlabs.sc4j.engine.net.lobby.*;
 import org.fogofwarlabs.sc4j.scr.content.ScrRaceIds;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
+import org.fogofwarlabs.sc4j.scr.data.format.text.LegacyTextUtils;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
@@ -1663,7 +1664,7 @@ public final class LanLobby implements GameLobby {
         // The host's force names are its own map's (read at map load); joiners get them in 0x4b.
         if (setup != null && setup.forceNames != null) {
             for (int force = 0; force < FORCES; force++) {
-                this.forceNames[force] = readString(setup.forceNames[force], 0, FORCE_NAME_SIZE);
+                this.forceNames[force] = LegacyTextUtils.decodeTerminated(setup.forceNames[force], 0, FORCE_NAME_SIZE);
             }
         }
 
@@ -3022,7 +3023,7 @@ public final class LanLobby implements GameLobby {
                 // Joiners receive one map force name per force.
                 if (message.length == 1 + FORCES * FORCE_NAME_SIZE && !this.host) {
                     for (int force = 0; force < FORCES; force++) {
-                        this.forceNames[force] = readString(message, 1 + force * FORCE_NAME_SIZE, FORCE_NAME_SIZE);
+                        this.forceNames[force] = LegacyTextUtils.decodeTerminated(message, 1 + force * FORCE_NAME_SIZE, FORCE_NAME_SIZE);
                     }
                 }
             }
