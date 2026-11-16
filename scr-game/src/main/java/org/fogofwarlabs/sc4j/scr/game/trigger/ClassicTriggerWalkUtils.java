@@ -89,13 +89,7 @@ final class ClassicTriggerWalkUtils {
                 long recordOffset = region == null ? -1 : (link & DWORD_MASK) - (region.getBase() & DWORD_MASK) + ClassicTriggerMirror.RECORD_OFFSET;
 
                 if (region == null || recordOffset + TriggerRecordCodec.RECORD_SIZE > region.getSize()) {
-                    if (context.emptyTrigger == null) {
-                        byte[] zeros = new byte[TriggerRecordCodec.RECORD_SIZE];
-
-                        context.emptyTrigger = TriggerRecordCodec.createExecution(TriggerRecordCodec.decodeDefinition(zeros, 0), zeros, 0);
-                    }
-
-                    ScrTriggerSystem.runRecord(context, context.emptyTrigger, player, recordIndex, null);
+                    ScrTriggerSystem.runRecord(context, context.requireFallbackTrigger(), player, recordIndex, null);
                 } else {
                     if (cacheable) {
                         cache.storeRecord(recordIndex, link, region);

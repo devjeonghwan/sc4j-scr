@@ -173,6 +173,17 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
      * The mask of a player's result byte in the pass results.
      */
     private static final long PLAYER_RESULT_MASK = 0xFF;
+    /*
+     * Byte offsets in the trigger globals from the pending result bytes: eight waiting bytes, eight wait DWORDs, eight initially active bytes,
+     * the current-record pointer, eight unused bytes and the fallback record.
+     */
+    private static final long GLOBAL_WAITING = 8;
+    private static final long GLOBAL_WAIT_TIMERS = 16;
+    private static final long GLOBAL_INITIALLY_ACTIVE = 48;
+    private static final long GLOBAL_CURRENT_RECORD = 56;
+    private static final long GLOBAL_PADDING = 64;
+    private static final long GLOBAL_FALLBACK_RECORD = 72;
+    private static final long GLOBAL_END = GLOBAL_FALLBACK_RECORD + TriggerRecordCodec.RECORD_SIZE;
     /**
      * The masks of a BYTE and a WORD of trigger state.
      */
@@ -189,7 +200,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     /**
      * The mission objectives string DWORDs of the {@code 12} players.
      */
-    private static final int MISSION_OBJECTIVES_OFFSET = 0xE5D4;
+    static final int MISSION_OBJECTIVES_OFFSET = 0xE5D4;
     private static final int COUNTDOWN_OFFSET = 0xE604;
     private static final int ELAPSED_OFFSET = 0xE608;
     private static final int LEADERBOARD_COMPUTERS_OFFSET = 0xE618;
@@ -372,22 +383,108 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
-     * Returns the wait index of a current player.
-     * <p>
-     * The wait BYTEs and timers support players {@code 0}-{@code 7}; a current-player DWORD outside that range is
-     * rejected.
+     * Reads a byte of the trigger globals at an offset from the pending result bytes: the results, the waiting bytes, the wait DWORDs, the
+     * initially active bytes, the current-record pointer, eight unused bytes and the fallback record ({@link #fallbackRecord}).
      *
-     * @param player the current player DWORD
-     * @return the wait index
-     * @throws UnsupportedOperationException if the player is not a trigger player
+     * @param offset the unsigned byte offset from the pending result bytes
+     * @return the unsigned byte
+     * @throws UnsupportedOperationException if the byte is the current-record pointer or lies past the fallback record
      */
-    private static int requireWaitIndex(int player) {
-        if (Integer.compareUnsigned(player, PlayerTable.PLAYABLE_PLAYER_SLOTS) >= 0) {
-            throw Exceptions.newUnsupportedOperationException("The wait of current player {0} lies past the eight trigger player waits.",
-                                                              String.format("0x%08X", player));
+    private int readGlobalByte(long offset) {
+        if (offset < GLOBAL_WAITING) {
+            return (int) (this.playerEvaluationFlags >>> (offset * Byte.SIZE)) & BYTE_MASK;
         }
 
-        return player;
+        if (offset < GLOBAL_WAIT_TIMERS) {
+            return this.waitingPlayers[(int) (offset - GLOBAL_WAITING)] & BYTE_MASK;
+        }
+
+        if (offset < GLOBAL_INITIALLY_ACTIVE) {
+            int index = (int) (offset - GLOBAL_WAIT_TIMERS);
+
+            return this.waitTimers[index / Integer.BYTES] >>> (index % Integer.BYTES * Byte.SIZE) & BYTE_MASK;
+        }
+
+        if (offset < GLOBAL_CURRENT_RECORD) {
+            return this.initiallyActive[(int) (offset - GLOBAL_INITIALLY_ACTIVE)] & BYTE_MASK;
+        }
+
+        return this.fallbackRecord[requireFallbackIndex(offset)] & BYTE_MASK;
+    }
+
+    /**
+     * Writes a byte of the trigger globals at the offset {@link #readGlobalByte} reads.
+     *
+     * @param offset the unsigned byte offset from the pending result bytes
+     * @param value  the byte value in the low eight bits
+     * @throws UnsupportedOperationException if the byte is the current-record pointer or lies past the fallback record
+     */
+    private void writeGlobalByte(long offset, int value) {
+        if (offset < GLOBAL_WAITING) {
+            long shift = offset * Byte.SIZE;
+
+            this.playerEvaluationFlags = this.playerEvaluationFlags & ~(PLAYER_RESULT_MASK << shift) | (long) (value & BYTE_MASK) << shift;
+        } else if (offset < GLOBAL_WAIT_TIMERS) {
+            this.waitingPlayers[(int) (offset - GLOBAL_WAITING)] = (byte) value;
+        } else if (offset < GLOBAL_INITIALLY_ACTIVE) {
+            int index = (int) (offset - GLOBAL_WAIT_TIMERS);
+
+            this.waitTimers[index / Integer.BYTES] = LittleEndianUtils.replaceByte(this.waitTimers[index / Integer.BYTES],
+                                                                                   index % Integer.BYTES * Byte.SIZE, value);
+        } else if (offset < GLOBAL_CURRENT_RECORD) {
+            this.initiallyActive[(int) (offset - GLOBAL_INITIALLY_ACTIVE)] = (byte) value;
+        } else {
+            int index = requireFallbackIndex(offset);
+
+            if (this.fallbackRecord[index] != (byte) value) {
+                this.fallbackRecord[index] = (byte) value;
+                // Decodes the fallback record again on its next run.
+                this.emptyTrigger = null;
+            }
+        }
+    }
+
+    /**
+     * Returns the index in {@link #fallbackRecord} of a trigger-globals offset past the initially active bytes.
+     *
+     * @param offset the unsigned byte offset from the pending result bytes
+     * @return the index
+     * @throws UnsupportedOperationException if the byte is the current-record pointer or lies past the fallback record
+     */
+    private static int requireFallbackIndex(long offset) {
+        if (offset < GLOBAL_PADDING || offset >= GLOBAL_END) {
+            throw Exceptions.newUnsupportedOperationException("Trigger globals offset 0x{0} lies outside the represented player bytes.",
+                                                              Long.toHexString(offset));
+        }
+
+        return (int) (offset - GLOBAL_PADDING);
+    }
+
+    /**
+     * Returns the fallback record the classic trigger walk runs for a link outside every region, decoded from {@link #fallbackRecord}.
+     *
+     * @return the fallback record
+     */
+    @NotNull RunningTrigger requireFallbackTrigger() {
+        if (this.emptyTrigger == null) {
+            byte[] bytes = Arrays.copyOfRange(this.fallbackRecord, (int) (GLOBAL_FALLBACK_RECORD - GLOBAL_PADDING), this.fallbackRecord.length);
+
+            this.emptyTrigger = TriggerRecordCodec.createExecution(TriggerRecordCodec.decodeDefinition(bytes, 0), bytes, 0);
+        }
+
+        return this.emptyTrigger;
+    }
+
+    /**
+     * Returns the trigger-globals offset of a player's element in a per-player array, with the player index read unsigned.
+     *
+     * @param base   the offset of the array
+     * @param player the player index, any value
+     * @param size   the element size
+     * @return the unsigned byte offset
+     */
+    private static long getGlobalOffset(long base, int player, int size) {
+        return base + Integer.toUnsignedLong(player) * size;
     }
 
 
@@ -407,6 +504,10 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     private @Nullable GameSpeed frameTiming;
 
     long playerEvaluationFlags;
+    /**
+     * The eight unused bytes and the fallback record after the current-record pointer of the trigger globals.
+     */
+    final byte @NotNull [] fallbackRecord;
     int preparationFlag;
     boolean evaluationStateInitialized;
     boolean evaluationControlsInitialized;
@@ -430,7 +531,11 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     @Nullable PlayerRelations relations;
     @Nullable ComputerPlayerPhase computerPhase;
     int localPlayer;
-    private int initiallyActivePlayers;
+    /**
+     * The initially active bytes of players {@code 0}-{@code 7}, nonzero for a player the active-player walk visited when the
+     * classic trigger players were bound.
+     */
+    private final byte @NotNull [] initiallyActive;
     private int decodedSessionState;
     int multiplayerSession;
     int resultFlags;
@@ -509,6 +614,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
      */
     public TriggerContext() {
         this.waitingPlayers    = new byte[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+        this.fallbackRecord    = new byte[(int) (GLOBAL_END - GLOBAL_PADDING)];
         this.waitTimers        = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
         this.cycleCountdown    = 1;
         this.periodicCountdown = PERIODIC_COUNTDOWN_RELOAD;
@@ -544,7 +650,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
         this.relations              = null;
         this.computerPhase          = null;
         this.localPlayer            = 0;
-        this.initiallyActivePlayers = 0;
+        this.initiallyActive        = new byte[PlayerTable.PLAYABLE_PLAYER_SLOTS];
         this.decodedSessionState    = 0;
         this.multiplayerSession     = 0;
         this.resultFlags            = 0;
@@ -874,20 +980,32 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
-     * @param player the player index from {@code 0} through {@code 7}
+     * Returns a player's wait DWORD from the trigger globals ({@link #readGlobalByte}).
+     *
+     * @param player the player index, any value
      * @return the retained wait DWORD
+     * @throws UnsupportedOperationException if the DWORD lies outside the represented trigger globals
      */
     public int getWaitTimer(int player) {
-        return this.waitTimers[player];
+        long offset = getGlobalOffset(GLOBAL_WAIT_TIMERS, player, Integer.BYTES);
+        int value = 0;
+
+        for (int index = 0; index < Integer.BYTES; index++) {
+            value |= this.readGlobalByte(offset + index) << (index * Byte.SIZE);
+        }
+
+        return value;
     }
 
     /**
-     * @param player the player index from {@code 0} through {@code 7}
+     * Tests a player's waiting byte in the trigger globals ({@link #readGlobalByte}).
+     *
+     * @param player the player index, any value
      * @return {@code true} if the player's wait BYTE is nonzero, {@code false} otherwise
-     * @throws UnsupportedOperationException if the player is not a trigger player
+     * @throws UnsupportedOperationException if the byte lies outside the represented trigger globals
      */
     public boolean isWaiting(int player) {
-        return this.waitingPlayers[requireWaitIndex(player)] != 0;
+        return this.readGlobalByte(getGlobalOffset(GLOBAL_WAITING, player, Byte.BYTES)) != 0;
     }
 
     /**
@@ -986,11 +1104,15 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
-     * @param player the trigger-owner index
+     * Returns the pending result byte of a player from the trigger globals ({@link #readGlobalByte}): players {@code 8..15} read the waiting
+     * bytes that follow the results.
+     *
+     * @param player the trigger-owner index, any value
      * @return the pending trigger result byte of the player
+     * @throws UnsupportedOperationException if the byte lies outside the represented trigger globals
      */
     public int getPlayerResult(int player) {
-        return (int) (this.playerEvaluationFlags >>> (player * Byte.SIZE)) & BYTE_MASK;
+        return this.readGlobalByte(Integer.toUnsignedLong(player));
     }
 
     /**
@@ -998,7 +1120,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
      * @return {@code true} if the active-player walk visited the player when classic trigger players were bound, {@code false} otherwise
      */
     public boolean isInitiallyActive(int player) {
-        return (this.initiallyActivePlayers & 1 << player) != 0;
+        return this.initiallyActive[player] != 0;
     }
 
     /**
@@ -1025,15 +1147,14 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
-     * Sets the pending trigger result byte of a player.
+     * Sets the pending trigger result byte of a player at the byte {@link #getPlayerResult} reads.
      *
-     * @param player the trigger-owner index
+     * @param player the trigger-owner index, any value
      * @param value  the result byte in the low eight bits
+     * @throws UnsupportedOperationException if the byte lies outside the represented trigger globals
      */
     void setPlayerResult(int player, int value) {
-        long mask = PLAYER_RESULT_MASK << (player * Byte.SIZE);
-
-        this.playerEvaluationFlags = (this.playerEvaluationFlags & ~mask) | (long) (value & BYTE_MASK) << (player * Byte.SIZE);
+        this.writeGlobalByte(Integer.toUnsignedLong(player), value);
     }
 
     /**
@@ -1047,6 +1168,38 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
         }
 
         return this.playerRecords[player].length;
+    }
+
+    /**
+     * Returns the player-type byte of a player's record: an observer slot id names the observer record of its index ({@code 12..15}), any
+     * other id the record of that index. Records {@code 0..7} are the trigger players and {@code 8..11} the world's other players; observer
+     * records read as {@link PlayerTypes#NONE}.
+     *
+     * @param player the trigger-owner index, any value
+     * @return the player-type byte
+     * @throws IllegalStateException         if players have not been bound
+     * @throws UnsupportedOperationException if the record lies past the sixteen player records, or is one of records
+     *                                       {@code 8..11} while the evaluation runs without a world
+     */
+    int getPlayerType(int player) {
+        int record = PlayerTable.isObserverSlot(player) ? player - PlayerTable.FIRST_OBSERVER_SLOT + PlayerTable.PLAYER_SLOTS : player;
+
+        if (Integer.compareUnsigned(record, PlayerTable.PLAYABLE_PLAYER_SLOTS) < 0) {
+            return this.requirePlayer(record).getType() & BYTE_MASK;
+        }
+
+        if (Integer.compareUnsigned(record, PlayerTable.PLAYER_SLOTS) < 0) {
+            Player other = ScrTriggerSystem.requireWorld(this, "A player record above player 7").getPlayerTable().getPlayer(record);
+
+            return other == null ? PlayerTypes.NONE : other.getType() & BYTE_MASK;
+        }
+
+        if (Integer.compareUnsigned(record, PlayerTable.PLAYER_SLOTS + PlayerTable.OBSERVER_SLOTS) < 0) {
+            return PlayerTypes.NONE;
+        }
+
+        throw Exceptions.newUnsupportedOperationException("The player record of current player 0x{0} lies past the sixteen player records.",
+                                                          String.format("%08X", player));
     }
 
     /**
@@ -1458,15 +1611,20 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
-     * Applies the wait flag and timer writes of the Wait action.
+     * Applies the wait flag and timer writes of the Wait action to the trigger globals ({@link #writeGlobalByte}).
      *
-     * @param player   the player index from {@code 0} through {@code 7}
+     * @param player   the player index, any value
      * @param duration the unsigned wait DWORD
-     * @throws UnsupportedOperationException if the player is not a trigger player
+     * @throws UnsupportedOperationException if a byte lies outside the represented trigger globals
      */
     public void beginWait(int player, int duration) {
-        this.waitingPlayers[requireWaitIndex(player)] = 1;
-        this.waitTimers[player]                       = duration;
+        long offset = getGlobalOffset(GLOBAL_WAIT_TIMERS, player, Integer.BYTES);
+
+        this.writeGlobalByte(getGlobalOffset(GLOBAL_WAITING, player, Byte.BYTES), 1);
+
+        for (int index = 0; index < Integer.BYTES; index++) {
+            this.writeGlobalByte(offset + index, duration >>> (index * Byte.SIZE));
+        }
     }
 
     /**
@@ -1505,10 +1663,10 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
         this.players       = selectedPlayers;
         this.playerRecords = createEmptyPlayerRecords();
 
-        this.initiallyActivePlayers = 0;
+        Arrays.fill(this.initiallyActive, (byte) 0);
 
         for (int player : this.getActivePlayers()) {
-            this.initiallyActivePlayers |= 1 << player;
+            this.initiallyActive[player] = 1;
         }
     }
 
@@ -1626,7 +1784,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
                                        .order(ByteOrder.LITTLE_ENDIAN);
 
         for (int player = 0; player < PlayerTable.PLAYABLE_PLAYER_SLOTS; player++) {
-            section.put(player, (byte) (this.isInitiallyActive(player) ? 1 : 0));
+            section.put(player, this.initiallyActive[player]);
         }
 
         for (int player = 0; player < PlayerTable.PLAYABLE_PLAYER_SLOTS; player++) {
@@ -1662,12 +1820,8 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
             throw Exceptions.newIllegalStateException("Classic trigger players have not been initialized.");
         }
 
-        this.initiallyActivePlayers = 0;
-
         for (int player = 0; player < PlayerTable.PLAYABLE_PLAYER_SLOTS; player++) {
-            if (buffer.get(player) != 0) {
-                this.initiallyActivePlayers |= 1 << player;
-            }
+            this.initiallyActive[player] = buffer.get(player);
         }
 
         this.playerRecords = new RunningTrigger[PlayerTable.PLAYABLE_PLAYER_SLOTS][];
@@ -1763,6 +1917,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
 
         if (this.evaluationStateInitialized) {
             hash = HASH_MULTIPLIER * hash + Long.hashCode(this.playerEvaluationFlags);
+            hash = HASH_MULTIPLIER * hash + Arrays.hashCode(this.fallbackRecord);
             hash = HASH_MULTIPLIER * hash + this.preparationFlag;
         }
 

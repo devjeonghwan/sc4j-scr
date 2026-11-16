@@ -338,12 +338,11 @@ public final class UnitPool {
     }
 
     /**
-     * @param owner the native owner index in {@code 0..11}
-     * @return the first owner-list index, or {@code 0} when empty
-     * @throws ArrayIndexOutOfBoundsException if the owner is outside the owner-head storage
+     * @param owner the native owner index, any value
+     * @return the first owner-list index, or {@code 0} when empty or for an owner outside {@code 0..11}
      */
     public int getFirstOwnerIndex(int owner) {
-        return this.firstOwnerIndices[owner];
+        return Integer.compareUnsigned(owner, PlayerTable.PLAYER_SLOTS) < 0 ? this.firstOwnerIndices[owner] : 0;
     }
 
     /**

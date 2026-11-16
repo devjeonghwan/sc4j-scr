@@ -83,8 +83,17 @@ public final class PlayerRelations {
      * @return {@code true} if the offset lies in the alliance bytes or the shared-vision DWORDs, {@code false} otherwise
      */
     public static boolean hasContextOffset(int contextOffset) {
-        return contextOffset >= ALLIANCE_OFFSET && contextOffset < ALLIANCE_END ||
-               contextOffset >= SHARED_VISION_OFFSET && contextOffset < SHARED_VISION_END;
+        return hasAllianceOffset(contextOffset) || contextOffset >= SHARED_VISION_OFFSET && contextOffset < SHARED_VISION_END;
+    }
+
+    /**
+     * Checks whether a game-context offset lies in the alliance bytes.
+     *
+     * @param contextOffset a game-context offset
+     * @return {@code true} if the offset lies in the alliance bytes, {@code false} otherwise
+     */
+    public static boolean hasAllianceOffset(int contextOffset) {
+        return contextOffset >= ALLIANCE_OFFSET && contextOffset < ALLIANCE_END;
     }
 
     private final byte @NotNull [] @NotNull [] alliances;

@@ -264,6 +264,17 @@ final class UnitPoolTest {
     }
 
     @Test
+    void owner_outside_the_twelve_players_has_no_owner_list() {
+        UnitPool pool = new UnitPool(3);
+
+        pool.prependToOwnerList(pool.getUnit(1), NEUTRAL_PLAYER);
+
+        Assertions.assertEquals(0, pool.getFirstOwnerIndex(NEUTRAL_PLAYER + 1));
+        Assertions.assertEquals(0, pool.getFirstOwnerIndex(131), "A current player an EUD write moved past player 11.");
+        Assertions.assertEquals(0, pool.getFirstOwnerIndex(-1));
+    }
+
+    @Test
     void prepend_to_owner_list_should_register_the_owner_before_the_free_list_commit() {
         UnitPool pool = new UnitPool(3);
         Unit first = pool.getUnit(1);

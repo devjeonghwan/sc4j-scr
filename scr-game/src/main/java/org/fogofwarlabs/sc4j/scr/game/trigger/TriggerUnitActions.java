@@ -194,7 +194,7 @@ public final class TriggerUnitActions {
         if (location == NO_LOCATION) {
             int remaining = limit;
             // A player from 12 has no unit list; the location path matches no owner from 12 either.
-            int index = player < PlayerTable.PLAYER_SLOTS ? this.game.getUnitSystem().requireUnitPool().getFirstOwnerIndex(player) : 0;
+            int index = this.game.getUnitSystem().requireUnitPool().getFirstOwnerIndex(player);
 
             while (index != 0) {
                 UnitPool pool = this.game.getUnitSystem().requireUnitPool();

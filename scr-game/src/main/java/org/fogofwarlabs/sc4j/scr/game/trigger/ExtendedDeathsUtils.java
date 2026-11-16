@@ -1,10 +1,12 @@
 package org.fogofwarlabs.sc4j.scr.game.trigger;
 
+import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerScores;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.ClassicAddressSpace;
+import org.fogofwarlabs.sc4j.scr.game.trigger.eud.ClassicRegion;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -19,6 +21,10 @@ final class ExtendedDeathsUtils {
      * The group selectors {@code CURRENT_PLAYER..NON_ALLIED_VICTORY_PLAYERS} span this many values past the first.
      */
     private static final int GROUP_SELECTOR_SPAN = TriggerPlayerSelectors.NON_ALLIED_VICTORY_PLAYERS - TriggerPlayerSelectors.CURRENT_PLAYER;
+    /**
+     * The mask of an unsigned byte.
+     */
+    private static final int BYTE_MASK = 0xFF;
 
     /**
      * Tests whether an extended operand names a player group whose players each take part.
@@ -208,6 +214,64 @@ final class ExtendedDeathsUtils {
         int result = PlayerScores.modify(previous & mask, modifier, amount & mask);
 
         memory.setExtendedDeaths(player, unitType, TriggerModifiers.SET_TO, previous & ~mask | result & mask);
+    }
+
+    /**
+     * Reads a byte of the game-data block by its game-context offset through the EUD address space.
+     *
+     * @param context       the trigger context
+     * @param contextOffset the game-context offset, any value (the classic address wraps)
+     * @return the unsigned byte, {@code 0} after an access failure
+     * @throws UnsupportedOperationException if the address space does not represent the byte's DWORD
+     */
+    static int readGameDataByte(@NotNull TriggerContext context, int contextOffset) {
+        int address = ClassicAddressSpace.GAME_DATA_ADDRESS + contextOffset;
+        int dword = getExtendedDeathsOperations(context).readExtendedDeaths(getDwordOperand(address), 0);
+
+        return dword >>> (address & ClassicRegion.DWORD_OFFSET_MASK) * Byte.SIZE & BYTE_MASK;
+    }
+
+    /**
+     * Writes a byte of the game-data block by its game-context offset through the EUD address space; the other bytes of its DWORD keep their
+     * values.
+     *
+     * @param context       the trigger context
+     * @param contextOffset the game-context offset, any value (the classic address wraps)
+     * @param value         the byte value in the low eight bits
+     * @throws UnsupportedOperationException if the address space does not represent the byte's DWORD
+     */
+    static void writeGameDataByte(@NotNull TriggerContext context, int contextOffset, int value) {
+        int address = ClassicAddressSpace.GAME_DATA_ADDRESS + contextOffset;
+        ScrTriggerSystem.ExtendedDeathsOperations memory = getExtendedDeathsOperations(context);
+        int operand = getDwordOperand(address);
+        int dword = memory.readExtendedDeaths(operand, 0);
+
+        memory.setExtendedDeaths(operand, 0, TriggerModifiers.SET_TO,
+                                 LittleEndianUtils.replaceByte(dword, (address & ClassicRegion.DWORD_OFFSET_MASK) * Byte.SIZE, value));
+    }
+
+    /**
+     * Writes an aligned DWORD of the game-data block by its game-context offset through the EUD address space.
+     *
+     * @param context       the trigger context
+     * @param contextOffset the DWORD-aligned game-context offset, any value (the classic address wraps)
+     * @param value         the DWORD
+     * @throws UnsupportedOperationException if the address space does not represent the DWORD
+     */
+    static void writeGameDataDword(@NotNull TriggerContext context, int contextOffset, int value) {
+        getExtendedDeathsOperations(context).setExtendedDeaths(getDwordOperand(ClassicAddressSpace.GAME_DATA_ADDRESS + contextOffset), 0,
+                                                               TriggerModifiers.SET_TO, value);
+    }
+
+    /**
+     * Returns the player operand whose extended deaths of unit {@code 0} are the aligned DWORD holding an address
+     * ({@link ClassicAddressSpace#getAddress}).
+     *
+     * @param address the classic address
+     * @return the player operand
+     */
+    private static int getDwordOperand(int address) {
+        return ((address & ~ClassicRegion.DWORD_OFFSET_MASK) - ClassicAddressSpace.DEATH_TABLE_ADDRESS) / Integer.BYTES;
     }
 
     /**
