@@ -697,9 +697,11 @@ public final class UnitHangar {
     }
 
     /**
-     * Validates the attack target and transitions to the parent's fight order, preserving attack status bits.
+     * Validates the attack target and transitions to the fight order of the attack order, preserving attack status bits:
+     * {@link ScrOrderIds#CARRIER_ATTACK} sends a Carrier's launched Interceptors at the target and continues with
+     * {@link ScrOrderIds#CARRIER_FIGHT}, {@link ScrOrderIds#REAVER_ATTACK} continues with {@link ScrOrderIds#REAVER_FIGHT}, whatever the unit type.
      *
-     * @param unit             the Carrier or Reaver
+     * @param unit             the unit of the attack order
      * @param instructionLimit the order and script budget
      * @throws IllegalStateException if the target has no sprite
      */
@@ -725,16 +727,16 @@ public final class UnitHangar {
         }
 
         int preserved = unit.getStatus() & (UnitStatusFlags.READY_TO_ATTACK | UnitStatusFlags.AUTOMATIC_ATTACK_STARTED);
-        boolean carrier = this.game.requireGameData().getUnitTypes().isCarrier(unit.getUnitId());
+        boolean carrierOrder = unit.getPrimaryOrder() == ScrOrderIds.CARRIER_ATTACK;
 
-        if (carrier) {
+        if (carrierOrder) {
             this.attackWithInterceptors(unit, instructionLimit);
         }
 
         Sprite targetSprite = target.requireSprite();
 
         this.game.getOrders().queueFront(unit,
-                                         carrier ? ScrOrderIds.CARRIER_FIGHT : ScrOrderIds.REAVER_FIGHT,
+                                         carrierOrder ? ScrOrderIds.CARRIER_FIGHT : ScrOrderIds.REAVER_FIGHT,
                                          target,
                                          targetSprite.getX(), targetSprite.getY(),
                                          ScrUnitIds.NONE);
@@ -743,26 +745,32 @@ public final class UnitHangar {
     }
 
     /**
-     * Stops the parent and orders launched fighters to return or self-destruct before restoring the parent order.
+     * Stops the unit and continues with the idle order of the stop order, whatever the unit type: {@link ScrOrderIds#CARRIER_STOP} recalls a
+     * Carrier's launched Interceptors and continues with {@link ScrOrderIds#CARRIER}, {@link ScrOrderIds#REAVER_STOP} makes the launched units
+     * self-destruct and continues with {@link ScrOrderIds#REAVER}.
      *
-     * @param unit             the Carrier or Reaver
+     * @param unit             the unit of the stop order
      * @param instructionLimit the order and script budget
      */
     public void updateParentStop(@NotNull Unit unit, int instructionLimit) {
         this.game.getUnitPointMovement().stopAndFaceDestination(unit);
 
-        boolean carrier = this.game.requireGameData().getUnitTypes().isCarrier(unit.getUnitId());
+        boolean carrierOrder = unit.getPrimaryOrder() == ScrOrderIds.CARRIER_STOP;
 
-        for (Unit fighter = unit.getFirstHangarUnit(true); fighter != null; ) {
-            Unit next = fighter.getNextHangarUnit();
+        if (!carrierOrder || this.game.requireGameData().getUnitTypes().isCarrier(unit.getUnitId())) {
+            for (Unit fighter = unit.getFirstHangarUnit(true); fighter != null; ) {
+                Unit next = fighter.getNextHangarUnit();
 
-            this.game.getOrders().issueUntargeted(fighter, carrier ? ScrOrderIds.INTERCEPTOR_RETURN : ScrOrderIds.SELF_DESTRUCTING, instructionLimit);
+                this.game.getOrders().issueUntargeted(fighter,
+                                                      carrierOrder ? ScrOrderIds.INTERCEPTOR_RETURN : ScrOrderIds.SELF_DESTRUCTING,
+                                                      instructionLimit);
 
-            fighter = next;
+                fighter = next;
+            }
         }
 
         Unit target = unit.getOrderTargetUnit();
-        int order = carrier ? ScrOrderIds.CARRIER : ScrOrderIds.REAVER;
+        int order = carrierOrder ? ScrOrderIds.CARRIER : ScrOrderIds.REAVER;
 
         if (target != null) {
             this.game.getOrders().issue(unit, order, target, 0, 0, ScrUnitIds.NONE, false, instructionLimit);
