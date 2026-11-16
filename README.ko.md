@@ -89,7 +89,7 @@ cd sc4j-scr
 
 ## 릴리스
 
-`develop`에서 `main`으로의 풀 리퀘스트가 `gradle.properties`에 `version=X.Y.Z`와 릴리스된 `sc4jVersion`을 정합니다. `main`에 푸시되면 `scr.jar`와 `scr.jar.sha256`이 붙은 GitHub 릴리스 `vX.Y.Z`가 만들어집니다.
+`develop`에서 `gradle.properties`에 `version=X.Y.Z`와 릴리스된 `sc4jVersion`을 정한 뒤, `develop`에서 `main`으로 ``Release version `X.Y.Z` `` 제목의 풀 리퀘스트를 열어 merge commit으로 병합합니다. `main`에 푸시되면 `scr.jar`와 `scr.jar.sha256`이 붙은 GitHub 릴리스 `vX.Y.Z`가 만들어집니다.
 
 ## 라이선스
 

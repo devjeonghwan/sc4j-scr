@@ -89,7 +89,7 @@ See the engine's [contributing guide](https://github.com/fogofwarlabs/sc4j/blob/
 
 ## Releases
 
-A pull request from `develop` into `main` sets `version=X.Y.Z` and a released `sc4jVersion` in `gradle.properties`. The push to `main` creates the GitHub release `vX.Y.Z` with `scr.jar` and `scr.jar.sha256`.
+`develop` sets `version=X.Y.Z` and a released `sc4jVersion` in `gradle.properties`; a pull request from `develop` into `main` titled ``Release version `X.Y.Z` `` is merged with a merge commit. The push to `main` creates the GitHub release `vX.Y.Z` with `scr.jar` and `scr.jar.sha256`.
 
 ## Licence
 
