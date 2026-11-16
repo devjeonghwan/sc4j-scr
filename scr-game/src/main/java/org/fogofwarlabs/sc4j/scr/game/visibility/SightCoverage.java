@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.scr.game.visibility;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.visibility.SightDescriptors;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
@@ -72,7 +73,7 @@ public final class SightCoverage {
 
 
     private final @NotNull SightDescriptors descriptors;
-    private final int @NotNull [] sharedVisionMasks;
+    private int @NotNull [] sharedVisionMasks;
 
     /**
      * Creates a {@link SightCoverage} instance with the twelve original sight descriptors ({@link SightDescriptors}): for each sight range a
@@ -156,6 +157,20 @@ public final class SightCoverage {
         }
 
         System.arraycopy(sharedVisionMasks, 0, this.sharedVisionMasks, 0, PlayerTable.PLAYER_SLOTS);
+    }
+
+    /**
+     * Uses the given shared-vision DWORDs instead of its own copy.
+     *
+     * @param sharedVisionMasks the twelve shared-vision DWORDs of the game context ({@link PlayerRelations#shareVision})
+     * @throws IllegalArgumentException if twelve player masks are not supplied
+     */
+    public void useSharedVisionMasks(int @NotNull [] sharedVisionMasks) {
+        if (sharedVisionMasks.length != PlayerTable.PLAYER_SLOTS) {
+            throw Exceptions.newIllegalArgumentException("Native shared vision requires twelve player masks.");
+        }
+
+        this.sharedVisionMasks = sharedVisionMasks;
     }
 
 

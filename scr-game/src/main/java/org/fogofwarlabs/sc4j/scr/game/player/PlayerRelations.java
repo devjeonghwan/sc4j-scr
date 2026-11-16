@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr.game.player;
 
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.game.visibility.SightCoverage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -240,6 +241,15 @@ public final class PlayerRelations {
      */
     public void setSharedVision(int playerIndex, int mask) {
         this.sharedVision[playerIndex] = mask;
+    }
+
+    /**
+     * Makes the sight coverage use these shared-vision DWORDs instead of a copy.
+     *
+     * @param sight the game's sight coverage
+     */
+    public void shareVision(@NotNull SightCoverage sight) {
+        sight.useSharedVisionMasks(this.sharedVision);
     }
 
     /**

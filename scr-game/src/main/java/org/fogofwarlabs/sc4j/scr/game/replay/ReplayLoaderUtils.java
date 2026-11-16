@@ -207,6 +207,7 @@ public final class ReplayLoaderUtils {
                                            instructionLimit);
 
         game.getPlayerTable().setPlayerRelations(relations);
+        relations.shareVision(game.requireSightCoverage());
         game.setGameSettings(settings);
         game.getGameContext().setForceSnapshot(readForceSnapshot(mapFile));
 
