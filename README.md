@@ -13,6 +13,7 @@ It runs on the [SC4J engine](https://github.com/fogofwarlabs/sc4j) with its own 
 - [Frame recorder](#frame-recorder)
 - [Launcher art](#launcher-art)
 - [Contributing](#contributing)
+- [Releases](#releases)
 - [Licence](#licence)
 
 ## Layout
@@ -102,6 +103,10 @@ The launcher icon and banner of the SC:R mod, its wide banner and how to export 
 ## Contributing
 
 Setup, code style, commits and pull requests are in the engine's [contributing guide](https://github.com/fogofwarlabs/sc4j/blob/main/CONTRIBUTING.md). If the change touches the SC:R mod and you have the installation, run `integrationTest` too.
+
+## Releases
+
+A release is a pull request from `develop` into `main` that sets `version=X.Y.Z` and the released engine version `sc4jVersion` in `gradle.properties`; the push to `main` creates the GitHub release `vX.Y.Z` with `scr.jar` and its checksum `scr.jar.sha256`.
 
 ## Licence
 

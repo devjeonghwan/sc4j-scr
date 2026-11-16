@@ -13,6 +13,7 @@
 - [프레임 기록기](#프레임-기록기)
 - [런처 그림](#런처-그림)
 - [기여](#기여)
+- [릴리스](#릴리스)
 - [라이선스](#라이선스)
 
 ## 구성
@@ -102,6 +103,10 @@ SC:R 모드의 런처 아이콘과 배너, 넓은 배너, 그리고 내보내기
 ## 기여
 
 개발 환경, 코드 스타일, 커밋과 풀 리퀘스트는 엔진의 [기여 안내](https://github.com/fogofwarlabs/sc4j/blob/main/CONTRIBUTING.ko.md)를 따릅니다. SC:R 모드를 건드렸고 설치본이 있으면 `integrationTest`도 실행합니다.
+
+## 릴리스
+
+릴리스는 `gradle.properties`의 `version=X.Y.Z`와 릴리스된 엔진 버전 `sc4jVersion`을 정하는 `develop`에서 `main`으로의 풀 리퀘스트입니다. `main`에 푸시되면 `scr.jar`와 그 체크섬 `scr.jar.sha256`이 붙은 GitHub 릴리스 `vX.Y.Z`가 만들어집니다.
 
 ## 라이선스
 
