@@ -1,8 +1,21 @@
-# SC:R 모드
+<h1 align="center">
+  <img src="docs/branding/icon.svg" alt="SC:R 로고" width="160">
+  <br>
+  SC:R
+</h1>
 
-[English](README.md) | **한국어**
+<p align="center">스타크래프트: 리마스터를 SC4J 모드로.</p>
 
-스타크래프트: 리마스터를 [SC4J](https://github.com/fogofwarlabs/sc4j/blob/main/README.ko.md) 모드로 만든 것입니다(모드 id `scr`, jar `scr.jar`). 게임 데이터는 플레이어 본인의 스타크래프트: 리마스터 설치본에서 읽습니다.
+<p align="center">
+  <a href="https://github.com/fogofwarlabs/sc4j-scr/releases"><img src="https://img.shields.io/github/v/release/fogofwarlabs/sc4j-scr" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
+</p>
+
+<p align="center"><a href="README.md">English</a> | <b>한국어</b></p>
+
+---
+
+[SC4J](https://github.com/fogofwarlabs/sc4j/blob/main/README.ko.md) 모드이며, 모드 id는 `scr`, jar는 `scr.jar`입니다. 게임 데이터는 플레이어 본인의 스타크래프트: 리마스터 설치본에서 읽습니다.
 
 지원하는 게임 빌드: 스타크래프트: 리마스터 1.23.10.
 

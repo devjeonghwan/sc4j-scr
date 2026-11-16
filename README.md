@@ -1,8 +1,21 @@
-# SC:R mod
+<h1 align="center">
+  <img src="docs/branding/icon.svg" alt="SC:R logo" width="160">
+  <br>
+  SC:R
+</h1>
 
-**English** | [한국어](README.ko.md)
+<p align="center">StarCraft: Remastered as an SC4J mod.</p>
 
-StarCraft: Remastered as an [SC4J](https://github.com/fogofwarlabs/sc4j) mod (mod id `scr`, jar `scr.jar`). It reads the game data from the player's own StarCraft: Remastered installation.
+<p align="center">
+  <a href="https://github.com/fogofwarlabs/sc4j-scr/releases"><img src="https://img.shields.io/github/v/release/fogofwarlabs/sc4j-scr" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
+</p>
+
+<p align="center"><b>English</b> | <a href="README.ko.md">한국어</a></p>
+
+---
+
+An [SC4J](https://github.com/fogofwarlabs/sc4j) mod with the id `scr` and the jar `scr.jar`. It reads the game data from the player's own StarCraft: Remastered installation.
 
 Supported game build: StarCraft: Remastered 1.23.10.
 
