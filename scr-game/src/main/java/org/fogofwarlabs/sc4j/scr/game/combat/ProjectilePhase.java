@@ -136,7 +136,7 @@ public final class ProjectilePhase {
      */
     private static final int MISS_RANDOM_SOURCE = 1;
     /**
-     * The {@code flingy.dat} entry {@code 0}, which the use-weapon command treats as no flingy: the weapon launches no bullet.
+     * The {@code flingy.dat} entry {@code 0}, with which a weapon launches no bullet.
      */
     private static final int NO_FLINGY_TYPE = 0;
     /**
@@ -1071,17 +1071,28 @@ public final class ProjectilePhase {
      * @throws NullPointerException if the world was built without game data
      */
     public void useWeapon(@NotNull Unit source, int weapon, int instructionLimit) {
-        ScrWeaponTypeView weapons = this.game.requireGameData().getWeaponTypes();
-
-        if (weapons.getFlingyType(weapon) == NO_FLINGY_TYPE) {
+        if (!this.launchesBullets(weapon)) {
             return;
         }
 
-        int count = weapons.getDamageFactor(weapon) == TWO_BULLET_DAMAGE_FACTOR ? TWO_BULLET_COUNT : SINGLE_BULLET_COUNT;
+        int count = this.game.requireGameData().getWeaponTypes().getDamageFactor(weapon) == TWO_BULLET_DAMAGE_FACTOR
+                    ? TWO_BULLET_COUNT
+                    : SINGLE_BULLET_COUNT;
 
         for (int index = 0; index < count; index++) {
             this.create(source, weapon, source.getOrderTargetX(), source.getOrderTargetY(), instructionLimit);
         }
+    }
+
+    /**
+     * Checks whether a weapon launches bullets: a weapon whose flingy is entry {@code 0}, the none weapon included, launches none.
+     *
+     * @param weapon the weapon
+     * @return {@code true} if the weapon launches bullets, {@code false} otherwise
+     * @throws NullPointerException if the world was built without game data
+     */
+    boolean launchesBullets(int weapon) {
+        return this.game.requireGameData().getWeaponTypes().getFlingyType(weapon) != NO_FLINGY_TYPE;
     }
 
     /**

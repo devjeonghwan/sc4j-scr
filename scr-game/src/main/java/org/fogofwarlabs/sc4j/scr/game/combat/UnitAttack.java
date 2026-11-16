@@ -1036,12 +1036,13 @@ public final class UnitAttack {
 
     /**
      * Launches the ground or air weapon selected by an {@code attackwith} script operand.
+     * <p>
+     * A unit without that weapon launches the none weapon, which creates no bullet ({@link ProjectilePhase#launchesBullets}).
      *
      * @param unit             the script unit
      * @param weaponNumber     {@code 1} for the ground weapon, otherwise the air weapon
      * @param forwardOffset    the launch offset, or {@code -1} for the weapon's own offset
      * @param instructionLimit the bullet sprite instruction budget
-     * @throws IllegalStateException if the unit lacks the weapon
      */
     public void attackWith(@NotNull Unit unit, int weaponNumber, int forwardOffset, int instructionLimit) {
         if (unit.getOrderTargetUnit() == null) {
@@ -1051,10 +1052,6 @@ public final class UnitAttack {
         int weapon = weaponNumber == GROUND_WEAPON_NUMBER
                      ? this.game.getUnitTargeting().getGroundWeapon(unit)
                      : this.game.getUnitTargeting().getAirWeapon(unit);
-
-        if (weapon == ScrWeaponIds.NONE) {
-            throw Exceptions.newIllegalStateException("attackwith {0} reached a unit without that weapon: {1}", weaponNumber, unit.getUnitId());
-        }
 
         this.attackWithWeapon(unit, weapon, forwardOffset, instructionLimit);
     }
@@ -1107,7 +1104,8 @@ public final class UnitAttack {
 
     /**
      * Creates one bullet of the weapon where its behavior places it: at the target appearance point, at the order target position or at the
-     * forward and upward offsets from the unit; an appear-at-target-unit weapon without an order target creates none.
+     * forward and upward offsets from the unit; an appear-at-target-unit weapon without an order target and a weapon that launches no bullets
+     * ({@link ProjectilePhase#launchesBullets}) create none.
      *
      * @param unit             the script unit
      * @param weapon           the {@code weapons.dat} index
@@ -1145,7 +1143,9 @@ public final class UnitAttack {
             positionY = sprite.getY() + (int) (vector >>> FlingyMotionUtils.DIRECTION_VECTOR_VERTICAL_SHIFT) - (byte) weapons.getUpwardOffset(weapon);
         }
 
-        this.game.getProjectilePhase().create(unit, weapon, positionX, positionY, instructionLimit);
+        if (this.game.getProjectilePhase().launchesBullets(weapon)) {
+            this.game.getProjectilePhase().create(unit, weapon, positionX, positionY, instructionLimit);
+        }
     }
 
 

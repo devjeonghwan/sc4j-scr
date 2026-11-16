@@ -691,21 +691,25 @@ public final class UnitTargeting {
     }
 
     /**
+     * Checks whether the direction to a position is within the weapon's attack angle; a Lurker instead turns to the position at once and passes.
+     *
      * @param unit      the attacking unit
      * @param positionX the target horizontal coordinate
      * @param positionY the target vertical coordinate
      * @param weapon    the weapon
-     * @return {@code true} if the direction to the position is within the weapon's attack angle, {@code false} otherwise
-     * @throws IllegalStateException if the unit is a Lurker or has no sprite
+     * @return {@code true} if the direction to the position is within the weapon's attack angle or the unit is a Lurker, {@code false} otherwise
+     * @throws IllegalStateException if the unit has no sprite
      * @throws NullPointerException  if the world was built without game data
      */
     public boolean isInAttackAngle(@NotNull Unit unit, int positionX, int positionY, int weapon) {
-        if (this.game.getBaseType(unit) == ScrUnitIds.ZERG_LURKER) {
-            throw Exceptions.newIllegalStateException("A Lurker has no attack-angle check.");
-        }
-
         Sprite sprite = unit.requireSprite();
         int direction = FlingyMotionUtils.calculateDirection(positionX - sprite.getX(), positionY - sprite.getY());
+
+        if (this.game.getBaseType(unit) == ScrUnitIds.ZERG_LURKER) {
+            unit.setHeading(direction);
+
+            return true;
+        }
 
         return Math.abs((byte) (direction - unit.getHeading())) <= this.game.requireGameData().getWeaponTypes().getAttackAngle(weapon);
     }
@@ -961,14 +965,14 @@ public final class UnitTargeting {
 
     /**
      * Returns the attack priority of an acquisition candidate, rejecting the unit itself and a target that is not a visible, attackable enemy
-     * within the acquisition distance or, for an attacker that cannot turn, within the attack angle of its ground weapon.
+     * within the acquisition distance or, for an attacker that cannot turn, within the attack angle of its ground weapon, the none weapon included.
      *
      * @param unit            the acquiring unit
      * @param target          the candidate
      * @param minimumDistance the acquisition minimum range
      * @param maximumDistance the acquisition distance
      * @return the attack priority of the candidate, or {@code -1} if the candidate is rejected
-     * @throws IllegalStateException if an attacker that cannot turn has no ground weapon, or its accepted target has no sprite
+     * @throws IllegalStateException if the accepted target of an attacker that cannot turn has no sprite
      */
     private int getCandidatePriority(@NotNull Unit unit, @NotNull Unit target, int minimumDistance, int maximumDistance) {
         if (target == unit || !this.isEnemy(unit, target) || !isVisible(unit, target) || !this.canAttackTarget(unit, target)) {
@@ -982,15 +986,9 @@ public final class UnitTargeting {
         Unit attackingUnit = this.getAttackingUnit(unit);
 
         if ((attackingUnit.getStatus() & UnitStatusFlags.CAN_TURN) == 0) {
-            int weapon = this.getGroundWeapon(attackingUnit);
-
-            if (weapon == ScrWeaponIds.NONE) {
-                throw Exceptions.newIllegalStateException("A fixed-direction attacker has no ground weapon.");
-            }
-
             Sprite targetSprite = target.requireSprite();
 
-            if (!this.isInAttackAngle(attackingUnit, targetSprite.getX(), targetSprite.getY(), weapon)) {
+            if (!this.isInAttackAngle(attackingUnit, targetSprite.getX(), targetSprite.getY(), this.getGroundWeapon(attackingUnit))) {
                 return -1;
             }
         }

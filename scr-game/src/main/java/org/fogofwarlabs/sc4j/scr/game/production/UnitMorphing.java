@@ -380,14 +380,14 @@ public final class UnitMorphing {
      * Replaces a unit's type while retaining its identity, owner, order and relationships.
      * <p>
      * Visible units leave spatial, footprint and flying-cell storage before accounting and type reinitialization. The rebuilt sprite is clamped and
-     * registered when visible. Cloak data, the selection images, the flash timer and sprite visibility survive; buildings drop cloak, existing
-     * turrets take the new turret type, and status-effect overlays are recreated.
+     * registered when visible. Cloak data, the selection images, the flash timer and sprite visibility survive; buildings drop cloak, an existing
+     * turret takes the new type's first subunit whatever it is, and status-effect overlays are recreated.
      *
      * @param unit             the morphing unit
      * @param replacementType  the new {@code units.dat} type
      * @param instructionLimit the sprite initialization and status overlay budget
      * @throws UnsupportedOperationException if accounting, the creation context, spatial, strength, graphics or path storage is missing
-     * @throws IllegalStateException         if the unit's sprite, a cloaked main image or the new type's turret is missing
+     * @throws IllegalStateException         if the unit's sprite or a cloaked main image is missing
      * @throws NullPointerException          if the world was built without game data
      */
     public void morph(@NotNull Unit unit, int replacementType, int instructionLimit) {
@@ -525,13 +525,8 @@ public final class UnitMorphing {
         Unit turret = unit.getSubunit();
 
         if (turret != null) {
-            // Reinitialize the turret as the new type's turret while retaining cloak data.
+            // Reinitialize the turret as the new type's first subunit while retaining cloak data.
             int turretType = units.getFirstSubunit(replacementType);
-
-            if (turretType == ScrUnitIds.NONE || (units.getFlags(turretType) & UnitTypeFlags.SUBUNIT) == 0) {
-                throw Exceptions.newIllegalStateException("Morph type {0} has no turret for the existing subunit.", replacementType);
-            }
-
             boolean turretRequiresDetector = (turret.getStatus() & UnitStatusFlags.REQUIRES_DETECTOR) != 0;
             boolean turretCloaked = (turret.getStatus() & UnitStatusFlags.CLOAKED) != 0;
             Sprite turretSprite = turret.requireSprite();
