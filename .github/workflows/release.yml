@@ -94,7 +94,7 @@ jobs:
           previous=$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_SHA^" 2>/dev/null || true)
           {
             echo "## What's Changed"
-            git log --no-merges --format='* %s' "${previous:+$previous..}$GITHUB_SHA" | grep -v '^\* Bump version to ' || true
+            git log --no-merges --format='* %s' "${previous:+$previous..}$GITHUB_SHA" | grep -v -e '^\* Bump version to ' -e '^\* Build against the engine ' || true
 
             if [ -n "$previous" ]; then
               echo
