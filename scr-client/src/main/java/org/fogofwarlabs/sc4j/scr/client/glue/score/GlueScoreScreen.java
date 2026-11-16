@@ -76,7 +76,6 @@ public final class GlueScoreScreen extends GlueScreen {
     private static final int BAR_SOLID_FRAME = 6;
     private static final int BAR_OUTLINE_FRAME = 9;
     private static final int FRAMES_PER_COLOR = 6;
-    private static final int CLASSIC_COLORS = 12;
     /**
      * The gray frame set (color {@code 6}: frames {@code 42} solid, {@code 45} outline) that the extended-color path tints.
      */
@@ -483,19 +482,10 @@ public final class GlueScoreScreen extends GlueScreen {
                            int shownRow, int column,
                            @NotNull DialogControl control,
                            float left, float top) throws IOException {
-        // Tint every shown bar when any shown player uses an extended color.
-        boolean tinted = false;
-
-        for (ScoreScreen.Row other : this.score.getShownRows()) {
-            tinted |= other.getColor() < 0 || other.getColor() >= CLASSIC_COLORS;
-        }
-
+        // A game that keeps its custom colors tints the gray bars with the player's custom color.
+        boolean tinted = row.isCustomColorShown();
         int colorIndex = tinted ? NEUTRAL_COLOR : row.getColor();
-        int tint = 0;
-
-        if (tinted) {
-            tint = this.getPlayerColor(row.getColor());
-        }
+        int tint = tinted ? row.getCustomColor() : 0;
 
         ScoreScreen.Counter counter = this.score.getCounter(shownRow, column);
         int full = control.getWidth();

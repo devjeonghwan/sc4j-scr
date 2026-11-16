@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.ImageIds;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitHallucination;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SelectionImages;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
@@ -190,6 +191,13 @@ public final class WorldSceneExtraction {
         if (colorRows != null) {
             colorRows.copyUnitRows(this.colorRowBytes);
             scene.setPlayerColorRows(this.colorRowBytes);
+
+            // The HD team color is the color the player is shown in, a custom color included.
+            for (int player = 0; player < PlayerTable.PLAYABLE_PLAYER_SLOTS; player++) {
+                if (colorRows.hasCustomColor(player)) {
+                    scene.setCustomTeamColor(player, colorRows.getCustomColor(player));
+                }
+            }
         }
 
         this.drawFoliage(scene, gameView, warnings);

@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.scr.client.ui.minimap;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.client.ui.PlayerColorUtils;
 import org.fogofwarlabs.sc4j.scr.client.world.ScrGameView;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
@@ -469,29 +470,20 @@ public final class MinimapImage {
     }
 
     /**
-     * Returns the team color in team mode, otherwise the live unit-color row or the tileset fallback color.
+     * Returns the team color in team mode, otherwise the color the player is shown in ({@link PlayerColorUtils#getPlayerColor}).
      *
      * @param view      the game view
      * @param assets    the tileset interface assets
      * @param player    the player slot
      * @param colorMode the Shift+Tab color mode
-     * @return the packed opaque {@code 0xRRGGBBAA} color
-     * @throws IOException if {@code tunit.pcx} cannot be read
+     * @return the packed {@code 0xRRGGBBAA} color
      */
-    public static int getPlayerColor(@NotNull ScrGameView view, @NotNull InterfaceAssets assets, int player, int colorMode) throws IOException {
-        Player slot = player < PlayerTable.PLAYER_SLOTS ? view.getPlayerTable().getPlayer(player) : null;
-
+    public static int getPlayerColor(@NotNull ScrGameView view, @NotNull InterfaceAssets assets, int player, int colorMode) {
         if (colorMode == TEAM_COLOR_MODE) {
-            return getTeamColor(slot);
+            return getTeamColor(player < PlayerTable.PLAYER_SLOTS ? view.getPlayerTable().getPlayer(player) : null);
         }
 
-        PlayerColorRows rows = player < PlayerTable.PLAYER_SLOTS ? view.getPlayerTable().getPlayerColorRows() : null;
-
-        if (rows != null) {
-            return assets.getPaletteColor(rows.getUnitColor(player, 0));
-        }
-
-        return assets.getUnitPlayerColor(slot != null ? slot.getColor() : player);
+        return PlayerColorUtils.getPlayerColor(view.getPlayerTable(), assets, player);
     }
 
     /**

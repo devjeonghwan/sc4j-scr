@@ -226,7 +226,6 @@ public final class InterfaceAssets {
     private final @NotNull Map<String, DdsGrpFile> sheets;
 
     private byte @Nullable [] wireframeColorTable;
-    private byte @Nullable [] unitColors;
     private byte @Nullable [] blinkColors;
     private int @Nullable [] minimapRemap;
 
@@ -255,7 +254,6 @@ public final class InterfaceAssets {
         this.sheets     = new HashMap<>();
 
         this.wireframeColorTable = null;
-        this.unitColors          = null;
         this.blinkColors         = null;
         this.minimapRemap        = null;
     }
@@ -502,25 +500,6 @@ public final class InterfaceAssets {
         return new AssetResolver(this.storage, set, this.skinFolder, ASSET_LOCALE);
     }
 
-
-    /**
-     * Returns a player color slot's unit color from the first entry of its unit-color remap row.
-     *
-     * @param playerColor the color slot
-     * @return the packed opaque {@code 0xRRGGBBAA} color
-     * @throws IOException if {@code game/tunit.pcx} cannot be read
-     */
-    public int getUnitPlayerColor(int playerColor) throws IOException {
-        byte[] colors = this.unitColors;
-
-        if (colors == null) {
-            colors          = RenderAssets.copyIndices(this.resources.loadSpriteSheet(ScrResourceKeys.ofPcx("game/tunit.pcx")),
-                                                       RenderAssets.REMAP_COLORS, 1);
-            this.unitColors = colors;
-        }
-
-        return this.getPaletteColor(colors[Math.clamp(playerColor, 0, RenderAssets.REMAP_ROWS - 1) * RenderAssets.REMAP_INDEX_COUNT] & BYTE_MASK);
-    }
 
     /**
      * Returns a minimap ping color without the player-color flag: {@code palette[tblink[row * 8 + 1]]}. {@code game/tblink.pcx} ({@code 152x1})

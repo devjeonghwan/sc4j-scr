@@ -9,6 +9,7 @@ import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogDefinition;
 import org.fogofwarlabs.sc4j.scr.client.ChatPrompt;
 import org.fogofwarlabs.sc4j.scr.client.cursor.GameCursor;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
+import org.fogofwarlabs.sc4j.scr.client.ui.PlayerColorUtils;
 import org.fogofwarlabs.sc4j.scr.client.ui.WebImageUtils;
 import org.fogofwarlabs.sc4j.scr.client.ui.command.ButtonDefinition;
 import org.fogofwarlabs.sc4j.scr.client.ui.command.CommandCard;
@@ -1598,11 +1599,13 @@ public final class ConsoleView implements AutoCloseable {
     }
 
     /**
-     * @param playerColor a player color slot
-     * @return the player's minimap color {@code 0xRRGGBBAA}, or {@code 0} before the assets are loaded
+     * @param players the player table
+     * @param player  the player slot
+     * @return the color the player is shown in ({@link PlayerColorUtils#getPlayerColor}) {@code 0xRRGGBBAA}, or {@code 0} before the assets are
+     * loaded
      */
-    public int getMinimapPlayerColor(int playerColor) {
-        return this.assets == null ? 0 : this.assets.getMinimapPlayerColor(playerColor);
+    public int getPlayerColor(@NotNull PlayerTable players, int player) {
+        return this.assets == null ? 0 : PlayerColorUtils.getPlayerColor(players, this.assets, player);
     }
 
     /**
@@ -2357,9 +2360,7 @@ public final class ConsoleView implements AutoCloseable {
         } else if (replay) {
             frame = HERO_WIREFRAME_FRAME;
 
-            Player owner = unit.getOwnerIndex() < PlayerTable.PLAYER_SLOTS ? model.getView().getPlayerTable().getPlayer(unit.getOwnerIndex()) : null;
-
-            tint = loaded.getMinimapPlayerColor(owner != null ? owner.getColor() : unit.getOwnerIndex());
+            tint = PlayerColorUtils.getPlayerColor(model.getView().getPlayerTable(), loaded, unit.getOwnerIndex());
 
             if ((status & UnitStatusFlags.HALLUCINATION) != 0) {
                 int red = Math.round((tint >>> PACKED_HIGH_BYTE_SHIFT) * WIREFRAME_COLOR_FACTOR);
@@ -4800,7 +4801,7 @@ public final class ConsoleView implements AutoCloseable {
             float[] itemLefts = this.statisticsItemLefts[index];
             float y = top + edge + index * rowHeight + css;
             float textY = y + (rowHeight - STATISTICS_ROW_GAP * css - font) / 2;
-            int nameColor = this.assets.getUnitPlayerColor(row.getColor());
+            int nameColor = PlayerColorUtils.getPlayerColor(view.getPlayerTable(), this.assets, row.getPlayer());
             String race = RACE_FOLDERS[Math.clamp(row.getRace(), 0, ScrRaceIds.PLAYABLE_COUNT - 1)];
             String used = Integer.toString(row.getSupplyUsed());
             float usedX = itemLefts[STATISTICS_SUPPLY_ITEM] + icon + STATISTICS_VALUE_GAP * css;
@@ -4894,7 +4895,7 @@ public final class ConsoleView implements AutoCloseable {
             this.drawWebImage("UIObserverThinBorderRight.png", left + width, y, PRODUCTION_BORDER_WIDTH * css, stripHeight);
             this.renderer.fillRectangle(left, y + PRODUCTION_PLAYER_MARGIN * css,
                                         PRODUCTION_PLAYER_WIDTH * css, PRODUCTION_PLAYER_HEIGHT * css,
-                                        this.assets.getUnitPlayerColor(row.getColor()));
+                                        PlayerColorUtils.getPlayerColor(view.getPlayerTable(), this.assets, row.getPlayer()));
 
             float x = left + PRODUCTION_STRIP_INSET * css;
             float top = y + (stripHeight - PRODUCTION_ITEM_EXTENT * css) / 2;

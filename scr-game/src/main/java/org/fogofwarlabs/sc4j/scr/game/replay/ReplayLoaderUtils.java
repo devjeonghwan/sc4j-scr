@@ -36,6 +36,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
@@ -99,6 +100,7 @@ public final class ReplayLoaderUtils {
         GameSetup.Builder setup = createSetup(replay, gameData, map, new LcgRandom((int) replay.getHeader().getRandomSeed()));
         Game game = Game.create(setup.build());
 
+        initializePlayerColors(game, replay, mapFile);
         loadPlayerUpgrades(game, replay.getHeader(), mapFile, false);
         game.getLocalVision().startReplayOrObserver();
         game.getRandom().setEnabled(0);
@@ -288,6 +290,8 @@ public final class ReplayLoaderUtils {
                 .build();
         Game game = Game.create(setup);
 
+        initializePlayerColors(game, replay, mapFile);
+
         // The game's own DAT memory (EUD writes change it as SC:R's DAT arrays) is its engine content, which starts as the installed tables; the
         // running mod's content extensions write their values into it first, then a map-settings game writes the map's unit, upgrade and
         // technology settings, so the map's own values replace both, before anything reads it.
@@ -355,6 +359,23 @@ public final class ReplayLoaderUtils {
         }
 
         return game;
+    }
+
+    /**
+     * Supplies the player colors' game start inputs: every {@code COLR} section of a Brood War map, whose map loaders alone read the section, except
+     * in a game started from a saved game, whose scenario's section repeats the players' colors; and the game's custom colors.
+     */
+    private static void initializePlayerColors(@NotNull Game game, @NotNull ReplayFile replay, @NotNull ChkFile mapFile) {
+        List<byte[]> mapColors = new ArrayList<>();
+        int version = MapSettingsLoaderUtils.readVersion(mapFile);
+
+        if (!replay.isSavedGameStart() && (version == ChkFile.VERSION_BROOD_WAR || version == ChkFile.VERSION_REMASTERED_BROOD_WAR)) {
+            for (ChkSection section : mapFile.getSections(ChkFile.COLORS_SECTION)) {
+                mapColors.add(section.getPayload());
+            }
+        }
+
+        game.getPlayerTable().setStartColors(mapColors, replay.getCustomColors());
     }
 
     /**

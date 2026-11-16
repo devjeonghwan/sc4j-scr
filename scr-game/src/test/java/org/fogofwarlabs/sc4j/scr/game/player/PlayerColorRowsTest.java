@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 
 /**
- * Checks that EUD and renderers use the same live player color table.
+ * Checks that EUD and renderers use the same live player color table, which the map's {@code COLR} section remapped.
  */
 @RequiresInstallation
 final class PlayerColorRowsTest {
@@ -98,9 +98,14 @@ final class PlayerColorRowsTest {
             Assertions.assertNotNull(rows);
 
             int[][] tables = gameData.getPlayerColorTables();
+            byte[] mapColors = ChkFile.parseTolerant(mapContents).getSection(ChkFile.COLORS_SECTION);
+
+            Assertions.assertNotNull(mapColors);
 
             for (int player = 0; player < PlayerTable.PLAYABLE_PLAYER_SLOTS; player++) {
-                Player activePlayer = game.getPlayerTable().getPlayer(player);
+                // The map's COLR section names the slot whose row, as the players' colors filled it, the player takes.
+                int named = Byte.toUnsignedInt(mapColors[player]);
+                Player activePlayer = game.getPlayerTable().getPlayer(named < PlayerTable.PLAYER_SLOTS ? named : player);
 
                 Assertions.assertNotNull(activePlayer);
 

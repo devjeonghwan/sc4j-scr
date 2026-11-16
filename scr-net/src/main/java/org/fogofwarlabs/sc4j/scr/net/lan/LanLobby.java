@@ -8,6 +8,7 @@ import org.fogofwarlabs.sc4j.engine.net.lobby.*;
 import org.fogofwarlabs.sc4j.scr.content.ScrRaceIds;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.save.SaveGameInformation;
@@ -472,6 +473,10 @@ public final class LanLobby implements GameLobby {
      */
     static final int LOBBY_DATA_COLORS = 17;
     /**
+     * Lobby data: the custom color table of the eight slots, which holds the map color of a slot whose {@code CRGB} section fixes its own color.
+     */
+    private static final int LOBBY_DATA_CUSTOM_COLORS = 25;
+    /**
      * The color that is never available.
      */
     private static final int COLOR_RESERVED = 0xE;
@@ -614,6 +619,10 @@ public final class LanLobby implements GameLobby {
             byte[] colorSection = map.getSection(ChkFile.PLAYER_COLORS_SECTION);
 
             if (colorSection != null && colorSection.length == CRGB_SIZE) {
+                int[] mapColors = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+
+                Arrays.fill(mapColors, -1);
+
                 lobbyData[LOBBY_DATA_CUSTOM_COLOR_FLAG] = 1;
 
                 for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
@@ -631,9 +640,18 @@ public final class LanLobby implements GameLobby {
                     lobbyData[LOBBY_DATA_COLOR_LOCKS + slot] = 1;
 
                     if (mode == CRGB_MAP_COLOR) {
+                        int triple = slot * CRGB_TRIPLE_SIZE;
+
                         lobbyData[LOBBY_DATA_COLOR_KEPT + slot] = 1;
+                        mapColors[slot]                         = (colorSection[triple] & BYTE_MASK) << Short.SIZE |
+                                                                  (colorSection[triple + 1] & BYTE_MASK) << Byte.SIZE |
+                                                                  colorSection[triple + 2] & BYTE_MASK;
                     }
                 }
+
+                System.arraycopy(PlayerColorRows.encodeCustomColors(mapColors), 0,
+                                 lobbyData, LOBBY_DATA_CUSTOM_COLORS,
+                                 PlayerTable.PLAYABLE_PLAYER_SLOTS * PlayerColorRows.CUSTOM_COLOR_ENTRY_SIZE);
             } else if (options.getTypeId() == GameTemplate.TYPE_USE_MAP_SETTINGS) {
                 // Without the flag a Use Map Settings lobby keeps and locks every slot's map color (0x17).
                 Arrays.fill(lobbyData, LOBBY_DATA_COLOR_KEPT, LOBBY_DATA_COLOR_KEPT + PlayerTable.PLAYABLE_PLAYER_SLOTS, (byte) 1);
@@ -2112,11 +2130,15 @@ public final class LanLobby implements GameLobby {
             table.templateTeam[index] = index < PlayerTable.PLAYABLE_PLAYER_SLOTS ? gameSettings[SETTINGS_FORCES_OFFSET + index] & BYTE_MASK : 0;
         }
 
+        byte[] customColors = Arrays.copyOfRange(lobbyData, LOBBY_DATA_CUSTOM_COLORS, LOBBY_DATA_SIZE);
+
         for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
             table.selectableRace[slot] = gameSettings[SETTINGS_SELECTABLE_RACES_OFFSET + slot] != 0;
             table.lobbyColor[slot]     = lobbyData[LOBBY_DATA_COLORS + slot] & BYTE_MASK;
             table.colorLock[slot]      = lobbyData[LOBBY_DATA_COLOR_LOCKS + slot] != 0;
             table.colorKept[slot]      = lobbyData[LOBBY_DATA_COLOR_KEPT + slot] != 0;
+            // A kept slot's custom color entry holds its map color.
+            table.mapColor[slot]       = table.colorKept[slot] ? PlayerColorRows.decodeCustomColor(customColors, slot) >>> Byte.SIZE : -1;
         }
 
         for (int force = 0; force < FORCES; force++) {

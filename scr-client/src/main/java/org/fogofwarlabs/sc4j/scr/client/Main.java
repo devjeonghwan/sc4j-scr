@@ -5005,7 +5005,7 @@ public final class Main {
             String tag = glueText == null ? "" : glueText.get(race >= 0 && race < ScrRaceIds.PLAYABLE_COUNT ? tags[race] : "tag_random");
 
             rows.add(new VisionDialog.Row(player.getSlotId(), "[" + tag + "] " + player.getName(),
-                                          this.consoleView.getMinimapPlayerColor(record != null ? record.getColor() : player.getSlotId())));
+                                          this.consoleView.getPlayerColor(this.requireSession().getView().getPlayerTable(), player.getSlotId())));
         }
 
         List<VisionDialog.Row> shuffled = ShuffleUtils.shuffle(rows, (int) this.requireSession().getReplay().getHeader().getRandomSeed(),
@@ -5030,9 +5030,8 @@ public final class Main {
         List<VisionDialog.Row> players = new ArrayList<>();
 
         for (int slot : current.getActivePlayers()) {
-            Player record = current.getView().getPlayerTable().requirePlayer(slot);
-
-            players.add(new VisionDialog.Row(slot, current.getPlayerName(slot), this.consoleView.getMinimapPlayerColor(record.getColor())));
+            players.add(new VisionDialog.Row(slot, current.getPlayerName(slot),
+                                             this.consoleView.getPlayerColor(current.getView().getPlayerTable(), slot)));
         }
 
         List<AllianceDialog.Row> rows = new ArrayList<>();

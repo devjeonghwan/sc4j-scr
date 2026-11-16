@@ -8,10 +8,10 @@ import org.fogofwarlabs.sc4j.engine.controller.ControllerSource;
 import org.fogofwarlabs.sc4j.engine.lockstep.*;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplaySession;
-import org.fogofwarlabs.sc4j.scr.game.session.setup.LobbyResolution;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.PlayerSlots;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.SavedGamePlayers;
@@ -325,6 +325,7 @@ public final class LiveGame {
         // The name table keeps the records' name bytes (computer nation names, non-ASCII players).
         this.replay.setPlayerNames(this.readNameBytes());
         this.replay.setSpeedOverrideIndex(setup.getSpeedOverrideIndex());
+        this.replay.setCustomColors(PlayerColorRows.encodeCustomColors(setup.getResolvedCustomColors()));
 
         this.localOutcome = 0;
 
@@ -1337,8 +1338,7 @@ public final class LiveGame {
 
         return new ReplayWriter(this.buildHeader(frames, false), ReplayWriter.encodeCommands(recorded), this.setup.getMapData(),
                                 ReplayWriter.encodeNames(names), new byte[ReplayWriter.SKIN_SIZE], this.getLimits(), ReplayWriter.CURRENT_FIX_FLAGS,
-                                this.setup.isNetwork() ? LobbyResolution.encodeCustomColors(this.setup.getResolvedColorIds())
-                                                       : new byte[ReplayWriter.CUSTOM_COLORS_SIZE],
+                                PlayerColorRows.encodeCustomColors(this.setup.getResolvedCustomColors()),
                                 ReplayWriter.encodeVersionBlock(GameRulesVersion.CURRENT_BUILD, unixSeconds),
                                 this.setup.getSpeedOverrideIndex()).write();
     }

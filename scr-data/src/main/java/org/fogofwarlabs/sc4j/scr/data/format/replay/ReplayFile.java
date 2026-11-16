@@ -340,6 +340,7 @@ public final class ReplayFile {
         ReplayLimits limits = new ReplayLimits();
         ReplayGameVersion gameVersion = ReplayGameVersion.absent();
         int speedOverrideIndex = 0;
+        byte[] customColors = null;
 
         // The seRS DWORD is an absolute extension offset, outside the encoded sections.
         if (replayIdentifierText.equals(EXTENDED_REPLAY_IDENTIFIER)) {
@@ -353,6 +354,7 @@ public final class ReplayFile {
                 limits             = readLimits(new Reader(data, (int) extensionOffset, data.length));
                 gameVersion        = readGameVersion(new Reader(data, (int) extensionOffset, data.length));
                 speedOverrideIndex = readSpeedOverrideIndex(new Reader(data, (int) extensionOffset, data.length));
+                customColors       = readCustomColors(new Reader(data, (int) extensionOffset, data.length));
                 reader             = new Reader(data, reader.getPosition(), (int) extensionOffset);
             }
         }
@@ -388,6 +390,7 @@ public final class ReplayFile {
         }
 
         file.speedOverrideIndex = speedOverrideIndex;
+        file.customColors       = customColors;
 
         if (nameSection != null) {
             file.playerNames = new byte[ReplayHeaderBuilder.PLAYER_COUNT][];
@@ -631,6 +634,35 @@ public final class ReplayFile {
         return speedOverrideIndex;
     }
 
+    /**
+     * Reads the custom color table of the tagged {@code CCLR} extension section.
+     *
+     * @param reader the reader at the extension sections
+     * @return the {@link ReplayWriter#CUSTOM_COLORS_SIZE}-byte table, or {@code null} when the section is absent
+     * @throws IOException if the section is malformed
+     */
+    private static byte @Nullable [] readCustomColors(@NotNull Reader reader) throws IOException {
+        byte[] customColors = null;
+
+        while (reader.getRemaining() >= EXTENSION_HEADER_SIZE) {
+            int sectionIdentifier = reader.readInt32();
+            int sectionSize = reader.readInt32();
+
+            if (sectionSize < 0 || sectionSize > reader.getRemaining()) {
+                break;
+            }
+
+            if (sectionIdentifier == CUSTOM_COLORS_TAG) {
+                customColors = readFixedSection(new Reader(reader.data, reader.getPosition(), reader.getPosition() + sectionSize),
+                                                ReplayWriter.CUSTOM_COLORS_SIZE);
+            }
+
+            reader.skip(sectionSize);
+        }
+
+        return customColors;
+    }
+
     private static byte @NotNull [] readFixedSection(@NotNull Reader reader, int size) throws IOException {
         long expectedChecksum = reader.readUnsigned32();
         int chunkCount = reader.readInt32();
@@ -860,6 +892,10 @@ public final class ReplayFile {
      * The game's speed override selector: the {@code XSPD} section's or a live game's, {@code 0} for none.
      */
     private int speedOverrideIndex;
+    /**
+     * The game's custom color table: the {@code CCLR} section's or a live game's, {@code null} for none.
+     */
+    private byte @Nullable [] customColors;
 
     /**
      * Creates a {@link ReplayFile} instance.
@@ -893,6 +929,7 @@ public final class ReplayFile {
         this.playerNames        = null;
         this.savedGameStart     = false;
         this.speedOverrideIndex = 0;
+        this.customColors       = null;
     }
 
     /**
@@ -1050,6 +1087,28 @@ public final class ReplayFile {
         this.speedOverrideIndex = speedOverrideIndex;
     }
 
+    /**
+     * @return a copy of the game's custom color table: the {@code CCLR} section's, or the one a live game set ({@link #setCustomColors}),
+     * {@code null} for none
+     */
+    public byte @Nullable [] getCustomColors() {
+        return this.customColors == null ? null : this.customColors.clone();
+    }
+
+    /**
+     * Sets the custom color table of a live game, which its game start takes.
+     *
+     * @param customColors the {@link ReplayWriter#CUSTOM_COLORS_SIZE}-byte table
+     * @throws IllegalArgumentException if the table has another size
+     */
+    public void setCustomColors(byte @NotNull [] customColors) {
+        if (customColors.length != ReplayWriter.CUSTOM_COLORS_SIZE) {
+            throw Exceptions.newIllegalArgumentException("The custom color table has {0} bytes, not {1}.", customColors.length,
+                                                         ReplayWriter.CUSTOM_COLORS_SIZE);
+        }
+
+        this.customColors = customColors.clone();
+    }
 
     /**
      * Marks the game this recording runs as one that starts from a saved game.

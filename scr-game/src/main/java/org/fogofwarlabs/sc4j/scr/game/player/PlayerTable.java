@@ -126,6 +126,14 @@ public final class PlayerTable {
      * Whether the first use filled {@link #playerColorRows}, which stays {@code null} if a player's color lies outside the {@code tunit.pcx} rows.
      */
     private boolean playerColorRowsCreated;
+    /**
+     * The map's {@code COLR} sections that remap the player color rows when they are filled.
+     */
+    private @NotNull List<byte[]> mapColorSections;
+    /**
+     * The custom color table the player color rows take when they are filled, or {@code null} for none.
+     */
+    private byte @Nullable [] customColorTable;
 
     /**
      * Creates a {@link PlayerTable} instance with empty slots.
@@ -147,6 +155,8 @@ public final class PlayerTable {
 
         this.playerColorRows        = null;
         this.playerColorRowsCreated = false;
+        this.mapColorSections       = List.of();
+        this.customColorTable       = null;
     }
 
     /**
@@ -414,8 +424,25 @@ public final class PlayerTable {
     }
 
     /**
-     * Returns the player color rows of the game context, filled from the players' colors on first use; EUD writes change them and every draw reads
-     * them.
+     * Sets the game start inputs of the player color rows: the map's {@code COLR} sections, which remap the rows in order once the players' colors
+     * filled them ({@link PlayerColorRows#applyMapColors}), and the game's custom colors ({@link PlayerColorRows#setCustomColors}).
+     *
+     * @param mapColorSections the {@code COLR} sections in map order
+     * @param customColors     the custom color table, or {@code null} for none
+     * @throws IllegalStateException if the rows are already filled
+     */
+    public synchronized void setStartColors(@NotNull List<byte[]> mapColorSections, byte @Nullable [] customColors) {
+        if (this.playerColorRowsCreated) {
+            throw Exceptions.newIllegalStateException("The player color rows are already filled.");
+        }
+
+        this.mapColorSections = List.copyOf(mapColorSections);
+        this.customColorTable = customColors;
+    }
+
+    /**
+     * Returns the player color rows of the game context, filled on first use from the players' colors and the start inputs
+     * ({@link #setStartColors}); EUD writes change them and every draw reads them.
      *
      * @return the rows, or {@code null} if a player's color lies outside the {@code tunit.pcx} rows
      * @throws NullPointerException if the rows are not created yet and the table was built without game data
@@ -428,7 +455,17 @@ public final class PlayerTable {
                 throw Exceptions.newNullPointerException("The player table was built without game data.");
             }
 
-            this.playerColorRows        = PlayerColorRows.create(gameData, this);
+            PlayerColorRows rows = PlayerColorRows.create(gameData, this);
+
+            if (rows != null) {
+                for (byte[] section : this.mapColorSections) {
+                    rows.applyMapColors(section);
+                }
+
+                rows.setCustomColors(this.customColorTable);
+            }
+
+            this.playerColorRows        = rows;
             this.playerColorRowsCreated = true;
         }
 

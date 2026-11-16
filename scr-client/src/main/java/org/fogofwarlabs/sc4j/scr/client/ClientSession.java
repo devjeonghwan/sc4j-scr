@@ -42,6 +42,7 @@ import org.fogofwarlabs.sc4j.scr.data.format.text.LegacyTextUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
@@ -69,6 +70,7 @@ import org.fogofwarlabs.sc4j.scr.net.lan.LanClient;
 import org.fogofwarlabs.sc4j.scr.net.provider.ProviderPeer;
 import org.fogofwarlabs.sc4j.scr.net.provider.ProviderSession;
 import org.fogofwarlabs.sc4j.scr.render.OverlayPass;
+import org.fogofwarlabs.sc4j.scr.render.RenderAssets;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -2170,7 +2172,9 @@ public final class ClientSession implements AutoCloseable {
                 this.textTables.install(messageLines);
             }
 
-            messageLines.setNameColors(slot -> this.getChatNameColor(messageState, slot));
+            byte[] chatPalette = this.gameData.loadTerrainPalette(this.mapFile.getTileset());
+
+            messageLines.setNameColors(slot -> getChatNameColor(messageState, chatPalette, slot));
             messageLines.setTeamForceNames(slot -> this.isTeamGame()
                                                    ? this.getForceDisplayName(messageState.getPlayerTable().requirePlayer(slot).getTeam())
                                                    : null);
@@ -2306,33 +2310,28 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Uses a network slot's resolved color when available, otherwise the player record's color.
+     * Returns the color a chat line names its sender in: the color the sender is shown in ({@link PlayerColorRows#getPlayerColor}).
      *
-     * @param target the game state
-     * @param slot   the sender slot
-     * @return the packed RGBA color, or {@code 0} if unavailable
+     * @param target  the game state
+     * @param palette the tileset's {@code .wpe} palette
+     * @param slot    the sender slot
+     * @return the packed {@code 0xRRGGBBAA} color, or {@code 0} if unavailable
      */
-    private int getChatNameColor(@NotNull Game target, int slot) {
-        int colorIdentifier = -1;
-        LiveGame game = this.liveGame;
+    private static int getChatNameColor(@NotNull Game target, byte @NotNull [] palette, int slot) {
+        PlayerColorRows rows = slot >= 0 && slot < PlayerTable.PLAYER_SLOTS ? target.getPlayerTable().getPlayerColorRows() : null;
 
-        if (game != null && game.getSetup().isNetwork()) {
-            int[] colorIdentifiers = game.getSetup().getResolvedColorIds();
-
-            if (slot >= 0 && slot < colorIdentifiers.length) {
-                colorIdentifier = colorIdentifiers[slot];
-            }
+        if (rows == null) {
+            return 0;
         }
 
-        Player player = slot >= 0 && slot < PlayerTable.PLAYER_SLOTS ? target.getPlayerTable().getPlayer(slot) : null;
+        return rows.getPlayerColor(slot, index -> {
+            int entry = index * RenderAssets.PALETTE_ENTRY_SIZE;
 
-        if (colorIdentifier < 0 && player != null) {
-            colorIdentifier = player.getColor();
-        }
-
-        int packedColor = LobbyResolution.getColorRgb(colorIdentifier);
-
-        return packedColor < 0 ? 0 : packedColor << Byte.SIZE | Byte.toUnsignedInt(OverlayPass.OPAQUE_ALPHA);
+            return Byte.toUnsignedInt(palette[entry]) << 3 * Byte.SIZE |
+                   Byte.toUnsignedInt(palette[entry + RenderAssets.PALETTE_GREEN]) << Short.SIZE |
+                   Byte.toUnsignedInt(palette[entry + RenderAssets.PALETTE_BLUE]) << Byte.SIZE |
+                   Byte.toUnsignedInt(OverlayPass.OPAQUE_ALPHA);
+        });
     }
 
     private void refreshPendingCommand() {
