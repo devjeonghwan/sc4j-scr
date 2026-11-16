@@ -4149,7 +4149,7 @@ public final class Main {
      *
      * @param quality the HD quality, or {@code null} for the classic graphics
      */
-    void selectGraphicsQuality(HdRenderAssets.@Nullable Quality quality) {
+    private void selectGraphicsQuality(HdRenderAssets.@Nullable Quality quality) {
         this.worldSkin.setQuality(quality);
 
         LOGGER.debug("RENDERER: " + (quality == null ? "classic" : quality.name()));
@@ -4214,14 +4214,10 @@ public final class Main {
     }
 
     /**
-     * Cycles classic, HD2 and HD graphics.
+     * Cycles classic, HD2 and HD graphics, persisted as the options popup's HD graphics are.
      */
     void cycleSceneQuality() {
-        HdRenderAssets.Quality quality = this.worldSkin.getQuality();
-
-        this.selectGraphicsQuality(quality == null
-                                   ? HdRenderAssets.Quality.HD2
-                                   : quality == HdRenderAssets.Quality.HD2 ? HdRenderAssets.Quality.HD : null);
+        this.glueState.cycleGraphics();
     }
 
     /**
@@ -4748,7 +4744,7 @@ public final class Main {
                     this.pendingLoadingShot = this.options.getInstallLayout().resolveUserPath(Path.of(arguments[0]));
                 }
 
-                this.selectGraphicsQuality(choice.getQuality());
+                this.glueState.selectGraphics(choice);
 
                 return "Graphics " + choice.getName() + ".";
             });

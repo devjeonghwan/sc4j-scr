@@ -34,13 +34,23 @@ public final class StatText {
      */
     public static final int RANK_BASE = 1300;
 
+    private static final @NotNull String SERVICE_NAME = "Battle.net";
+    private static final @NotNull String PRODUCT_NAME = "Beacon.Link";
     /**
-     * The substitution applied to every decoded interface string: the online service's name {@code Battle.net} is shown as
-     * {@code Beacon.Link} (SC4J's own online service). It applies at the one decode step of the installed string tables
-     * ({@link #decode}: {@code stat_txt}, {@code gluAll}, {@code network}, {@code RC3} and the campaign names), never to keys, file
+     * The registered sign the installed text puts after the service's name; Beacon.Link has none.
+     */
+    private static final @NotNull String REGISTERED_SIGN = "\u00AE";
+    private static final @NotNull NameSubstitution REGISTERED_NAME_SUBSTITUTION = new NameSubstitution(SERVICE_NAME + REGISTERED_SIGN, PRODUCT_NAME);
+    private static final @NotNull NameSubstitution NAME_SUBSTITUTION = new NameSubstitution(SERVICE_NAME, PRODUCT_NAME);
+
+    /**
+     * The substitution applied to every decoded interface string: the online service's name {@code Battle.net}, with or without its registered
+     * sign, is shown as {@code Beacon.Link} (SC4J's own online service, not a registered name). It applies at the one decode step of the installed
+     * string tables ({@link #decode}: {@code stat_txt}, {@code gluAll}, {@code network}, {@code RC3} and the campaign names), never to keys, file
      * names, protocol identifiers or text that a map or a player wrote; the domain name {@code battle.net} is kept.
      */
-    public static final @NotNull TextSubstitutionHook PRODUCT_NAME_SUBSTITUTION = new NameSubstitution("Battle.net", "Beacon.Link");
+    public static final @NotNull TextSubstitutionHook PRODUCT_NAME_SUBSTITUTION =
+            text -> NAME_SUBSTITUTION.substitute(REGISTERED_NAME_SUBSTITUTION.substitute(text));
 
     private static final int BUTTON_PREFIX_LENGTH = 2;
     private static final int UNICODE_ESCAPE_LENGTH = 6;

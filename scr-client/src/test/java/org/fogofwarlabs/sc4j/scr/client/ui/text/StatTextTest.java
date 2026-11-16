@@ -76,7 +76,7 @@ final class StatTextTest {
                 .getBytes(StandardCharsets.UTF_8);
         StatText text = StatText.parse(json);
 
-        Assertions.assertEquals("Beacon.Link®", text.getString(1));
+        Assertions.assertEquals("Beacon.Link", text.getString(1));
         Assertions.assertEquals("Log in to Beacon.Link\nnow", text.getString(2));
     }
 
