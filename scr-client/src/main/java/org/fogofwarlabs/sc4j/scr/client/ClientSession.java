@@ -1230,22 +1230,6 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Returns the raw bytes of a map string, with which a trigger naming a map file looks the file up.
-     *
-     * @param index the one-based string index ({@code 0} is no string)
-     * @return the undecoded string bytes, or an empty array for {@code 0} or an index outside the table
-     */
-    public byte @NotNull [] getMapStringBytes(int index) {
-        if (index <= 0) {
-            return new byte[0];
-        }
-
-        List<byte[]> strings = this.mapFile.getStringBytes();
-
-        return index <= strings.size() ? strings.get(index - 1).clone() : new byte[0];
-    }
-
-    /**
      * Returns the scenario's force name for the requested force.
      *
      * @param force the force index from {@code 0} through {@code 3}
@@ -2839,7 +2823,7 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Reads a file of the session's map archive named by the raw bytes of a map string ({@link #getMapStringBytes}).
+     * Reads a file of the session's map archive named by the raw bytes of a map string, such as the sound path of a trigger action.
      * <p>
      * The storage and the map archive are searched with the undecoded bytes, so CP949 and Windows-1252 names resolve in the archive. Never throws.
      *

@@ -3085,6 +3085,8 @@ public final class ConsoleView implements AutoCloseable {
      * Creates a {@link ListBox} instance for a popup's list control (type {@code 12}) on the console's dialog sheet, attaches it in the
      * place of the control the popup's dialog built ({@link ScrDialog#attach}) and draws it with the popup ({@link #drawPopup}) until
      * {@link #closePopupList}.
+     * <p>
+     * The list is transparent, without row bars or border, as the message history and keystroke help popups make their lists.
      *
      * @param dialog  the popup's dialog
      * @param control the list control, of the dialog's definition
@@ -3093,6 +3095,8 @@ public final class ConsoleView implements AutoCloseable {
      */
     public @NotNull ListBox openPopupList(@NotNull ScrDialog dialog, @NotNull DialogControl control) {
         ListBox list = dialog.attach(new ListBox(control, this.getDialogSheet()));
+
+        list.setTransparent(true);
 
         this.popupList = list;
 

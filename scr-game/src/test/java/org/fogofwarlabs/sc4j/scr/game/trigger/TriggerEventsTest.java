@@ -29,7 +29,7 @@ final class TriggerEventsTest {
     void present_should_present_the_failure_notice_once_when_no_trigger_update_follows() {
         TriggerEvents events = new TriggerEvents();
         List<Integer> notices = new ArrayList<>();
-        TriggerEvents.Presenter presenter = (kind, first, second, third, fourth) -> {
+        TriggerEvents.Presenter presenter = (kind, first, second, third, fourth, path) -> {
             if (kind == TriggerEvents.EUD_FAILURE_NOTICE) {
                 notices.add(second);
             }
@@ -49,7 +49,7 @@ final class TriggerEventsTest {
     void present_should_retain_the_batch_when_presentation_fails() {
         TriggerEvents events = new TriggerEvents();
         IllegalStateException failure = Exceptions.newIllegalStateException("The presentation failed.");
-        TriggerEvents.Presenter presenter = (kind, first, second, third, fourth) -> {
+        TriggerEvents.Presenter presenter = (kind, first, second, third, fourth, path) -> {
             throw failure;
         };
 

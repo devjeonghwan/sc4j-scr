@@ -5171,16 +5171,10 @@ public final class Main {
     /**
      * Plays an available map WAV or transmission sound at full volume while sound effects are audible. Missing paths or files are silent.
      *
-     * @param stringIndex the map string of the sound path
+     * @param path the sound path the trigger action read ({@link TriggerEvents#getPath}), or {@code null}
      */
-    private void playTriggerSound(int stringIndex) {
-        if (!this.options.getSoundSettings().isSoundEffectsAudible()) {
-            return;
-        }
-
-        byte[] path = this.requireSession().getMapStringBytes(stringIndex);
-
-        if (path.length == 0) {
+    private void playTriggerSound(byte @Nullable [] path) {
+        if (!this.options.getSoundSettings().isSoundEffectsAudible() || path == null || path.length == 0) {
             return;
         }
 
@@ -5193,6 +5187,8 @@ public final class Main {
         PlayingSound sound = this.requireSession().playMapSound(data, ClientAudio.MAXIMUM_VOLUME);
 
         if (sound != null) {
+            // Finished sounds leave the list, so it holds at most the sounds the map sound channels play.
+            this.triggerSounds.removeIf(playing -> !playing.isPlaying());
             this.triggerSounds.add(sound);
         }
     }
@@ -5553,8 +5549,9 @@ public final class Main {
      * @param second the second event operand
      * @param third  the third event operand
      * @param fourth the fourth event operand
+     * @param path   the sound path of a sound event, {@code null} for other events
      */
-    private void presentTriggerEvent(int kind, int first, int second, int third, int fourth) {
+    private void presentTriggerEvent(int kind, int first, int second, int third, int fourth, byte @Nullable [] path) {
         switch (kind) {
             case TriggerEvents.CENTER_VIEW -> {
                 if (third == SMOOTH_CENTER_VIEW_FLAG) {
@@ -5580,7 +5577,7 @@ public final class Main {
                     this.consoleView.addMinimapPing(first, second, ConsoleView.ALERT_PING_COLOR, false);
                 }
             }
-            case TriggerEvents.WAV -> this.playTriggerSound(first);
+            case TriggerEvents.WAV -> this.playTriggerSound(path);
             case TriggerEvents.TRANSMISSION -> {
                 this.transmissionTimer.arm((int) UiClockUtils.getHostTimeMilliseconds(), fourth);
 
