@@ -15,6 +15,7 @@ import org.fogofwarlabs.sc4j.scr.client.ui.text.GluText;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrControlType;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
+import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceText;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -482,7 +483,9 @@ public final class OptionsPopup extends GluePopup {
             int itemLeft = this.left;
 
             for (int index = 0; index < items.size(); index++) {
-                String text = glueContext.getGluText().get(items.get(index));
+                String itemLabel = glueContext.getGluText().get(items.get(index));
+                // The button shows its label as the page does: without the hotkey character of a hotkey string (ScrControl.getDrawnString).
+                String text = InterfaceText.isHotkeyString(itemLabel) ? InterfaceText.stripHotkey(itemLabel) : itemLabel;
                 int itemWidth = RADIO_LABEL_LEFT + (int) Math.ceil(glueContext.getCanvas().measure(GlueCanvas.NORMAL_FONT, text));
 
                 if (itemLeft > this.left && itemLeft + itemWidth > this.left + this.width) {

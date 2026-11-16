@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.base.log.Logger;
 import org.fogofwarlabs.sc4j.engine.client.dialog.DialogStack;
 import org.fogofwarlabs.sc4j.engine.client.dialog.TextEditKey;
 import org.fogofwarlabs.sc4j.engine.client.dialog.TextEditOperation;
+import org.fogofwarlabs.sc4j.engine.client.host.PointerClip;
 import org.fogofwarlabs.sc4j.engine.client.input.*;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
 import org.fogofwarlabs.sc4j.scr.client.ui.command.CommandCard;
@@ -91,11 +92,6 @@ final class GameClientState implements InputListener {
 
     private static final int TILE_ROUNDING_BIAS = TerrainTileset.TILE_SIZE - 1;
     private static final int VIEW_HALF_DIVISOR = 2;
-
-    private static final int SCREEN_RECTANGLE_LEFT_INDEX = 0;
-    private static final int SCREEN_RECTANGLE_TOP_INDEX = 1;
-    private static final int SCREEN_RECTANGLE_RIGHT_INDEX = 2;
-    private static final int SCREEN_RECTANGLE_BOTTOM_INDEX = 3;
 
     /**
      * The in-game dialogs this state put into the client's dialog list.
@@ -565,33 +561,26 @@ final class GameClientState implements InputListener {
     }
 
     /**
-     * Confines an active minimap drag to its bitmap and updates the camera.
+     * Updates the camera from an active minimap drag; the pointer clip keeps the pointer on the minimap bitmap ({@link #getPointerClip}).
      */
     private void dragMinimap() {
         if (!this.minimapDragging || this.main.consoleView == null || this.main.session == null) {
             return;
         }
 
-        // The OS cursor is confined to the minimap bitmap during the drag.
-        float[] minimapScreenRectangle = this.main.consoleView.getMinimapScreenRectangle();
-
-        if (minimapScreenRectangle != null && !this.main.options.isNoGrab() && !this.main.options.isHidden()) {
-            float screenX = Math.clamp(this.main.pointerHorizontal,
-                                       minimapScreenRectangle[SCREEN_RECTANGLE_LEFT_INDEX],
-                                       minimapScreenRectangle[SCREEN_RECTANGLE_RIGHT_INDEX] - 1);
-            float screenY = Math.clamp(this.main.pointerVertical,
-                                       minimapScreenRectangle[SCREEN_RECTANGLE_TOP_INDEX],
-                                       minimapScreenRectangle[SCREEN_RECTANGLE_BOTTOM_INDEX] - 1);
-
-            if (screenX != this.main.pointerHorizontal || screenY != this.main.pointerVertical) {
-                this.main.pointerHorizontal = screenX;
-                this.main.pointerVertical   = screenY;
-
-                this.main.moveWindowPointer(screenX, screenY);
-            }
-        }
-
         this.followMinimap();
+    }
+
+    /**
+     * Returns the clip of the captured pointer: the minimap bitmap during a minimap drag, the game screen otherwise.
+     *
+     * @param screenClip the game screen's clip
+     * @return the clip in screen pixels
+     */
+    @NotNull PointerClip getPointerClip(@NotNull PointerClip screenClip) {
+        PointerClip minimapClip = this.minimapDragging && this.main.consoleView != null ? this.main.consoleView.getMinimapClip() : null;
+
+        return minimapClip != null ? minimapClip : screenClip;
     }
 
     /**

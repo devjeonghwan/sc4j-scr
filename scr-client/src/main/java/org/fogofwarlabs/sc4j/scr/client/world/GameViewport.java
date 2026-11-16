@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr.client.world;
 
 import org.fogofwarlabs.sc4j.engine.client.display.LetterboxFit;
 import org.fogofwarlabs.sc4j.engine.client.display.UiSurface;
+import org.fogofwarlabs.sc4j.engine.client.host.PointerClip;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
 import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceTransform;
 import org.jetbrains.annotations.NotNull;
@@ -104,6 +105,7 @@ public final class GameViewport implements InterfaceTransform {
     private float gameLeft;
     private float gameRight;
     private float playRows;
+    private @NotNull PointerClip screenClip;
 
     /**
      * Creates a {@link GameViewport} instance with the original interface width and unit scale.
@@ -123,9 +125,10 @@ public final class GameViewport implements InterfaceTransform {
         this.interfaceTop   = 0;
         this.extension      = 0;
 
-        this.gameLeft  = 0;
-        this.gameRight = 0;
-        this.playRows  = 0;
+        this.gameLeft   = 0;
+        this.gameRight  = 0;
+        this.playRows   = 0;
+        this.screenClip = PointerClip.of(0, 0, 0, 0);
     }
 
     /**
@@ -206,6 +209,17 @@ public final class GameViewport implements InterfaceTransform {
      */
     public float getGameWidth() {
         return this.gameRight - this.gameLeft;
+    }
+
+    /**
+     * Returns the game screen as the window's pointer clip: its columns and the whole window height in screen pixels. The mouse confinement keeps
+     * the cursor in it (the native {@code ClipCursor}), so the bars beside a pillarboxed frame are outside; it follows every window size, graphics
+     * mode and aspect setting.
+     *
+     * @return the game screen's clip, recomputed with the geometry
+     */
+    public @NotNull PointerClip getScreenClip() {
+        return this.screenClip;
     }
 
     /**
@@ -471,5 +485,11 @@ public final class GameViewport implements InterfaceTransform {
             this.gameRight = this.windowWidth;
             this.playRows  = this.windowHeight;
         }
+
+        // A window without a size (minimized) gives no finite game screen; the clip then holds nothing.
+        boolean finite = Float.isFinite(this.gameLeft) && Float.isFinite(this.gameRight);
+
+        this.screenClip = finite ? PointerClip.of(this.gameLeft, 0, Math.max(this.gameLeft, this.gameRight), Math.max(0, this.windowHeight))
+                                 : PointerClip.of(0, 0, 0, 0);
     }
 }

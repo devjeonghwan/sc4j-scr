@@ -1091,6 +1091,10 @@ public final class Main {
     private final @NotNull CameraScroll cameraScroll;
 
     private @NotNull PointerMode pointerMode;
+    /**
+     * The pointer clip last set on the window ({@link #updatePointerClip}), or {@code null} for none.
+     */
+    private @Nullable PointerClip pointerClip;
 
     private final @NotNull List<PlayingSound> triggerSounds;
     /**
@@ -1375,6 +1379,7 @@ public final class Main {
         this.cameraScroll = new CameraScroll(SCROLL_EDGE_WIDTH, this.scrollRate);
 
         this.pointerMode = PointerMode.NORMAL;
+        this.pointerClip = null;
 
         this.triggerSounds      = new ArrayList<>();
         this.appliedEffectsGain = -1;
@@ -4027,6 +4032,23 @@ public final class Main {
     }
 
     /**
+     * Sets the window's pointer clip when it changes, as the native cursor clip ({@code ClipCursor}): the captured pointer stays in the game screen
+     * (the view rectangle of the shown mode and aspect) and, during a minimap drag, in the minimap.
+     *
+     * @param clip the clip in framebuffer pixels, or {@code null} for none
+     */
+    private void updatePointerClip(@Nullable PointerClip clip) {
+        HostWindow current = this.hostWindow;
+
+        if (current == null || Objects.equals(clip, this.pointerClip)) {
+            return;
+        }
+
+        current.setPointerClip(clip);
+        this.pointerClip = clip;
+    }
+
+    /**
      * Asks the client window to close, as its close button does; nothing happens without the window.
      */
     private void requestWindowClose() {
@@ -4278,6 +4300,8 @@ public final class Main {
     }
 
     private void closeConsole() {
+        this.updatePointerClip(null);
+
         if (this.systemCursorHidden || this.pointerMode != PointerMode.NORMAL) {
             this.requireHostWindow().setPointerMode(PointerMode.NORMAL);
 
@@ -4634,6 +4658,9 @@ public final class Main {
             this.requireHostWindow().setPointerMode(mode);
             this.pointerMode = mode;
         }
+
+        // The confinement clips the captured pointer to the game screen, not the window: the bars beside a 4:3 frame are outside it.
+        this.updatePointerClip(grab ? this.gameClientState.getPointerClip(this.gameViewport.getScreenClip()) : null);
 
         if (hardware) {
             this.blankCursorSet = false;

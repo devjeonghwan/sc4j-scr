@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.scr.client.world;
 import org.fogofwarlabs.sc4j.engine.client.display.DisplayScale;
 import org.fogofwarlabs.sc4j.engine.client.display.LetterboxFit;
 import org.fogofwarlabs.sc4j.engine.client.display.UiSurface;
+import org.fogofwarlabs.sc4j.engine.client.host.PointerClip;
 import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceTransform;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -45,6 +46,13 @@ final class GameViewportTest {
         viewport.setInterface(highDefinition, console, false);
 
         return viewport;
+    }
+
+    private static void assertClip(float left, float top, float right, float bottom, @NotNull PointerClip clip, float tolerance) {
+        Assertions.assertEquals(left, clip.getLeft(), tolerance);
+        Assertions.assertEquals(top, clip.getTop(), tolerance);
+        Assertions.assertEquals(right, clip.getRight(), tolerance);
+        Assertions.assertEquals(bottom, clip.getBottom(), tolerance);
     }
 
 
@@ -276,6 +284,29 @@ final class GameViewportTest {
                 Assertions.assertEquals(100, viewport.toInterfaceX(viewport.toScreenX(100)), FINE_TOLERANCE, label);
             }
         }
+    }
+
+    @Test
+    void screen_clip_should_be_the_pillarboxed_frame_and_follow_a_resize() {
+        // The classic 4:3 frame in a 1920x1080 window: the bars of 240 columns on each side are outside the cursor clip.
+        GameViewport viewport = createViewport(WIDE_WINDOW_WIDTH, WIDE_WINDOW_HEIGHT, false, true);
+
+        assertClip(240, 0, 1680, 1080, viewport.getScreenClip(), PIXEL_TOLERANCE);
+
+        // A resize to 1600x900 moves the clip with the frame.
+        viewport.setSurface(UiSurface.of(1600, 900, DisplayScale.ONE));
+
+        assertClip(200, 0, 1400, 900, viewport.getScreenClip(), PIXEL_TOLERANCE);
+
+        // The widescreen interface fills the 16:9 window, so the clip is the whole window.
+        viewport.setInterface(true, true, false);
+
+        assertClip(0, 0, 1600, 900, viewport.getScreenClip(), ROUNDING_TOLERANCE);
+
+        // A window narrower than 4:3 shows the frame over the whole width.
+        viewport.setSurface(UiSurface.of(TALL_WINDOW_WIDTH, TALL_WINDOW_HEIGHT, DisplayScale.ONE));
+
+        assertClip(0, 0, TALL_WINDOW_WIDTH, TALL_WINDOW_HEIGHT, viewport.getScreenClip(), PIXEL_TOLERANCE);
     }
 
     @Test

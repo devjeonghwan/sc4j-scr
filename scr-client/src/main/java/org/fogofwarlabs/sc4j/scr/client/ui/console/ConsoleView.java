@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.scr.client.ui.console;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.base.exception.IgnoreException;
 import org.fogofwarlabs.sc4j.engine.client.dialog.DialogKey;
+import org.fogofwarlabs.sc4j.engine.client.host.PointerClip;
 import org.fogofwarlabs.sc4j.engine.client.hud.MinimapPings;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogDefinition;
@@ -4400,11 +4401,11 @@ public final class ConsoleView implements AutoCloseable {
     }
 
     /**
-     * Returns the screen rectangle of the minimap bitmap, for the drag confinement.
+     * Returns the screen rectangle of the minimap bitmap as the window's pointer clip, for the drag confinement.
      *
-     * @return {@code {left, top, right, bottom}} in screen pixels (exclusive right and bottom), or {@code null}
+     * @return the clip in screen pixels, or {@code null} without a console or minimap
      */
-    public float @Nullable [] getMinimapScreenRectangle() {
+    public @Nullable PointerClip getMinimapClip() {
         ConsoleLayout console = this.layout;
         MinimapImage image = this.minimapImage;
 
@@ -4416,8 +4417,8 @@ public final class ConsoleView implements AutoCloseable {
         int left = getMinimapLeft(area, image);
         int top = getMinimapTop(area, image);
 
-        return new float[]{console.toScreenX(left), console.toScreenY(top),
-                           console.toScreenX(left + image.getWidth()), console.toScreenY(top + image.getHeight())};
+        return PointerClip.of(console.toScreenX(left), console.toScreenY(top),
+                              console.toScreenX(left + image.getWidth()), console.toScreenY(top + image.getHeight()));
     }
 
     /**

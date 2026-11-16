@@ -78,6 +78,10 @@ public final class InterfaceText {
      */
     private static final char CENTER_ALIGN_CODE = 0x13;
     /**
+     * Inline code {@code 0x04} before the hotkey letter of a hotkey string ({@link #isHotkeyString}).
+     */
+    private static final char HOTKEY_COLOR_CODE = 0x04;
+    /**
      * The layout control characters: tab, line feed, form feed, carriage return, substitute and space.
      */
     private static final char TAB = '\t';
@@ -951,6 +955,33 @@ public final class InterfaceText {
      */
     public static boolean isHotkey(@NotNull String text, char key) {
         return !text.isEmpty() && Character.toLowerCase(text.charAt(0)) == Character.toLowerCase(key);
+    }
+
+    /**
+     * Tests whether a string carries a hotkey prefix: its first character is the hotkey, and the rest marks the same letter, ignoring case, with
+     * the hotkey color code {@code 0x04} ({@code l<04>L<01>ow}, {@code e<04>E<01>xtra High}, {@code lLow (<04>L<01>)} with a translated label).
+     * The page strings of the installed tables use it without a {@code WS_HOTKEY} control; the page shows the label without the hotkey character
+     * and the marked letter highlighted.
+     *
+     * @param text a string
+     * @return {@code true} if the first character is the string's hotkey, {@code false} otherwise
+     */
+    public static boolean isHotkeyString(@NotNull String text) {
+        if (text.isEmpty()) {
+            return false;
+        }
+
+        int first = text.codePointAt(0);
+        int hotkey = Character.toLowerCase(first);
+
+        for (int index = text.indexOf(HOTKEY_COLOR_CODE, Character.charCount(first)); index >= 0 && index + 1 < text.length();
+             index = text.indexOf(HOTKEY_COLOR_CODE, index + 1)) {
+            if (Character.toLowerCase(text.codePointAt(index + 1)) == hotkey) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 
