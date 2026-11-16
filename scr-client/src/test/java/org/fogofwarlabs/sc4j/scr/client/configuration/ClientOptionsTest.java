@@ -257,7 +257,7 @@ final class ClientOptionsTest {
 
     @Test
     void parse_should_select_renderer_quality_and_reject_unknown_renderer() {
-        Assertions.assertNull(ClientOptions.parse(new String[0]).getSceneQuality());
+        Assertions.assertEquals(HdRenderAssets.Quality.HD, ClientOptions.parse(new String[]{"--settings", "none"}).getSceneQuality());
         Assertions.assertNull(ClientOptions.parse(new String[]{"--renderer", "classic"}).getSceneQuality());
         Assertions.assertEquals(HdRenderAssets.Quality.HD2, ClientOptions.parse(new String[]{"--renderer", "hd2"}).getSceneQuality());
         Assertions.assertEquals(HdRenderAssets.Quality.HD, ClientOptions.parse(new String[]{"--renderer", "hd"}).getSceneQuality());

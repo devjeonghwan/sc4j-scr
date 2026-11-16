@@ -3,10 +3,7 @@ package org.fogofwarlabs.sc4j.scr.client.glue.score;
 import org.fogofwarlabs.sc4j.scr.client.ui.console.ConsoleLayout;
 import org.fogofwarlabs.sc4j.scr.client.world.ScrGameView;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommand;
-import org.fogofwarlabs.sc4j.scr.game.player.Player;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerScores;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
-import org.fogofwarlabs.sc4j.scr.game.player.UnitAccounting;
+import org.fogofwarlabs.sc4j.scr.game.player.*;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceTimers;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -170,6 +167,14 @@ public final class ScoreScreen {
         private final int race;
         private final int color;
         private final boolean computer;
+        /**
+         * Whether the player is shown in {@link #customColor}: the game keeps its custom colors.
+         */
+        private final boolean customColorShown;
+        /**
+         * The packed {@code 0xRRGGBBAA} custom color.
+         */
+        private final int customColor;
 
         private final long @NotNull [] @NotNull [] values;
 
@@ -205,12 +210,38 @@ public final class ScoreScreen {
                    int color,
                    boolean computer,
                    long @NotNull [] @NotNull [] values) {
-            this.player    = player;
-            this.name      = name;
-            this.forceName = forceName;
-            this.race      = race;
-            this.color     = color;
-            this.computer  = computer;
+            this(player, name, forceName, race, color, false, 0, computer, values);
+        }
+
+        /**
+         * Creates a {@link Row} instance.
+         *
+         * @param player           the slot
+         * @param name             the shown name
+         * @param forceName        the force name shown under the player name, or an empty string
+         * @param race             {@code 0} Zerg, {@code 1} Terran, {@code 2} Protoss
+         * @param color            the player color index
+         * @param customColorShown whether the player is shown in its custom color
+         * @param customColor      the packed {@code 0xRRGGBBAA} custom color
+         * @param computer         whether the player is a computer (no team bonus in the sort)
+         * @param values           per tab: the three column values and the row score
+         */
+        public Row(int player,
+                   @NotNull String name,
+                   @NotNull String forceName,
+                   int race,
+                   int color,
+                   boolean customColorShown, int customColor,
+                   boolean computer,
+                   long @NotNull [] @NotNull [] values) {
+            this.player           = player;
+            this.name             = name;
+            this.forceName        = forceName;
+            this.race             = race;
+            this.color            = color;
+            this.customColorShown = customColorShown;
+            this.customColor      = customColor;
+            this.computer         = computer;
 
             this.values = values;
         }
@@ -248,6 +279,20 @@ public final class ScoreScreen {
          */
         public int getColor() {
             return this.color;
+        }
+
+        /**
+         * @return {@code true} if the player is shown in {@link #getCustomColor}, {@code false} if in its color index
+         */
+        public boolean isCustomColorShown() {
+            return this.customColorShown;
+        }
+
+        /**
+         * @return the packed {@code 0xRRGGBBAA} custom color
+         */
+        public int getCustomColor() {
+            return this.customColor;
         }
 
         /**
@@ -392,6 +437,8 @@ public final class ScoreScreen {
             return collected;
         }
 
+        PlayerColorRows colors = view.getPlayerTable().getPlayerColorRows();
+
         for (int player = 0; player < MAXIMUM_ROWS; player++) {
             Player record = view.getPlayerTable().getPlayer(player);
 
@@ -434,7 +481,17 @@ public final class ScoreScreen {
             int force = record.getTeam();
             String forceName = forceNames != null && force >= 1 && force <= forceNames.length ? forceNames[force - 1] : "";
 
-            collected.add(new Row(player, name, forceName, record.getRace(), record.getColor(), computer, values));
+            // A slot's color permutation entry names the map color the score shows, where the map's COLR section gave one.
+            int color = record.getColor();
+
+            if (colors != null && color >= 0 && color < PlayerTable.PLAYABLE_PLAYER_SLOTS && colors.getMapColor(color) != 0) {
+                color = colors.getMapColor(color);
+            }
+
+            boolean custom = colors != null && colors.hasCustomColor(player);
+
+            collected.add(new Row(player, name, forceName, record.getRace(), color, custom, custom ? colors.getCustomColor(player) : 0, computer,
+                                  values));
         }
 
         return collected;

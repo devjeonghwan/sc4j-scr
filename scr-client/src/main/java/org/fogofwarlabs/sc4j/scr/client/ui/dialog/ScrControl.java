@@ -266,12 +266,12 @@ public class ScrControl extends Control {
     /**
      * @param controlTexts resolves a content key through the control strings
      * @return the drawn string: without the hotkey character of a {@code WS_HOTKEY} string, a set text too (skips the first
-     * character of every {@code WS_HOTKEY} control string)
+     * character of every {@code WS_HOTKEY} control string), and of a page control's hotkey string ({@link #hasHotkey})
      */
     public @NotNull String getDrawnString(@NotNull Function<String, String> controlTexts) {
         String text = this.getControlString(controlTexts);
 
-        if (ScrDialogControlUtils.hasFlag(this.getDefinition(), HOTKEY_FLAG) && !text.isEmpty()) {
+        if (this.hasHotkey(text)) {
             return InterfaceText.stripHotkey(text);
         }
 
@@ -281,10 +281,30 @@ public class ScrControl extends Control {
     /**
      * @param key          the character
      * @param controlTexts resolves a content key through the control strings
-     * @return {@code true} if the control has the {@code WS_HOTKEY} flag and its string starts with the key, {@code false} otherwise
+     * @return {@code true} if the control's string has a hotkey ({@link #hasHotkey}) and starts with the key, {@code false} otherwise
      */
     public boolean isHotkey(char key, @NotNull Function<String, String> controlTexts) {
-        return ScrDialogControlUtils.hasFlag(this.getDefinition(), HOTKEY_FLAG) && InterfaceText.isHotkey(this.getControlString(controlTexts), key);
+        String text = this.getControlString(controlTexts);
+
+        return this.hasHotkey(text) && InterfaceText.isHotkey(text, key);
+    }
+
+    /**
+     * Tests whether the control's string starts with its hotkey: a dialog control by its {@code WS_HOTKEY} flag, a page control
+     * ({@link WebPanelStyleUtils#FLAG}) by the string itself, as the pages read every installed string ({@link InterfaceText#isHotkeyString}).
+     *
+     * @param text the control's string
+     * @return {@code true} if the first character is the hotkey, {@code false} otherwise
+     */
+    private boolean hasHotkey(@NotNull String text) {
+        DialogControl definition = this.getDefinition();
+
+        if (text.isEmpty()) {
+            return false;
+        }
+
+        return ScrDialogControlUtils.hasFlag(definition, HOTKEY_FLAG) ||
+               ScrDialogControlUtils.hasFlag(definition, WebPanelStyleUtils.FLAG) && InterfaceText.isHotkeyString(text);
     }
 
     /**

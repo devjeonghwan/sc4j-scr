@@ -51,7 +51,7 @@ final class GlueState implements InputListener {
     private static final @NotNull String REPLAY_LOAD_ERROR = "strERROR_LOAD_MAP";
 
     /**
-     * Selects the graphics of the whole client (the F5 path, {@code Main.selectGraphicsQuality}).
+     * Selects the graphics of the whole client ({@code Main.selectGraphicsQuality}).
      */
     interface GraphicsSelection {
         /**
@@ -83,10 +83,6 @@ final class GlueState implements InputListener {
         private static final @NotNull String GROUP = "createGame";
         private static final @NotNull String TYPE = "type";
 
-        /**
-         * The renderer option value of the classic graphics.
-         */
-        private static final @NotNull String CLASSIC_RENDERER = "classic";
         /**
          * The start-only setting of the sound set.
          */
@@ -261,11 +257,7 @@ final class GlueState implements InputListener {
                 case ClientSettings.ORIGINAL_ASPECT_RATIO_KEY -> this.graphics.isOriginalAspectRatio();
                 case GAMMA -> this.graphics.getGamma();
                 case WINDOW_MODE -> this.graphics.getWindowMode();
-                case RENDERER -> {
-                    HdRenderAssets.Quality quality = this.selection.getQuality();
-
-                    yield quality == null ? CLASSIC_RENDERER : quality.name().toLowerCase(Locale.ROOT);
-                }
+                case RENDERER -> GraphicsChoice.of(this.selection.getQuality()).getName();
                 case GAME_SPEED -> this.launch.getGameSpeed();
                 case MUSIC_VOLUME -> this.sound.getMusicVolume();
                 case MUSIC_ENABLED -> this.sound.isMusicEnabled();
@@ -584,6 +576,28 @@ final class GlueState implements InputListener {
      */
     void setWindowMode(int windowMode) {
         this.settings.setOption(FileSettings.WINDOW_MODE, windowMode);
+    }
+
+    /**
+     * Selects the graphics, which are applied and persisted as the options popup's HD graphics are.
+     *
+     * @param choice the graphics
+     */
+    void selectGraphics(@NotNull GraphicsChoice choice) {
+        this.settings.setOption(FileSettings.RENDERER, choice.getName());
+    }
+
+    /**
+     * Selects the graphics after the shown ones in the F5 cycle, applied and persisted as {@link #selectGraphics} does.
+     *
+     * @return the selected graphics
+     */
+    @NotNull GraphicsChoice cycleGraphics() {
+        GraphicsChoice next = GraphicsChoice.of(this.settings.selection.getQuality()).getNext();
+
+        this.selectGraphics(next);
+
+        return next;
     }
 
     /**

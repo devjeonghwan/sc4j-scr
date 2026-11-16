@@ -4,6 +4,7 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.base.log.Logger;
 import org.fogofwarlabs.sc4j.engine.client.audio.*;
 import org.fogofwarlabs.sc4j.engine.client.host.FrameTiming;
+import org.fogofwarlabs.sc4j.engine.resource.audio.SoundClip;
 import org.fogofwarlabs.sc4j.scr.client.world.ClientCamera;
 import org.fogofwarlabs.sc4j.scr.client.world.GameViewport;
 import org.fogofwarlabs.sc4j.scr.client.world.ScrGameView;
@@ -22,10 +23,16 @@ import java.util.Arrays;
 /**
  * Drains simulation sound events through the client's engine mixer with the SC:R channel rules: eight prioritized sound effect channels (one sound
  * of a single-instance definition and one speech line per unit type at a time, no restart of a definition within {@code 80} ms, nothing at a
- * volume of {@code 10} or below) and four channels for map sound files, on which the oldest sound gives way. Unavailable-file and device-failure
- * state is retained: missing or undecodable sounds are skipped, and repeated device failures disable output without stopping simulation.
+ * volume of {@code 10} or below) and the 128 channels of map sound files, on which a map sound without a free channel does not start. Unavailable-file
+ * and device-failure state is retained: missing or undecodable sounds are skipped, and repeated device failures disable output without stopping
+ * simulation.
  */
 public final class ClientSoundPlayback implements AutoCloseable {
+    /**
+     * The number of channels for map sound files, the native map sound slots; a new map sound takes over none of them.
+     */
+    public static final int DATA_CHANNEL_COUNT = 128;
+
     private static final @NotNull Logger LOGGER = Logger.of(ClientSoundPlayback.class);
 
     /**
@@ -62,11 +69,6 @@ public final class ClientSoundPlayback implements AutoCloseable {
     private static final int CHANNEL_COUNT = 8;
 
     /**
-     * The number of channels for map sound files.
-     */
-    private static final int DATA_CHANNEL_COUNT = 4;
-
-    /**
      * The minimum interval between starts of the same sound definition.
      */
     private static final long REPEAT_NANOSECONDS = 80_000_000L;
@@ -97,7 +99,7 @@ public final class ClientSoundPlayback implements AutoCloseable {
     private static final @NotNull SoundPositioning POSITIONING = new SoundPositioning(SCREEN_EDGE_VOLUME, VOLUME_FALLOFF_PIXELS, NO_PANNING);
 
     /**
-     * The cue of a map sound file: map sounds take the oldest channel and have no channel rules.
+     * The cue of a map sound file: of equal priority, so a playing map sound is never replaced ({@link PriorityChannelPolicy}).
      */
     private static final @NotNull SoundCue DATA_CUE = SoundCue.of(0);
 
@@ -247,6 +249,12 @@ public final class ClientSoundPlayback implements AutoCloseable {
      * The map sound channels, created by the first {@link #playData}.
      */
     private @Nullable SoundChannels data;
+    /**
+     * The last map sound file {@link #playData} decoded and its samples, which a start of the same file reuses so that the copies a trigger pass
+     * starts begin together.
+     */
+    private byte @Nullable [] decodedContents;
+    private @Nullable SoundClip decodedClip;
 
     /**
      * The uploaded samples of the installed sounds, kept until {@link #invalidate} or {@link #close()}.
@@ -273,6 +281,9 @@ public final class ClientSoundPlayback implements AutoCloseable {
         this.audio   = audio;
         this.effects = null;
         this.data    = null;
+
+        this.decodedContents = null;
+        this.decodedClip     = null;
 
         this.buffers    = new AudioBuffer[SfxdataDat.SOUND_COUNT];
         this.lastPlayed = new long[SfxdataDat.SOUND_COUNT];
@@ -586,8 +597,8 @@ public final class ClientSoundPlayback implements AutoCloseable {
     }
 
     /**
-     * Plays a WAVE or Ogg Vorbis file from outside the sound definitions (a map trigger sound) on one of the four map sound channels; its samples
-     * are released when the channel is reused or stopped. Never throws.
+     * Plays a WAVE or Ogg Vorbis file from outside the sound definitions (a map trigger sound) on a free map sound channel, if one is free; its
+     * samples are released when the channel is reused or stopped. Never throws.
      *
      * @param contents the sound file
      * @param volume   the volume from {@code 0} to {@code 100}
@@ -601,15 +612,23 @@ public final class ClientSoundPlayback implements AutoCloseable {
         }
 
         try {
-            WaveData wave = WaveData.decode(contents);
+            SoundClip clip = this.decodedClip;
+
+            if (clip == null || !Arrays.equals(contents, this.decodedContents)) {
+                clip = WaveData.decode(contents).toSoundClip();
+
+                this.decodedContents = contents;
+                this.decodedClip     = clip;
+            }
+
             SoundChannels channels = this.data;
 
             if (channels == null) {
-                channels  = output.getMixer().createChannels(output.getEffectsBus(), DATA_CHANNEL_COUNT, new OldestChannelPolicy());
+                channels  = output.getMixer().createChannels(output.getEffectsBus(), DATA_CHANNEL_COUNT, new PriorityChannelPolicy());
                 this.data = channels;
             }
 
-            AudioBuffer buffer = output.getMixer().createBuffer(wave.toSoundClip());
+            AudioBuffer buffer = output.getMixer().createBuffer(clip);
             PlayingSound sound = channels.play(DATA_CUE, buffer, true, ClientAudio.getGain(volume), CENTRE);
             this.consecutiveDeviceFailures = 0;
 
@@ -752,5 +771,8 @@ public final class ClientSoundPlayback implements AutoCloseable {
         this.data    = null;
         this.effects = null;
         this.audio   = null;
+
+        this.decodedContents = null;
+        this.decodedClip     = null;
     }
 }

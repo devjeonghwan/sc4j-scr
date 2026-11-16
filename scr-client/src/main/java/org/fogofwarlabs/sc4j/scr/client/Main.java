@@ -285,6 +285,11 @@ public final class Main {
     private static final int DEFAULT_NETWORK_TURNS_IN_TRANSIT = 3;
 
     /**
+     * The build identity of a client started without the SC4J runtime.
+     */
+    private static final @NotNull String UNKNOWN_BUILD = "unknown (client started without the SC4J runtime)";
+
+    /**
      * The network latency-message keys in latency order.
      */
     private static final @NotNull List<String> LATENCY_MESSAGES = List.of("strFIRSTLATENCY_s", "strFIRSTLATENCY_s-1", "strFIRSTLATENCY_s-2");
@@ -558,7 +563,7 @@ public final class Main {
 
         String[] launchArguments = CommandLineArgumentsUtils.recover(arguments);
 
-        start(ClientOptions.parse(launchArguments), launchArguments, null, null);
+        start(ClientOptions.parse(launchArguments), launchArguments, null, null, UNKNOWN_BUILD);
     }
 
     /**
@@ -573,28 +578,29 @@ public final class Main {
      *                     bounded replay load fails
      */
     public static void launch(@NotNull InstallLayout layout, @NotNull ScrResourceProvider resources, @NotNull String @NotNull [] arguments) throws IOException {
-        launch(layout, resources, null, arguments);
+        launch(layout, resources, null, UNKNOWN_BUILD, arguments);
     }
 
     /**
-     * Starts the client below a given root with the run's Beacon.Link, which the multiplayer menu offers next to LAN: as
-     * {@link #launch(InstallLayout, ScrResourceProvider, String[])}.
+     * Starts the client below a given root with the run's Beacon.Link, which the multiplayer menu offers next to LAN, and the run's build
+     * identity: as {@link #launch(InstallLayout, ScrResourceProvider, String[])}.
      *
      * @param layout     the client root and its folders
      * @param resources  the mod's resource provider, which the client context reads and closes
      * @param beaconLink the run's Beacon.Link, or {@code null} if the run offers none
+     * @param build      the run's build identity, which the desync dumps of network games name
      * @param arguments  the launch options; {@code --help} describes available options
      * @throws IOException if the data directory holds no data pack, the startup storage is missing or invalid, a screenshot cannot be written or a
      *                     bounded replay load fails
      */
     public static void launch(@NotNull InstallLayout layout, @NotNull ScrResourceProvider resources, @Nullable BeaconLink beaconLink,
-                              @NotNull String @NotNull [] arguments) throws IOException {
+                              @NotNull String build, @NotNull String @NotNull [] arguments) throws IOException {
         ConsoleOutputUtils.install();
-        start(ClientOptions.parse(arguments, layout), arguments, resources, beaconLink);
+        start(ClientOptions.parse(arguments, layout), arguments, resources, beaconLink, build);
     }
 
     private static void start(@NotNull ClientOptions options, @NotNull String @NotNull [] launchArguments,
-                              @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink) throws IOException {
+                              @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink, @NotNull String build) throws IOException {
         options.getInstallLayout().applyProcessProperties();
         Logging.setLevel(options.getLogLevel());
         installTextProbe(options.getInstallLayout());
@@ -629,7 +635,7 @@ public final class Main {
             return;
         }
 
-        new Main(options, resources, beaconLink).run();
+        new Main(options, resources, beaconLink, build).run();
         LOGGER.info("CLIENT END");
     }
 
@@ -637,18 +643,21 @@ public final class Main {
      * Starts a LAN game whose lobby counted down: the lobby's table resolves with the host's seed, the local player plays its own record, and the
      * game takes over the lobby's turn stream with three own turns in transit. The system property {@link #LAN_KEEP_ALIVE_PROPERTY} set to
      * {@code true} is a debug switch: turns then carry Keep Alive instead of Sync.
+     * <p>
+     * The game writes its desync dump to the desync folder ({@link LiveGame#setDesyncDumpTarget}).
      *
      * @param clientContext the client resources
      * @param request       the network game request of the lobby
      * @param gameDirectory the StarCraft: Remastered data folder
      * @param locale        the session locale, or {@code null} for the installed one
+     * @param build         the run's build identity, which the desync dump names
      * @return the started session
      * @throws IOException if the LAN game has no lobby or map, or the game cannot be loaded
      */
     private static @NotNull ClientSession startNetworkGame(@NotNull ClientContext clientContext,
                                                            @NotNull GlueGameRequest request,
                                                            @NotNull Path gameDirectory,
-                                                           @Nullable String locale) throws IOException {
+                                                           @Nullable String locale, @NotNull String build) throws IOException {
         LanClient lanClient = request.getLanClient();
         Path mapPath = request.getPath();
         LanLobby lobby = lanClient == null ? null : lanClient.getLobby();
@@ -672,6 +681,7 @@ public final class Main {
 
             started.attachNetworkChat(lanClient);
             started.setGameFlags(lanClient.getGameFlags());
+            setDesyncDumpTarget(started, clientContext, mapPath, build);
 
             return started;
         }
@@ -694,12 +704,23 @@ public final class Main {
 
         started.attachNetworkChat(lanClient);
         started.setGameFlags(lanClient.getGameFlags());
+        setDesyncDumpTarget(started, clientContext, mapPath, build);
 
         if (feed != null) {
             feed.attach(started);
         }
 
         return started;
+    }
+
+    private static void setDesyncDumpTarget(@NotNull ClientSession started, @NotNull ClientContext clientContext, @NotNull Path mapPath,
+                                            @NotNull String build) {
+        LiveGame liveGame = started.getLiveGame();
+        Path mapName = mapPath.getFileName();
+
+        if (liveGame != null) {
+            liveGame.setDesyncDumpTarget(clientContext.getInstallLayout().getDesyncDirectory(), mapName == null ? "" : mapName.toString(), build);
+        }
     }
 
     /**
@@ -973,6 +994,10 @@ public final class Main {
      */
     private final @NotNull BeaconLinkAccess beaconLink;
     /**
+     * The run's build identity, which the desync dumps of network games name.
+     */
+    private final @NotNull String build;
+    /**
      * The client resources for the whole run ({@link ClientContext}), opened on first use.
      */
     @Nullable ClientContext clientContext;
@@ -1066,6 +1091,10 @@ public final class Main {
     private final @NotNull CameraScroll cameraScroll;
 
     private @NotNull PointerMode pointerMode;
+    /**
+     * The pointer clip last set on the window ({@link #updatePointerClip}), or {@code null} for none.
+     */
+    private @Nullable PointerClip pointerClip;
 
     private final @NotNull List<PlayingSound> triggerSounds;
     /**
@@ -1186,17 +1215,18 @@ public final class Main {
      * @param resources the mod's resource provider, or {@code null} to open one from the game directory
      */
     Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources) {
-        this(options, resources, null);
+        this(options, resources, null, UNKNOWN_BUILD);
     }
 
     /**
-     * Creates a {@link Main} instance with the run's Beacon.Link.
+     * Creates a {@link Main} instance with the run's Beacon.Link and build identity.
      *
      * @param options    the configured launch and live client settings
      * @param resources  the mod's resource provider, or {@code null} to open one from the game directory
      * @param beaconLink the run's Beacon.Link, or {@code null} if the run offers none
+     * @param build      the run's build identity, which the desync dumps of network games name
      */
-    Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink) {
+    Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink, @NotNull String build) {
         this.clientHost = null;
 
         this.hostWindow = null;
@@ -1294,6 +1324,7 @@ public final class Main {
 
         this.resources     = resources;
         this.beaconLink    = new BeaconLinkAccess(beaconLink);
+        this.build         = build;
         this.clientContext = null;
 
         this.consoleView = null;
@@ -1348,6 +1379,7 @@ public final class Main {
         this.cameraScroll = new CameraScroll(SCROLL_EDGE_WIDTH, this.scrollRate);
 
         this.pointerMode = PointerMode.NORMAL;
+        this.pointerClip = null;
 
         this.triggerSounds      = new ArrayList<>();
         this.appliedEffectsGain = -1;
@@ -3499,7 +3531,7 @@ public final class Main {
                 Path gameDirectory = this.options.requireGameDirectory();
                 ClientContext context = this.requireClientContext();
 
-                return startNetworkGame(context, request, gameDirectory, this.options.getLocale());
+                return startNetworkGame(context, request, gameDirectory, this.options.getLocale(), this.build);
             }
             case SAVED_GAME -> {
                 if (map == null) {
@@ -4000,6 +4032,23 @@ public final class Main {
     }
 
     /**
+     * Sets the window's pointer clip when it changes, as the native cursor clip ({@code ClipCursor}): the captured pointer stays in the game screen
+     * (the view rectangle of the shown mode and aspect) and, during a minimap drag, in the minimap.
+     *
+     * @param clip the clip in framebuffer pixels, or {@code null} for none
+     */
+    private void updatePointerClip(@Nullable PointerClip clip) {
+        HostWindow current = this.hostWindow;
+
+        if (current == null || Objects.equals(clip, this.pointerClip)) {
+            return;
+        }
+
+        current.setPointerClip(clip);
+        this.pointerClip = clip;
+    }
+
+    /**
      * Asks the client window to close, as its close button does; nothing happens without the window.
      */
     private void requestWindowClose() {
@@ -4122,7 +4171,7 @@ public final class Main {
      *
      * @param quality the HD quality, or {@code null} for the classic graphics
      */
-    void selectGraphicsQuality(HdRenderAssets.@Nullable Quality quality) {
+    private void selectGraphicsQuality(HdRenderAssets.@Nullable Quality quality) {
         this.worldSkin.setQuality(quality);
 
         LOGGER.debug("RENDERER: " + (quality == null ? "classic" : quality.name()));
@@ -4187,14 +4236,10 @@ public final class Main {
     }
 
     /**
-     * Cycles classic, HD2 and HD graphics.
+     * Cycles classic, HD2 and HD graphics, persisted as the options popup's HD graphics are.
      */
     void cycleSceneQuality() {
-        HdRenderAssets.Quality quality = this.worldSkin.getQuality();
-
-        this.selectGraphicsQuality(quality == null
-                                   ? HdRenderAssets.Quality.HD2
-                                   : quality == HdRenderAssets.Quality.HD2 ? HdRenderAssets.Quality.HD : null);
+        this.glueState.cycleGraphics();
     }
 
     /**
@@ -4255,6 +4300,8 @@ public final class Main {
     }
 
     private void closeConsole() {
+        this.updatePointerClip(null);
+
         if (this.systemCursorHidden || this.pointerMode != PointerMode.NORMAL) {
             this.requireHostWindow().setPointerMode(PointerMode.NORMAL);
 
@@ -4612,6 +4659,9 @@ public final class Main {
             this.pointerMode = mode;
         }
 
+        // The confinement clips the captured pointer to the game screen, not the window: the bars beside a 4:3 frame are outside it.
+        this.updatePointerClip(grab ? this.gameClientState.getPointerClip(this.gameViewport.getScreenClip()) : null);
+
         if (hardware) {
             this.blankCursorSet = false;
         } else if (grab && inView != this.blankCursorSet) {
@@ -4721,7 +4771,7 @@ public final class Main {
                     this.pendingLoadingShot = this.options.getInstallLayout().resolveUserPath(Path.of(arguments[0]));
                 }
 
-                this.selectGraphicsQuality(choice.getQuality());
+                this.glueState.selectGraphics(choice);
 
                 return "Graphics " + choice.getName() + ".";
             });
@@ -5005,7 +5055,7 @@ public final class Main {
             String tag = glueText == null ? "" : glueText.get(race >= 0 && race < ScrRaceIds.PLAYABLE_COUNT ? tags[race] : "tag_random");
 
             rows.add(new VisionDialog.Row(player.getSlotId(), "[" + tag + "] " + player.getName(),
-                                          this.consoleView.getMinimapPlayerColor(record != null ? record.getColor() : player.getSlotId())));
+                                          this.consoleView.getPlayerColor(this.requireSession().getView().getPlayerTable(), player.getSlotId())));
         }
 
         List<VisionDialog.Row> shuffled = ShuffleUtils.shuffle(rows, (int) this.requireSession().getReplay().getHeader().getRandomSeed(),
@@ -5030,9 +5080,8 @@ public final class Main {
         List<VisionDialog.Row> players = new ArrayList<>();
 
         for (int slot : current.getActivePlayers()) {
-            Player record = current.getView().getPlayerTable().requirePlayer(slot);
-
-            players.add(new VisionDialog.Row(slot, current.getPlayerName(slot), this.consoleView.getMinimapPlayerColor(record.getColor())));
+            players.add(new VisionDialog.Row(slot, current.getPlayerName(slot),
+                                             this.consoleView.getPlayerColor(current.getView().getPlayerTable(), slot)));
         }
 
         List<AllianceDialog.Row> rows = new ArrayList<>();
@@ -5171,16 +5220,10 @@ public final class Main {
     /**
      * Plays an available map WAV or transmission sound at full volume while sound effects are audible. Missing paths or files are silent.
      *
-     * @param stringIndex the map string of the sound path
+     * @param path the sound path the trigger action read ({@link TriggerEvents#getPath}), or {@code null}
      */
-    private void playTriggerSound(int stringIndex) {
-        if (!this.options.getSoundSettings().isSoundEffectsAudible()) {
-            return;
-        }
-
-        byte[] path = this.requireSession().getMapStringBytes(stringIndex);
-
-        if (path.length == 0) {
+    private void playTriggerSound(byte @Nullable [] path) {
+        if (!this.options.getSoundSettings().isSoundEffectsAudible() || path == null || path.length == 0) {
             return;
         }
 
@@ -5193,6 +5236,8 @@ public final class Main {
         PlayingSound sound = this.requireSession().playMapSound(data, ClientAudio.MAXIMUM_VOLUME);
 
         if (sound != null) {
+            // Finished sounds leave the list, so it holds at most the sounds the map sound channels play.
+            this.triggerSounds.removeIf(playing -> !playing.isPlaying());
             this.triggerSounds.add(sound);
         }
     }
@@ -5553,8 +5598,9 @@ public final class Main {
      * @param second the second event operand
      * @param third  the third event operand
      * @param fourth the fourth event operand
+     * @param path   the sound path of a sound event, {@code null} for other events
      */
-    private void presentTriggerEvent(int kind, int first, int second, int third, int fourth) {
+    private void presentTriggerEvent(int kind, int first, int second, int third, int fourth, byte @Nullable [] path) {
         switch (kind) {
             case TriggerEvents.CENTER_VIEW -> {
                 if (third == SMOOTH_CENTER_VIEW_FLAG) {
@@ -5580,7 +5626,7 @@ public final class Main {
                     this.consoleView.addMinimapPing(first, second, ConsoleView.ALERT_PING_COLOR, false);
                 }
             }
-            case TriggerEvents.WAV -> this.playTriggerSound(first);
+            case TriggerEvents.WAV -> this.playTriggerSound(path);
             case TriggerEvents.TRANSMISSION -> {
                 this.transmissionTimer.arm((int) UiClockUtils.getHostTimeMilliseconds(), fourth);
 

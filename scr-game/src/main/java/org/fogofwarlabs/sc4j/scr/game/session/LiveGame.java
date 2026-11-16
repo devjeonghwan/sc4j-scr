@@ -2,16 +2,18 @@ package org.fogofwarlabs.sc4j.scr.game.session;
 
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.base.io.AtomicFileUtils;
 import org.fogofwarlabs.sc4j.base.log.Logger;
 import org.fogofwarlabs.sc4j.base.text.TerminatedStringUtils;
 import org.fogofwarlabs.sc4j.engine.controller.ControllerSource;
 import org.fogofwarlabs.sc4j.engine.lockstep.*;
+import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
+import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplaySession;
-import org.fogofwarlabs.sc4j.scr.game.session.setup.LobbyResolution;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.PlayerSlots;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.SavedGamePlayers;
@@ -26,6 +28,10 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -125,6 +131,15 @@ public final class LiveGame {
      */
     private static final int WAITING_LIST_LIMIT = 8;
 
+    /**
+     * The desync dump file name: date and time, then the map and the local player.
+     */
+    private static final @NotNull DateTimeFormatter DESYNC_FILE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final @NotNull String DESYNC_FILE_EXTENSION = ".txt";
+    private static final @NotNull String DESYNC_THREAD_NAME = "desync-dump";
+    private static final char FILE_NAME_REPLACEMENT = '_';
+    private static final char EXTENSION_SEPARATOR = '.';
+
     private static final int HEADER_ENGINE_STARCRAFT = 0;
     private static final int HEADER_ENGINE_BROOD_WAR = 1;
     private static final int HEADER_GAME_STATE = 1;
@@ -162,6 +177,32 @@ public final class LiveGame {
      */
     public static int readLatency(int value) {
         return Math.min(value & ~SILENT_LATENCY, MAXIMUM_LATENCY);
+    }
+
+    /**
+     * Converts a name to a file name part: characters a file name must not hold and control characters become {@code _}.
+     *
+     * @param name the name
+     * @return the file name part
+     */
+    private static @NotNull String toFileNamePart(@NotNull String name) {
+        StringBuilder part = new StringBuilder(name.length());
+
+        for (int index = 0; index < name.length(); index++) {
+            char character = name.charAt(index);
+
+            boolean replaced = Character.isISOControl(character) || FileNameUtils.BAD_CHARACTERS.indexOf(character) >= 0;
+
+            part.append(replaced ? FILE_NAME_REPLACEMENT : character);
+        }
+
+        return part.toString();
+    }
+
+    private static @NotNull String stripExtension(@NotNull String fileName) {
+        int separator = fileName.lastIndexOf(EXTENSION_SEPARATOR);
+
+        return separator > 0 ? fileName.substring(0, separator) : fileName;
     }
 
     private static byte @NotNull [] encodeSavedGameCommand(int typeId, int time, byte @NotNull [] name) {
@@ -240,6 +281,12 @@ public final class LiveGame {
      * Checks the received Sync commands against the local records and counts the mismatches.
      */
     private final @NotNull DesyncMonitor syncMonitor;
+    /**
+     * The folder of the desync dump, written at the first Sync mismatch ({@link #setDesyncDumpTarget}), or {@code null} for none.
+     */
+    private @Nullable Path desyncFolder;
+    private @NotNull String desyncMapName;
+    private @NotNull String desyncBuild;
     private boolean localCheatsAllowed;
 
     /**
@@ -325,6 +372,7 @@ public final class LiveGame {
         // The name table keeps the records' name bytes (computer nation names, non-ASCII players).
         this.replay.setPlayerNames(this.readNameBytes());
         this.replay.setSpeedOverrideIndex(setup.getSpeedOverrideIndex());
+        this.replay.setCustomColors(PlayerColorRows.encodeCustomColors(setup.getResolvedCustomColors()));
 
         this.localOutcome = 0;
 
@@ -346,6 +394,9 @@ public final class LiveGame {
         this.syncGame                = null;
         this.cameraRow               = null;
         this.syncMonitor             = new DesyncMonitor(this::checkSyncTurn, this::logSyncMismatch);
+        this.desyncFolder            = null;
+        this.desyncMapName           = "";
+        this.desyncBuild             = "";
         this.localCheatsAllowed      = false;
 
         Arrays.fill(this.pausesLeft, (byte) INITIAL_PAUSES);
@@ -605,6 +656,20 @@ public final class LiveGame {
         this.syncGame  = game;
         this.cameraRow = cameraRow;
         this.syncRing  = new SyncRing(this.localPlayer, this.isNetworkGame());
+    }
+
+    /**
+     * Sets where a network game writes its desync dump: at the first Sync mismatch, one plain-text file of the local simulation
+     * state (the compared record, the state it hashed and the current state) goes to the folder, written on a background thread.
+     *
+     * @param folder  the folder of the dump files
+     * @param mapName the map named in the file header and file name
+     * @param build   the build identity named in the file header
+     */
+    public void setDesyncDumpTarget(@NotNull Path folder, @NotNull String mapName, @NotNull String build) {
+        this.desyncFolder  = folder;
+        this.desyncMapName = mapName;
+        this.desyncBuild   = build;
     }
 
     /**
@@ -1166,7 +1231,8 @@ public final class LiveGame {
 
     /**
      * Logs a Sync mismatch: one by one up to {@link #MISMATCH_LOG_FIRST}, then one in {@link #MISMATCH_LOG_INTERVAL}, and
-     * the local record's hash inputs for the first {@link #MISMATCH_DETAIL_FIRST}.
+     * the local record's hash inputs for the first {@link #MISMATCH_DETAIL_FIRST}. The first mismatch also writes the desync dump
+     * ({@link #setDesyncDumpTarget}).
      *
      * @param received   the player's received turn, the peer its network id
      * @param frame      the frame about to execute
@@ -1189,6 +1255,66 @@ public final class LiveGame {
         if (mismatches <= MISMATCH_DETAIL_FIRST && ring != null) {
             LOGGER.warning("LAN GAME SYNC MISMATCH DETAIL: frame " + frame + ", local " + ring.describe(turn));
         }
+
+        if (mismatches == 1) {
+            this.writeDesyncDump(turn, frame, failure, playerId, senderSlot);
+        }
+    }
+
+    /**
+     * Writes the desync dump of the first Sync mismatch: the state is copied now, and the file is formatted and written on a
+     * background thread, which logs its path.
+     *
+     * @param turn       the received turn, which starts with the Sync command
+     * @param frame      the frame about to execute
+     * @param failure    the description of the mismatch
+     * @param playerId   the sender's network id
+     * @param senderSlot the sender's slot
+     */
+    private void writeDesyncDump(byte @NotNull [] turn, int frame, @NotNull String failure, int playerId, int senderSlot) {
+        SyncRing ring = this.syncRing;
+        Game state = this.syncGame;
+        Path folder = this.desyncFolder;
+
+        if (ring == null || state == null || folder == null) {
+            return;
+        }
+
+        DesyncDump dump = ring.createDump(turn, state);
+        MeleeGameSetup.PlayerRecord local = this.records[this.localSlot];
+        StringBuilder header = new StringBuilder();
+
+        SyncState.appendLine(header, "SC4J desync dump");
+        SyncState.appendLine(header, "build %s", this.desyncBuild);
+        SyncState.appendLine(header, "map %s", this.desyncMapName);
+        SyncState.appendLine(header, "local player id %d slot %d \"%s\"", this.localPlayerId, this.localPlayer, local.getName());
+
+        for (int lobbySlot = 0; lobbySlot < PlayerTable.PLAYABLE_PLAYER_SLOTS; lobbySlot++) {
+            MeleeGameSetup.PlayerRecord record = this.records[lobbySlot];
+
+            if (record.getType() != PlayerTypes.NONE) {
+                SyncState.appendLine(header, "player id %d slot %d type %d race %d team %d \"%s\"",
+                                     record.getPlayerId(), this.commandSlots[lobbySlot], record.getType(), record.getRace(), record.getTeam(),
+                                     record.getName());
+            }
+        }
+
+        SyncState.appendLine(header, "mismatch frame %d player id %d slot %d sent %s local %s", frame, playerId, senderSlot,
+                             HexFormat.of().formatHex(turn, 0, OutgoingTurnBuffer.SYNC_COMMAND_LENGTH), failure);
+
+        String fileName = DESYNC_FILE_TIME.format(LocalDateTime.now()) + '_' + toFileNamePart(stripExtension(this.desyncMapName)) + '_' +
+                          toFileNamePart(local.getName()) + DESYNC_FILE_EXTENSION;
+        Path file = folder.resolve(fileName);
+        String text = header.toString();
+
+        Thread.ofPlatform().daemon().name(DESYNC_THREAD_NAME).start(() -> {
+            try {
+                AtomicFileUtils.write(file, dump.format(text).getBytes(StandardCharsets.UTF_8));
+                LOGGER.info("LAN GAME DESYNC DUMP: {0}", file);
+            } catch (IOException | RuntimeException exception) {
+                LOGGER.warning("LAN GAME DESYNC DUMP FAILED: {0}: {1}", file, exception.toString());
+            }
+        });
     }
 
     /**
@@ -1337,8 +1463,7 @@ public final class LiveGame {
 
         return new ReplayWriter(this.buildHeader(frames, false), ReplayWriter.encodeCommands(recorded), this.setup.getMapData(),
                                 ReplayWriter.encodeNames(names), new byte[ReplayWriter.SKIN_SIZE], this.getLimits(), ReplayWriter.CURRENT_FIX_FLAGS,
-                                this.setup.isNetwork() ? LobbyResolution.encodeCustomColors(this.setup.getResolvedColorIds())
-                                                       : new byte[ReplayWriter.CUSTOM_COLORS_SIZE],
+                                PlayerColorRows.encodeCustomColors(this.setup.getResolvedCustomColors()),
                                 ReplayWriter.encodeVersionBlock(GameRulesVersion.CURRENT_BUILD, unixSeconds),
                                 this.setup.getSpeedOverrideIndex()).write();
     }

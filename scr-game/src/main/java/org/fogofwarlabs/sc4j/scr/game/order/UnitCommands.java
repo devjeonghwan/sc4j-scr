@@ -179,26 +179,12 @@ public final class UnitCommands {
             return false;
         }
 
-        if (orderId == ScrOrderIds.PLACE_ADDON &&
-            !this.game.getUnitOrderEligibility().canReceiveOrder(builder, ScrOrderIds.PLACE_ADDON, owner)) {
+        // The orders.dat requirement script of the construction order names the builder types; an EUD map may rewrite it.
+        if (!this.game.getUnitOrderEligibility().canReceiveOrder(builder, orderId, owner)) {
             return false;
         }
 
         int builderType = builder.getUnitId();
-        int builderBaseType = this.game.getBaseType(builderType);
-
-        if ((builder.getStatus() & UnitStatusFlags.BURROWED) != 0 ||
-            builderBaseType == ScrUnitIds.TERRAN_SCV && builder.getPrimaryOrder() == ScrOrderIds.CONSTRUCTING_BUILDING) {
-            return false;
-        }
-
-        if (orderId == ScrOrderIds.DRONE_START_BUILD && builderBaseType != ScrUnitIds.ZERG_DRONE ||
-            orderId == ScrOrderIds.PLACE_BUILDING && builderBaseType != ScrUnitIds.TERRAN_SCV ||
-            (orderId == ScrOrderIds.PLACE_PROTOSS_BUILDING || orderId == ScrOrderIds.CREATE_PROTOSS_BUILDING) &&
-            builderBaseType != ScrUnitIds.PROTOSS_PROBE) {
-            return false;
-        }
-
         ScrUnitTypeView unitTypes = this.game.requireGameData().getUnitTypes();
 
         if ((unitTypes.getFlags(unitType) & UnitTypeFlags.ADDON) != 0) {

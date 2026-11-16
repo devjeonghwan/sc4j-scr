@@ -41,10 +41,7 @@ import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.data.format.text.LegacyTextUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
-import org.fogofwarlabs.sc4j.scr.game.player.Player;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
+import org.fogofwarlabs.sc4j.scr.game.player.*;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MusicRotation;
 import org.fogofwarlabs.sc4j.scr.game.presentation.PaletteAnimation;
@@ -54,7 +51,10 @@ import org.fogofwarlabs.sc4j.scr.game.save.*;
 import org.fogofwarlabs.sc4j.scr.game.session.LiveGame;
 import org.fogofwarlabs.sc4j.scr.game.session.LocalCommandSink;
 import org.fogofwarlabs.sc4j.scr.game.session.PauseNotice;
-import org.fogofwarlabs.sc4j.scr.game.session.setup.*;
+import org.fogofwarlabs.sc4j.scr.game.session.setup.CampaignMissions;
+import org.fogofwarlabs.sc4j.scr.game.session.setup.GameTemplate;
+import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
+import org.fogofwarlabs.sc4j.scr.game.session.setup.SavedGamePlayers;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.fogofwarlabs.sc4j.scr.game.state.GameEnd;
@@ -69,6 +69,7 @@ import org.fogofwarlabs.sc4j.scr.net.lan.LanClient;
 import org.fogofwarlabs.sc4j.scr.net.provider.ProviderPeer;
 import org.fogofwarlabs.sc4j.scr.net.provider.ProviderSession;
 import org.fogofwarlabs.sc4j.scr.render.OverlayPass;
+import org.fogofwarlabs.sc4j.scr.render.RenderAssets;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -1230,22 +1231,6 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Returns the raw bytes of a map string, with which a trigger naming a map file looks the file up.
-     *
-     * @param index the one-based string index ({@code 0} is no string)
-     * @return the undecoded string bytes, or an empty array for {@code 0} or an index outside the table
-     */
-    public byte @NotNull [] getMapStringBytes(int index) {
-        if (index <= 0) {
-            return new byte[0];
-        }
-
-        List<byte[]> strings = this.mapFile.getStringBytes();
-
-        return index <= strings.size() ? strings.get(index - 1).clone() : new byte[0];
-    }
-
-    /**
      * Returns the scenario's force name for the requested force.
      *
      * @param force the force index from {@code 0} through {@code 3}
@@ -2186,7 +2171,9 @@ public final class ClientSession implements AutoCloseable {
                 this.textTables.install(messageLines);
             }
 
-            messageLines.setNameColors(slot -> this.getChatNameColor(messageState, slot));
+            byte[] chatPalette = this.gameData.loadTerrainPalette(this.mapFile.getTileset());
+
+            messageLines.setNameColors(slot -> getChatNameColor(messageState, chatPalette, slot));
             messageLines.setTeamForceNames(slot -> this.isTeamGame()
                                                    ? this.getForceDisplayName(messageState.getPlayerTable().requirePlayer(slot).getTeam())
                                                    : null);
@@ -2322,33 +2309,28 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Uses a network slot's resolved color when available, otherwise the player record's color.
+     * Returns the color a chat line names its sender in: the color the sender is shown in ({@link PlayerColorRows#getPlayerColor}).
      *
-     * @param target the game state
-     * @param slot   the sender slot
-     * @return the packed RGBA color, or {@code 0} if unavailable
+     * @param target  the game state
+     * @param palette the tileset's {@code .wpe} palette
+     * @param slot    the sender slot
+     * @return the packed {@code 0xRRGGBBAA} color, or {@code 0} if unavailable
      */
-    private int getChatNameColor(@NotNull Game target, int slot) {
-        int colorIdentifier = -1;
-        LiveGame game = this.liveGame;
+    private static int getChatNameColor(@NotNull Game target, byte @NotNull [] palette, int slot) {
+        PlayerColorRows rows = slot >= 0 && slot < PlayerTable.PLAYER_SLOTS ? target.getPlayerTable().getPlayerColorRows() : null;
 
-        if (game != null && game.getSetup().isNetwork()) {
-            int[] colorIdentifiers = game.getSetup().getResolvedColorIds();
-
-            if (slot >= 0 && slot < colorIdentifiers.length) {
-                colorIdentifier = colorIdentifiers[slot];
-            }
+        if (rows == null) {
+            return 0;
         }
 
-        Player player = slot >= 0 && slot < PlayerTable.PLAYER_SLOTS ? target.getPlayerTable().getPlayer(slot) : null;
+        return rows.getPlayerColor(slot, index -> {
+            int entry = index * RenderAssets.PALETTE_ENTRY_SIZE;
 
-        if (colorIdentifier < 0 && player != null) {
-            colorIdentifier = player.getColor();
-        }
-
-        int packedColor = LobbyResolution.getColorRgb(colorIdentifier);
-
-        return packedColor < 0 ? 0 : packedColor << Byte.SIZE | Byte.toUnsignedInt(OverlayPass.OPAQUE_ALPHA);
+            return Byte.toUnsignedInt(palette[entry]) << 3 * Byte.SIZE |
+                   Byte.toUnsignedInt(palette[entry + RenderAssets.PALETTE_GREEN]) << Short.SIZE |
+                   Byte.toUnsignedInt(palette[entry + RenderAssets.PALETTE_BLUE]) << Byte.SIZE |
+                   Byte.toUnsignedInt(OverlayPass.OPAQUE_ALPHA);
+        });
     }
 
     private void refreshPendingCommand() {
@@ -2839,7 +2821,7 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Reads a file of the session's map archive named by the raw bytes of a map string ({@link #getMapStringBytes}).
+     * Reads a file of the session's map archive named by the raw bytes of a map string, such as the sound path of a trigger action.
      * <p>
      * The storage and the map archive are searched with the undecoded bytes, so CP949 and Windows-1252 names resolve in the archive. Never throws.
      *

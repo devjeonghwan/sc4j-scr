@@ -483,7 +483,10 @@ public final class MeleeGameSetup {
         return cleared;
     }
 
-    private int @NotNull [] resolvedColorIds;
+    /**
+     * The custom colors left by game start ({@link #getResolvedCustomColors}).
+     */
+    private int @NotNull [] resolvedCustomColors;
     /**
      * The lobby color bytes left by game start ({@link #getResolvedLobbyColors}).
      */
@@ -565,7 +568,7 @@ public final class MeleeGameSetup {
     }
 
     private MeleeGameSetup(byte @NotNull [] mapData, byte @NotNull [] header) throws IOException {
-        this.resolvedColorIds     = new int[0];
+        this.resolvedCustomColors = new int[0];
         this.resolvedLobbyColors  = new byte[PlayerTable.PLAYER_SLOTS];
         this.resolvedCommandSlots = new int[0];
         this.resolvedSlotRaces    = null;
@@ -616,7 +619,7 @@ public final class MeleeGameSetup {
                            int campaignMission,
                            boolean expansion,
                            boolean mapCompatibility) throws IOException {
-        this.resolvedColorIds     = new int[0];
+        this.resolvedCustomColors = new int[0];
         this.resolvedLobbyColors  = new byte[PlayerTable.PLAYER_SLOTS];
         this.resolvedCommandSlots = new int[0];
         this.resolvedSlotRaces    = null;
@@ -796,11 +799,14 @@ public final class MeleeGameSetup {
     }
 
     /**
-     * @return the network color ids of the final slots from the last {@link #resolve} ({@code CCLR}), {@code -1} where none;
-     * empty before the first resolution and in single player
+     * Returns the custom colors of the final slots from the last {@link #resolve} (the replay's {@code CCLR}): a network game that keeps its
+     * custom colors ({@link LobbyResolution#keepsCustomColors}) the slots' network or map colors ({@link LobbyResolution.Result#getCustomColors}),
+     * every other game none.
+     *
+     * @return the packed {@code 0xRRGGBB} custom colors, {@code -1} where none; empty before the first resolution
      */
-    public int @NotNull [] getResolvedColorIds() {
-        return this.resolvedColorIds.clone();
+    public int @NotNull [] getResolvedCustomColors() {
+        return this.resolvedCustomColors.clone();
     }
 
     /**
@@ -1097,17 +1103,17 @@ public final class MeleeGameSetup {
             System.arraycopy(result.getColors(), 0, colors, 0, PlayerTable.PLAYABLE_PLAYER_SLOTS);
 
             boolean customColors = LobbyResolution.keepsCustomColors(true, this.template.getTypeId(), this.networkTable.customColorFlag);
-            int[] colorIds = result.getColorIds();
+            int[] resolvedColors = result.getCustomColors();
 
             if (customColors) {
                 for (int slot = 0; slot < result.getLobbyColors().length; slot++) {
                     this.resolvedLobbyColors[slot] = (byte) result.getLobbyColors()[slot];
                 }
             } else {
-                Arrays.fill(colorIds, -1);
+                Arrays.fill(resolvedColors, -1);
             }
 
-            this.resolvedColorIds     = colorIds;
+            this.resolvedCustomColors = resolvedColors;
             this.resolvedCommandSlots = result.getCommandSlots();
             this.resolvedSlotRaces    = result.getSlotRaces();
 
@@ -1233,7 +1239,9 @@ public final class MeleeGameSetup {
 
         System.arraycopy(result.getColors(), 0, colors, 0, PlayerTable.PLAYABLE_PLAYER_SLOTS);
 
-        this.resolvedColorIds = result.getColorIds();
+        this.resolvedCustomColors = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+
+        Arrays.fill(this.resolvedCustomColors, -1);
 
         return clearUnplayable(result.getRecords());
     }

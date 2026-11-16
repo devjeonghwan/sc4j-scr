@@ -29,6 +29,8 @@ jobs:
 
       - name: Check out
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Read the versions
         id: version
@@ -87,7 +89,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
-        run: gh release create "$TAG" "build/libs/$MOD_ID.jar" "build/libs/$MOD_ID.jar.sha256" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+        run: |
+          # The notes list the commits since the previous release tag, without the version changes and the release merges.
+          previous=$(git describe --tags --abbrev=0 --match 'v*' "$GITHUB_SHA^" 2>/dev/null || true)
+          {
+            echo "## What's Changed"
+            git log --no-merges --format='* %s' "${previous:+$previous..}$GITHUB_SHA" | grep -v -e '^\* Bump version to ' -e '^\* Build against the engine ' || true
+
+            if [ -n "$previous" ]; then
+              echo
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$previous...$TAG"
+            fi
+          } > release-notes.md
+
+          gh release create "$TAG" "build/libs/$MOD_ID.jar" "build/libs/$MOD_ID.jar.sha256" --target "$GITHUB_SHA" --title "$TAG" --notes-file release-notes.md
 
       - name: Upload the reports
         if: failure()

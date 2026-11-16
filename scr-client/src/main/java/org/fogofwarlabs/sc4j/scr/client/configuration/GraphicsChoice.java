@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.scr.client.configuration;
 
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.render.hd.HdRenderAssets;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -7,7 +8,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 
 /**
- * The graphics choices of {@code /graphics}, the set F5 cycles: classic, HD2 and HD.
+ * The graphics choices of {@code /graphics} and the settings file's {@code graphics.renderer}, the set F5 cycles in this order: classic, HD2
+ * and HD. HD is the default.
  */
 public enum GraphicsChoice {
     /**
@@ -38,6 +40,22 @@ public enum GraphicsChoice {
     }
 
     /**
+     * Returns the choice of an HD quality.
+     *
+     * @param quality the HD quality, or {@code null} for the classic graphics
+     * @return the choice that shows the quality
+     */
+    public static @NotNull GraphicsChoice of(HdRenderAssets.@Nullable Quality quality) {
+        for (GraphicsChoice choice : values()) {
+            if (choice.quality == quality) {
+                return choice;
+            }
+        }
+
+        throw Exceptions.newIllegalStateException("No graphics choice shows {0}.", quality);
+    }
+
+    /**
      * @return the HD quality, or {@code null} for the classic graphics
      */
     public HdRenderAssets.@Nullable Quality getQuality() {
@@ -49,6 +67,15 @@ public enum GraphicsChoice {
      */
     public @NotNull String getName() {
         return this.name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * @return the choice F5 selects after this one: classic, HD2, HD, then classic again
+     */
+    public @NotNull GraphicsChoice getNext() {
+        GraphicsChoice[] choices = values();
+
+        return choices[(this.ordinal() + 1) % choices.length];
     }
 
     /**

@@ -3,12 +3,14 @@ package org.fogofwarlabs.sc4j.scr.client.ui.console;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.base.exception.IgnoreException;
 import org.fogofwarlabs.sc4j.engine.client.dialog.DialogKey;
+import org.fogofwarlabs.sc4j.engine.client.host.PointerClip;
 import org.fogofwarlabs.sc4j.engine.client.hud.MinimapPings;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogDefinition;
 import org.fogofwarlabs.sc4j.scr.client.ChatPrompt;
 import org.fogofwarlabs.sc4j.scr.client.cursor.GameCursor;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
+import org.fogofwarlabs.sc4j.scr.client.ui.PlayerColorUtils;
 import org.fogofwarlabs.sc4j.scr.client.ui.WebImageUtils;
 import org.fogofwarlabs.sc4j.scr.client.ui.command.ButtonDefinition;
 import org.fogofwarlabs.sc4j.scr.client.ui.command.CommandCard;
@@ -43,7 +45,6 @@ import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogImportUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
-import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceTimers;
@@ -1598,11 +1599,13 @@ public final class ConsoleView implements AutoCloseable {
     }
 
     /**
-     * @param playerColor a player color slot
-     * @return the player's minimap color {@code 0xRRGGBBAA}, or {@code 0} before the assets are loaded
+     * @param players the player table
+     * @param player  the player slot
+     * @return the color the player is shown in ({@link PlayerColorUtils#getPlayerColor}) {@code 0xRRGGBBAA}, or {@code 0} before the assets are
+     * loaded
      */
-    public int getMinimapPlayerColor(int playerColor) {
-        return this.assets == null ? 0 : this.assets.getMinimapPlayerColor(playerColor);
+    public int getPlayerColor(@NotNull PlayerTable players, int player) {
+        return this.assets == null ? 0 : PlayerColorUtils.getPlayerColor(players, this.assets, player);
     }
 
     /**
@@ -2357,9 +2360,7 @@ public final class ConsoleView implements AutoCloseable {
         } else if (replay) {
             frame = HERO_WIREFRAME_FRAME;
 
-            Player owner = unit.getOwnerIndex() < PlayerTable.PLAYER_SLOTS ? model.getView().getPlayerTable().getPlayer(unit.getOwnerIndex()) : null;
-
-            tint = loaded.getMinimapPlayerColor(owner != null ? owner.getColor() : unit.getOwnerIndex());
+            tint = PlayerColorUtils.getPlayerColor(model.getView().getPlayerTable(), loaded, unit.getOwnerIndex());
 
             if ((status & UnitStatusFlags.HALLUCINATION) != 0) {
                 int red = Math.round((tint >>> PACKED_HIGH_BYTE_SHIFT) * WIREFRAME_COLOR_FACTOR);
@@ -3085,6 +3086,8 @@ public final class ConsoleView implements AutoCloseable {
      * Creates a {@link ListBox} instance for a popup's list control (type {@code 12}) on the console's dialog sheet, attaches it in the
      * place of the control the popup's dialog built ({@link ScrDialog#attach}) and draws it with the popup ({@link #drawPopup}) until
      * {@link #closePopupList}.
+     * <p>
+     * The list is transparent, without row bars or border, as the message history and keystroke help popups make their lists.
      *
      * @param dialog  the popup's dialog
      * @param control the list control, of the dialog's definition
@@ -3093,6 +3096,8 @@ public final class ConsoleView implements AutoCloseable {
      */
     public @NotNull ListBox openPopupList(@NotNull ScrDialog dialog, @NotNull DialogControl control) {
         ListBox list = dialog.attach(new ListBox(control, this.getDialogSheet()));
+
+        list.setTransparent(true);
 
         this.popupList = list;
 
@@ -4395,11 +4400,11 @@ public final class ConsoleView implements AutoCloseable {
     }
 
     /**
-     * Returns the screen rectangle of the minimap bitmap, for the drag confinement.
+     * Returns the screen rectangle of the minimap bitmap as the window's pointer clip, for the drag confinement.
      *
-     * @return {@code {left, top, right, bottom}} in screen pixels (exclusive right and bottom), or {@code null}
+     * @return the clip in screen pixels, or {@code null} without a console or minimap
      */
-    public float @Nullable [] getMinimapScreenRectangle() {
+    public @Nullable PointerClip getMinimapClip() {
         ConsoleLayout console = this.layout;
         MinimapImage image = this.minimapImage;
 
@@ -4411,8 +4416,8 @@ public final class ConsoleView implements AutoCloseable {
         int left = getMinimapLeft(area, image);
         int top = getMinimapTop(area, image);
 
-        return new float[]{console.toScreenX(left), console.toScreenY(top),
-                           console.toScreenX(left + image.getWidth()), console.toScreenY(top + image.getHeight())};
+        return PointerClip.of(console.toScreenX(left), console.toScreenY(top),
+                              console.toScreenX(left + image.getWidth()), console.toScreenY(top + image.getHeight()));
     }
 
     /**
@@ -4796,7 +4801,7 @@ public final class ConsoleView implements AutoCloseable {
             float[] itemLefts = this.statisticsItemLefts[index];
             float y = top + edge + index * rowHeight + css;
             float textY = y + (rowHeight - STATISTICS_ROW_GAP * css - font) / 2;
-            int nameColor = this.assets.getUnitPlayerColor(row.getColor());
+            int nameColor = PlayerColorUtils.getPlayerColor(view.getPlayerTable(), this.assets, row.getPlayer());
             String race = RACE_FOLDERS[Math.clamp(row.getRace(), 0, ScrRaceIds.PLAYABLE_COUNT - 1)];
             String used = Integer.toString(row.getSupplyUsed());
             float usedX = itemLefts[STATISTICS_SUPPLY_ITEM] + icon + STATISTICS_VALUE_GAP * css;
@@ -4890,7 +4895,7 @@ public final class ConsoleView implements AutoCloseable {
             this.drawWebImage("UIObserverThinBorderRight.png", left + width, y, PRODUCTION_BORDER_WIDTH * css, stripHeight);
             this.renderer.fillRectangle(left, y + PRODUCTION_PLAYER_MARGIN * css,
                                         PRODUCTION_PLAYER_WIDTH * css, PRODUCTION_PLAYER_HEIGHT * css,
-                                        this.assets.getUnitPlayerColor(row.getColor()));
+                                        PlayerColorUtils.getPlayerColor(view.getPlayerTable(), this.assets, row.getPlayer()));
 
             float x = left + PRODUCTION_STRIP_INSET * css;
             float top = y + (stripHeight - PRODUCTION_ITEM_EXTENT * css) / 2;

@@ -29,6 +29,10 @@ public final class ConnectionScreen extends GlueScreen {
     private static final int OK = 9;
     private static final int CANCEL = 10;
     private static final int INFORMATION_PANEL = 15;
+    /**
+     * The panel of the selected provider's pane, the protocol panel of LAN; Beacon.Link has no pane.
+     */
+    private static final int PANE_PANEL = 11;
     private static final int PROTOCOL_PANEL = 17;
     private static final int PROTOCOL_TITLE = 30;
     private static final int PROTOCOL_UDP = 31;
@@ -80,14 +84,7 @@ public final class ConnectionScreen extends GlueScreen {
     private static final @NotNull String UDP_PROTOCOL_NAME = "UDP";
     private static final @NotNull String BATTLE_NET_TITLE_KEY = "spi_battlenet_title";
     private static final @NotNull String LAN_TITLE_KEY = "spi_lan_title";
-    /**
-     * The description of Beacon.Link, SC4J's own, and the line shown instead to a run without an account, which has no Beacon.Link.
-     */
-    private static final @NotNull String BEACON_LINK_DESCRIPTION = "Plays over the Internet: the Beacon.Link nodes list the rooms of this game and" +
-                                                                   " introduce the players, who then connect to each other directly or through" +
-                                                                   " another player of the room. The nodes carry no game traffic; the" +
-                                                                   " other players see your Internet address.";
-    private static final @NotNull String BEACON_LINK_UNAVAILABLE = "Beacon.Link needs an account: start SC4J from the launcher.";
+    private static final @NotNull String LAN_REQUIREMENTS_KEY = "conUDP_d";
 
     private @Nullable ListBox providers;
     /**
@@ -99,6 +96,7 @@ public final class ConnectionScreen extends GlueScreen {
     private @Nullable ScrControl protocolTitle;
     private @Nullable ScrControl protocolButton;
     private @Nullable ScrControl protocolPanel;
+    private @Nullable ScrControl panePanel;
 
     /**
      * Creates a {@link ConnectionScreen} instance.
@@ -113,6 +111,7 @@ public final class ConnectionScreen extends GlueScreen {
         this.protocolTitle  = null;
         this.protocolButton = null;
         this.protocolPanel  = null;
+        this.panePanel      = null;
     }
 
     /**
@@ -175,6 +174,7 @@ public final class ConnectionScreen extends GlueScreen {
         this.protocolTitle  = this.bindControl(PROTOCOL_TITLE);
         this.protocolButton = this.bindControl(PROTOCOL_UDP);
         this.protocolPanel  = this.bindControl(PROTOCOL_PANEL);
+        this.panePanel      = this.bindControl(PANE_PANEL);
 
         for (int control : HIDDEN) {
             this.bindControl(control).setVisible(false);
@@ -233,6 +233,7 @@ public final class ConnectionScreen extends GlueScreen {
         requireBound(this.protocolTitle).setVisible(lanSelected);
         requireBound(this.protocolButton).setVisible(lanSelected);
         requireBound(this.protocolPanel).setVisible(lanSelected);
+        requireBound(this.panePanel).setVisible(lanSelected);
     }
 
     /**
@@ -286,14 +287,11 @@ public final class ConnectionScreen extends GlueScreen {
                 GluePalette palette = this.getPalette();
                 int textColor = WebPanelStyleUtils.TEXT;
                 boolean lanSelected = this.isLanSelected();
-                boolean beaconLinkSelected = this.isBeaconLinkSelected();
                 String title = glueContext.getGluText().get(lanSelected ? LAN_TITLE_KEY : BATTLE_NET_TITLE_KEY);
                 String supported = String.format(Locale.ROOT, glueContext.getGluText().get("conSUPPORTED"), SUPPORTED_PLAYERS);
-                String requirements = glueContext.getGluText().get(lanSelected ? "conUDP_d" : "conBTLN_d");
-
-                if (beaconLinkSelected) {
-                    requirements = glueContext.getBeaconLink().isAvailable() ? BEACON_LINK_DESCRIPTION : BEACON_LINK_UNAVAILABLE;
-                }
+                String requirements = lanSelected
+                                      ? glueContext.getGluText().get(LAN_REQUIREMENTS_KEY)
+                                      : BeaconLinkText.CONNECTION_REQUIREMENTS.get(glueContext.getLocale());
 
                 float innerLeft = left + PAGE_PADDING;
                 float innerWidth = control.getWidth() - SIDE_COUNT * PAGE_PADDING;

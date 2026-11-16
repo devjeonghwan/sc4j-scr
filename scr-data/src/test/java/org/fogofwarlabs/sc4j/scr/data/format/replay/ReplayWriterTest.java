@@ -152,6 +152,7 @@ final class ReplayWriterTest {
             byte[] commands = ReplayWriter.encodeCommands(replay.getCommands());
 
             Assertions.assertArrayEquals(sections.get(COMMAND_SECTION_INDEX), commands, name + " command blocks");
+            Assertions.assertArrayEquals(readExtension(original, CUSTOM_COLORS_TAG), replay.getCustomColors(), name + " custom colors");
 
             byte[] headerData = ReplayFile.readHeaderSection(original);
             byte[] mapData = replay.getMapData();

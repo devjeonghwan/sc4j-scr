@@ -8,6 +8,7 @@ import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
 import org.fogofwarlabs.sc4j.scr.game.ai.ComputerPlayerPhase;
+import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
 import org.fogofwarlabs.sc4j.scr.game.map.PreplacedUnitLoaderUtils;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
@@ -24,6 +25,7 @@ import org.fogofwarlabs.sc4j.scr.game.unit.finder.UnitSpatialIndex;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Executes trigger actions through the action registry of the context ({@link TriggerContext#getActionRegistry()}) and retains the action
@@ -393,17 +395,36 @@ final class TriggerActionsUtils {
 
     /**
      * Executes Play WAV: nothing while replaying; otherwise only the local player hears the sound file named by the map
-     * string, unless the record ignores interface actions. It always succeeds.
+     * string ({@link #readSoundPath}), unless the record ignores interface actions. It always succeeds.
      */
     private static boolean executePlayWav(@NotNull TriggerContext context, @NotNull RunningTrigger record, TriggerDefinition.@NotNull Action action) {
         int player = context.currentPlayer;
 
         if (!context.replayObservation && player == context.localPlayer && action.getSoundIndex() != 0 &&
             (record.executionFlags & TriggerFlags.EXECUTION_IGNORE_INTERFACE_ACTIONS) == 0) {
-            context.events.add(TriggerEvents.WAV, action.getSoundIndex(), 0, 0);
+            context.events.addSound(action.getSoundIndex(), readSoundPath(context, action.getSoundIndex()));
         }
 
         return true;
+    }
+
+    /**
+     * Reads the sound file path of Play WAV and Transmission when the action runs: the map string of the index's low WORD as the strings hold
+     * it then (an EUD write to the strings changes it), at most {@link TriggerEvents#SOUND_PATH_LIMIT} bytes. No string gives an empty path.
+     *
+     * @param context     the trigger context
+     * @param stringIndex the action's sound string DWORD
+     * @return the path bytes
+     */
+    private static byte @NotNull [] readSoundPath(@NotNull TriggerContext context, int stringIndex) {
+        MapStringSection strings = context.world == null ? null : context.world.getInterfaceLink().getMessageLines().getMapStringSection();
+        byte[] path = strings == null ? null : strings.getStringBytes(stringIndex & WORD_MASK);
+
+        if (path == null) {
+            return new byte[0];
+        }
+
+        return path.length > TriggerEvents.SOUND_PATH_LIMIT ? Arrays.copyOf(path, TriggerEvents.SOUND_PATH_LIMIT) : path;
     }
 
     /**
@@ -563,7 +584,7 @@ final class TriggerActionsUtils {
 
         if (player == context.localPlayer) {
             if (!context.replayObservation && action.getSoundIndex() != 0) {
-                context.events.add(TriggerEvents.WAV, action.getSoundIndex(), 0, 0);
+                context.events.addSound(action.getSoundIndex(), readSoundPath(context, action.getSoundIndex()));
             }
 
             Game world = ScrTriggerSystem.requireWorld(context, "Transmission");

@@ -33,7 +33,6 @@ public final class ObserverStatistics {
         private final int player;
         private final @NotNull String name;
         private final int race;
-        private final int color;
 
         private int minerals;
         private int gas;
@@ -48,13 +47,11 @@ public final class ObserverStatistics {
          * @param player the player slot
          * @param name   the shown name
          * @param race   the race
-         * @param color  the player's color slot
          */
-        Row(int player, @NotNull String name, int race, int color) {
+        Row(int player, @NotNull String name, int race) {
             this.player = player;
             this.name   = name;
             this.race   = race;
-            this.color  = color;
 
             this.minerals      = 0;
             this.gas           = 0;
@@ -83,13 +80,6 @@ public final class ObserverStatistics {
          */
         public int getRace() {
             return this.race;
-        }
-
-        /**
-         * @return the player's color slot
-         */
-        public int getColor() {
-            return this.color;
         }
 
         /**
@@ -186,7 +176,7 @@ public final class ObserverStatistics {
                                                                    : names.length > player && names[player] != null ? names[player]
                                                                                                                     : "";
 
-            this.rows.add(new Row(player, name, record.getRace(), record.getColor()));
+            this.rows.add(new Row(player, name, record.getRace()));
         }
 
         this.lastTick = 0;

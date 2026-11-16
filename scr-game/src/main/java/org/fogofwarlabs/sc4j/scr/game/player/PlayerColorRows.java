@@ -7,12 +7,17 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.function.IntUnaryOperator;
 
 /**
- * Retains the player color remapping rows: twelve rows of the eight {@code game/tunit.pcx} palette indices of each player, then one
- * {@code game/tminimap.pcx} index per player. The game start fills them from each player's color (the slots past the playable ones by their own
- * index); an EUD write changes them, and the unit team color (the palette entry of the row's first byte unless the custom color table is active), the
- * unit remapping and the minimap follow.
+ * Retains the player colors of a game: the color remapping rows (twelve rows of the eight {@code game/tunit.pcx} palette indices of each player,
+ * then one {@code game/tminimap.pcx} index per player), the map colors of the map's {@code COLR} section and the game's custom colors.
+ * <p>
+ * The game start fills the rows from each player's color (the slots past the playable ones by their own index), then the map's {@code COLR}
+ * section remaps them ({@link #applyMapColors}); an EUD write changes them, and the unit remapping and the minimap follow. The color a player is
+ * shown in is its custom color when {@link #hasCustomColor} holds, otherwise the palette entry of its row's first byte.
  */
 public final class PlayerColorRows {
     /**
@@ -23,11 +28,35 @@ public final class PlayerColorRows {
      * The bytes of the block: twelve unit rows, then twelve minimap indices.
      */
     public static final int SIZE = PlayerTable.PLAYER_SLOTS * UNIT_ROW + PlayerTable.PLAYER_SLOTS;
+    /**
+     * The bytes of a {@code COLR} section: one color per playable slot.
+     */
+    public static final int MAP_COLORS_SIZE = PlayerTable.PLAYABLE_PLAYER_SLOTS;
+    /**
+     * The channels of a custom color entry: red, green, blue and alpha.
+     */
+    public static final int CUSTOM_COLOR_CHANNELS = 4;
+    /**
+     * The bytes of one custom color entry: a little-endian float per channel, {@code 0..1}.
+     */
+    public static final int CUSTOM_COLOR_ENTRY_SIZE = CUSTOM_COLOR_CHANNELS * Float.BYTES;
+    /**
+     * The bytes of a custom color table ({@code CCLR}): an entry per player slot.
+     */
+    public static final int CUSTOM_COLORS_SIZE = PlayerTable.PLAYER_SLOTS * CUSTOM_COLOR_ENTRY_SIZE;
 
     /**
      * The bytes of the unit rows of every player slot; the minimap indices follow them.
      */
     private static final int UNIT_ROWS_SIZE = PlayerTable.PLAYER_SLOTS * UNIT_ROW;
+    /**
+     * The largest value of a color channel.
+     */
+    private static final float CHANNEL_MAXIMUM = 255f;
+    /**
+     * The mask of one color channel.
+     */
+    private static final int CHANNEL_MASK = 0xFF;
 
     /**
      * Creates a {@link PlayerColorRows} instance filled from the players' colors, as the game start does.
@@ -66,13 +95,74 @@ public final class PlayerColorRows {
         return rows;
     }
 
+    /**
+     * Encodes packed colors as a custom color table: each slot's red, green and blue divided by {@code 255} and alpha {@code 1}; a slot without a
+     * color and the slots past the given ones stay zero.
+     *
+     * @param colors the packed {@code 0xRRGGBB} color of each slot, {@code -1} for none
+     * @return the {@link #CUSTOM_COLORS_SIZE}-byte table
+     */
+    public static byte @NotNull [] encodeCustomColors(int @NotNull [] colors) {
+        ByteBuffer buffer = ByteBuffer.allocate(CUSTOM_COLORS_SIZE).order(ByteOrder.LITTLE_ENDIAN);
+
+        for (int slot = 0; slot < colors.length && slot < PlayerTable.PLAYER_SLOTS; slot++) {
+            if (colors[slot] < 0) {
+                continue;
+            }
+
+            buffer.position(slot * CUSTOM_COLOR_ENTRY_SIZE);
+            buffer.putFloat((colors[slot] >>> Short.SIZE & CHANNEL_MASK) / CHANNEL_MAXIMUM)
+                  .putFloat((colors[slot] >>> Byte.SIZE & CHANNEL_MASK) / CHANNEL_MAXIMUM)
+                  .putFloat((colors[slot] & CHANNEL_MASK) / CHANNEL_MAXIMUM)
+                  .putFloat(1f);
+        }
+
+        return buffer.array();
+    }
+
+    /**
+     * Decodes an entry of a custom color table.
+     *
+     * @param table the custom color table
+     * @param entry the entry
+     * @return the packed {@code 0xRRGGBBAA} color, each channel rounded to {@code 0..255}
+     */
+    public static int decodeCustomColor(byte @NotNull [] table, int entry) {
+        ByteBuffer entries = ByteBuffer.wrap(table).order(ByteOrder.LITTLE_ENDIAN);
+        int color = 0;
+
+        for (int channel = 0; channel < CUSTOM_COLOR_CHANNELS; channel++) {
+            float value = entries.getFloat(entry * CUSTOM_COLOR_ENTRY_SIZE + channel * Float.BYTES);
+
+            color = color << Byte.SIZE | Math.clamp(Math.round(value * CHANNEL_MAXIMUM), 0, CHANNEL_MASK);
+        }
+
+        return color;
+    }
+
     private final byte @NotNull [] bytes;
+    /**
+     * The map color of each playable slot, as the {@code COLR} section set it ({@code 0} where it left the slot's color).
+     */
+    private final byte @NotNull [] mapColors;
+    /**
+     * The packed {@code 0xRRGGBBAA} custom color of each playable slot.
+     */
+    private final int @NotNull [] customColors;
+    /**
+     * Whether the game keeps its custom colors.
+     */
+    private boolean customColorsActive;
 
     /**
      * Creates a {@link PlayerColorRows} instance with zeroed rows, which {@link #create} or a restored saved game fills.
      */
     PlayerColorRows() {
-        this.bytes = new byte[SIZE];
+        this.bytes        = new byte[SIZE];
+        this.mapColors    = new byte[MAP_COLORS_SIZE];
+        this.customColors = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+
+        this.customColorsActive = false;
     }
 
     /**
@@ -92,6 +182,102 @@ public final class PlayerColorRows {
         return Byte.toUnsignedInt(this.bytes[UNIT_ROWS_SIZE + player]);
     }
 
+    /**
+     * @param player the playable slot
+     * @return the color the map's {@code COLR} section gave the slot, {@code 0} where the section left its color
+     */
+    public int getMapColor(int player) {
+        return Byte.toUnsignedInt(this.mapColors[player]);
+    }
+
+    /**
+     * Tests whether a player is shown in its custom color: the game keeps its custom colors and the slot is a playable one.
+     *
+     * @param player the player slot
+     * @return {@code true} if the player is shown in {@link #getCustomColor}, {@code false} if in the palette entry of its row's first byte
+     */
+    public boolean hasCustomColor(int player) {
+        return this.customColorsActive && player >= 0 && player < PlayerTable.PLAYABLE_PLAYER_SLOTS;
+    }
+
+    /**
+     * @param player the playable slot
+     * @return the packed {@code 0xRRGGBBAA} custom color, {@code 0} where the slot has none
+     */
+    public int getCustomColor(int player) {
+        return this.customColors[player];
+    }
+
+    /**
+     * Returns the color a player is shown in, the same in every interface: its custom color when {@link #hasCustomColor} holds, otherwise the palette
+     * entry of its row's first byte.
+     *
+     * @param player  the player slot
+     * @param palette the packed {@code 0xRRGGBBAA} color of a palette index
+     * @return the packed {@code 0xRRGGBBAA} color
+     */
+    public int getPlayerColor(int player, @NotNull IntUnaryOperator palette) {
+        return this.hasCustomColor(player) ? this.customColors[player] : palette.applyAsInt(this.getUnitColor(player, 0));
+    }
+
+    /**
+     * @return {@code true} if the game keeps its custom colors, {@code false} otherwise
+     */
+    public boolean isCustomColorsActive() {
+        return this.customColorsActive;
+    }
+
+    /**
+     * Sets the custom colors from a custom color table, as the game start does: the game keeps them when an entry of a playable slot is not zero.
+     *
+     * @param table the {@link #CUSTOM_COLORS_SIZE}-byte custom color table, or {@code null} for none
+     * @throws IllegalArgumentException if the table has another size
+     */
+    public void setCustomColors(byte @Nullable [] table) {
+        if (table != null && table.length != CUSTOM_COLORS_SIZE) {
+            throw Exceptions.newIllegalArgumentException("A custom color table has {0} bytes, not {1}.", table.length, CUSTOM_COLORS_SIZE);
+        }
+
+        boolean active = false;
+
+        for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
+            for (int offset = 0; table != null && offset < CUSTOM_COLOR_ENTRY_SIZE; offset++) {
+                active |= table[slot * CUSTOM_COLOR_ENTRY_SIZE + offset] != 0;
+            }
+
+            this.customColors[slot] = table != null ? decodeCustomColor(table, slot) : 0;
+        }
+
+        this.customColorsActive = active;
+    }
+
+    /**
+     * Remaps the rows by the map's {@code COLR} section, as its map loader does: from the last slot to the first, a slot whose color names another
+     * of the twelve rows takes that row and minimap index as they were before the section and keeps the color as its map color. A section of
+     * another size changes nothing.
+     *
+     * @param section the {@code COLR} section
+     */
+    public void applyMapColors(byte @NotNull [] section) {
+        if (section.length != MAP_COLORS_SIZE) {
+            return;
+        }
+
+        byte[] previous = this.bytes.clone();
+
+        for (int slot = section.length - 1; slot >= 0; slot--) {
+            int color = Byte.toUnsignedInt(section[slot]);
+
+            if (color == slot || color >= PlayerTable.PLAYER_SLOTS) {
+                continue;
+            }
+
+            System.arraycopy(previous, color * UNIT_ROW, this.bytes, slot * UNIT_ROW, UNIT_ROW);
+
+            this.bytes[UNIT_ROWS_SIZE + slot] = previous[UNIT_ROWS_SIZE + color];
+            this.mapColors[slot]              = (byte) color;
+        }
+    }
 
     /**
      * Reads a byte of the block, as an EUD read of the game context does.

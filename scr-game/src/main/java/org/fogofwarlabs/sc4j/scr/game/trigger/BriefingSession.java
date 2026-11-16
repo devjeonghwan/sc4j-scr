@@ -123,10 +123,6 @@ public final class BriefingSession {
      */
     private static final int EXPANSION_REPLACEMENT_UNIT = ScrUnitIds.HERO_FENIX_DRAGOON;
 
-    /**
-     * The longest sound path the {@code 0x104}-byte buffer holds.
-     */
-    private static final int SOUND_PATH_LIMIT = 0x103;
     private static final int WORD_MASK = 0xFFFF;
     private static final int BYTE_MASK = 0xFF;
     /**
@@ -1204,14 +1200,17 @@ public final class BriefingSession {
             System.arraycopy(name, 0, path, directory.length, name.length);
         }
 
-        if (path.length > SOUND_PATH_LIMIT) {
-            path = Arrays.copyOf(path, SOUND_PATH_LIMIT);
+        if (path.length > TriggerEvents.SOUND_PATH_LIMIT) {
+            path = Arrays.copyOf(path, TriggerEvents.SOUND_PATH_LIMIT);
         }
 
         String decodedName = this.getMapString(stringIndex);
         String decoded = this.campaignMission == 0 ? decodedName : this.campaignDirectory + "\\" + decodedName;
 
-        return new SoundEvent(false, decoded.length() > SOUND_PATH_LIMIT ? decoded.substring(0, SOUND_PATH_LIMIT) : decoded, path, transmission);
+        return new SoundEvent(false,
+                              decoded.length() > TriggerEvents.SOUND_PATH_LIMIT ? decoded.substring(0, TriggerEvents.SOUND_PATH_LIMIT) : decoded,
+                              path,
+                              transmission);
     }
 
     /**

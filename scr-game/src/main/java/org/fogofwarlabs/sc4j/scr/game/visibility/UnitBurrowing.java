@@ -65,10 +65,6 @@ public final class UnitBurrowing {
      */
     private static final int DRONE_BURROW_DIRECTION = 13;
     /**
-     * The distance in pixels of the point a burrowing unit turns to.
-     */
-    private static final int BURROW_FACING_DISTANCE = 16;
-    /**
      * The frames between two casts or target searches of a burrowed unit with a computer record.
      */
     private static final int BURROWED_COMPUTER_DELAY = 7;
@@ -80,18 +76,6 @@ public final class UnitBurrowing {
      * The force argument of an animation request that respects the sprite's visibility flag.
      */
     private static final int NOT_FORCED = 0;
-    /**
-     * The fraction bits of a fixed-point position.
-     */
-    private static final int FIXED_POINT_FRACTION_BITS = 8;
-    /**
-     * The shift of the vertical component in a packed direction vector.
-     */
-    private static final int PACKED_COORDINATE_SHIFT = Integer.SIZE;
-    /**
-     * The mask of an unsigned byte value.
-     */
-    private static final int BYTE_MASK = 0xFF;
 
     /**
      * Finds the first carried powerup or resource image of a sprite: a Flag, mineral chunk or gas container image first, then the Uraj or Khalis
@@ -266,11 +250,7 @@ public final class UnitBurrowing {
                 int direction = baseType == ScrUnitIds.ZERG_DEFILER || baseType == ScrUnitIds.HERO_UNCLEAN_ONE
                                 ? DEFILER_BURROW_DIRECTION
                                 : baseType == ScrUnitIds.ZERG_DRONE ? DRONE_BURROW_DIRECTION : DEFAULT_BURROW_DIRECTION;
-                long vector = FlingyMotionUtils.calculateDirectionVector(FlingyMotionUtils.DIRECTION_THIRTY_SECOND_TURN * direction & BYTE_MASK,
-                                                                         BURROW_FACING_DISTANCE << FIXED_POINT_FRACTION_BITS);
-
-                unit.setDirectionTargetX((unit.getFixedPositionX() + (int) vector) >> FIXED_POINT_FRACTION_BITS);
-                unit.setDirectionTargetY((unit.getFixedPositionY() + (int) (vector >>> PACKED_COORDINATE_SHIFT)) >> FIXED_POINT_FRACTION_BITS);
+                FlingyMotionUtils.faceFrameDirection(unit, direction);
                 unit.setPrimaryOrderState(BURROWING_STATE_FACING);
             }
         }

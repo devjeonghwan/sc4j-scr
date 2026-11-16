@@ -830,6 +830,19 @@ public final class HdSceneRenderer implements SceneRenderer {
         }
     }
 
+    @Override
+    public void setCustomTeamColor(int player, int color) {
+        if (player < 0 || player >= PLAYER_COLOR_ROWS) {
+            return;
+        }
+
+        int offset = player * HdRenderAssets.COLOR_COMPONENTS;
+
+        this.playerTeamColors[offset]                          = (color >>> 3 * Byte.SIZE) / OverlayPass.CHANNEL_MAXIMUM;
+        this.playerTeamColors[offset + OverlayPass.RGBA_GREEN] = (color >>> Short.SIZE & BYTE_MASK) / OverlayPass.CHANNEL_MAXIMUM;
+        this.playerTeamColors[offset + OverlayPass.RGBA_BLUE]  = (color >>> Byte.SIZE & BYTE_MASK) / OverlayPass.CHANNEL_MAXIMUM;
+    }
+
     /**
      * Sets whether foliage is animated and drawn without changing its placement.
      *

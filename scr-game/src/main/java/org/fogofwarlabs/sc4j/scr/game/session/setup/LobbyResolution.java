@@ -6,8 +6,6 @@ import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -63,14 +61,6 @@ public final class LobbyResolution {
 
     private static final int RANDOM_START_FORCE_FLAG = 1;
     private static final int GAME_TYPE_MASK = 0xFF;
-
-    private static final int RGBA_COMPONENTS = 4;
-    private static final int COLOR_ENTRY_BYTES = RGBA_COMPONENTS * Float.BYTES;
-    private static final int RED_SHIFT = 16;
-    private static final int GREEN_SHIFT = 8;
-    private static final int CHANNEL_MASK = 0xFF;
-    private static final float COLOR_CHANNEL_MAXIMUM = 255f;
-    private static final float OPAQUE_ALPHA = 1f;
 
     private static final int TILESET_PLATFORM = 1;
     private static final int TILESET_ASHWORLD = 3;
@@ -230,6 +220,10 @@ public final class LobbyResolution {
          * The slots kept out of the color pass.
          */
         public final boolean @NotNull [] colorKept;
+        /**
+         * The packed {@code 0xRRGGBB} map color of each slot whose {@code CRGB} section fixes its own color, {@code -1} for the others.
+         */
+        public final int @NotNull [] mapColor;
 
         /**
          * The custom color flag sent by the host, set by the map custom colors section.
@@ -258,6 +252,7 @@ public final class LobbyResolution {
             this.lobbyColor     = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
             this.colorLock      = new boolean[PlayerTable.PLAYABLE_PLAYER_SLOTS];
             this.colorKept      = new boolean[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+            this.mapColor       = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
 
             this.customColorFlag = false;
             this.tileset         = 0;
@@ -265,6 +260,7 @@ public final class LobbyResolution {
             Arrays.fill(this.playerId, -1);
             Arrays.fill(this.name, "");
             Arrays.fill(this.lobbyColor, COLOR_NONE);
+            Arrays.fill(this.mapColor, -1);
         }
     }
 
@@ -275,6 +271,7 @@ public final class LobbyResolution {
         private final MeleeGameSetup.@NotNull PlayerRecord @NotNull [] records;
         private final int @NotNull [] colors;
         private final int @NotNull [] colorIds;
+        private final int @NotNull [] customColors;
         private final int @NotNull [] lobbyColors;
         private final int @NotNull [] commandSlots;
         private final int @NotNull [] slotRaces;
@@ -285,17 +282,19 @@ public final class LobbyResolution {
          * @param records      the twelve final player records
          * @param colors       the eight color permutation entries
          * @param colorIds     the network color ids, {@code -1} where none was given
+         * @param customColors the packed {@code 0xRRGGBB} custom colors, {@code -1} where none was given
          * @param lobbyColors  the lobby colors after placement
          * @param commandSlots the player slots whose units the commands act on
          * @param slotRaces    the lobby slot races before placement
          */
         public Result(MeleeGameSetup.@NotNull PlayerRecord @NotNull [] records,
-                      int @NotNull [] colors, int @NotNull [] colorIds, int @NotNull [] lobbyColors,
+                      int @NotNull [] colors, int @NotNull [] colorIds, int @NotNull [] customColors, int @NotNull [] lobbyColors,
                       int @NotNull [] commandSlots,
                       int @NotNull [] slotRaces) {
             this.records      = records;
             this.colors       = colors;
             this.colorIds     = colorIds;
+            this.customColors = customColors;
             this.lobbyColors  = lobbyColors;
             this.commandSlots = commandSlots;
             this.slotRaces    = slotRaces;
@@ -320,6 +319,16 @@ public final class LobbyResolution {
          */
         public int @NotNull [] getColorIds() {
             return this.colorIds;
+        }
+
+        /**
+         * Returns the custom colors of the eight final slots (the replay's {@code CCLR}): a slot's network color, else the map color of a slot
+         * whose {@code CRGB} section fixes its own color.
+         *
+         * @return the packed {@code 0xRRGGBB} custom colors, {@code -1} where none was given
+         */
+        public int @NotNull [] getCustomColors() {
+            return this.customColors;
         }
 
         /**
@@ -584,35 +593,6 @@ public final class LobbyResolution {
     }
 
     /**
-     * Encodes the custom colors of the final slots as the replay's custom color block.
-     *
-     * @param colorIds the eight color ids, {@code -1} for none
-     * @return the encoded color bytes
-     */
-    public static byte @NotNull [] encodeCustomColors(int @NotNull [] colorIds) {
-        ByteBuffer buffer = ByteBuffer.allocate(PlayerTable.PLAYER_SLOTS * COLOR_ENTRY_BYTES).order(ByteOrder.LITTLE_ENDIAN);
-
-        for (int slot = 0; slot < colorIds.length && slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
-            int id = colorIds[slot];
-
-            buffer.position(slot * COLOR_ENTRY_BYTES);
-
-            if (id < 0 || id >= COLOR_RGB.length) {
-                continue;
-            }
-
-            int rgb = COLOR_RGB[id];
-
-            buffer.putFloat((rgb >>> RED_SHIFT & CHANNEL_MASK) / COLOR_CHANNEL_MAXIMUM)
-                  .putFloat((rgb >>> GREEN_SHIFT & CHANNEL_MASK) / COLOR_CHANNEL_MAXIMUM)
-                  .putFloat((rgb & CHANNEL_MASK) / COLOR_CHANNEL_MAXIMUM)
-                  .putFloat(OPAQUE_ALPHA);
-        }
-
-        return buffer.array();
-    }
-
-    /**
      * Resolves the table with the seed.
      *
      * @param table   the lobby table; not changed
@@ -709,7 +689,13 @@ public final class LobbyResolution {
                                  : slot;
         }
 
-        return new Result(records, colors, colorId, lobbyColor, commandSlots, slotRaces);
+        int[] customColors = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+
+        for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
+            customColors[slot] = colorId[slot] >= 0 ? getColorRgb(colorId[slot]) : table.colorKept[slot] ? table.mapColor[slot] : -1;
+        }
+
+        return new Result(records, colors, colorId, customColors, lobbyColor, commandSlots, slotRaces);
     }
 
     /**

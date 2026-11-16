@@ -11,7 +11,7 @@ final class LaunchHelpUtils {
         System.out.println("sc4j [--data directory] [--replay file.rep] [--focus-unit index] [--smoke | --frames count]" +
                            " [--hidden] [--screenshot file.png]");
         System.out.println("--camera x,y centers the initial view on world pixels; --zoom scale sets its initial screen pixels per world pixel.");
-        System.out.println("--renderer classic|hd2|hd selects the world renderer; F5 cycles classic, HD2 and HD at runtime" +
+        System.out.println("--renderer classic|hd2|hd selects the world renderer (default hd); F5 cycles classic, HD2 and HD at runtime" +
                            " (SC:R's F5 toggles classic and remastered; cycling is a user-chosen deviation).");
         System.out.println("--hd-lighting on|off selects the HD deferred lighting; --hd-skin default|presale|carbot selects the HD unit skin.");
         System.out.println("--shadow-stacking on|off sets SC:R's Shadow Stacking (graphics.shadowStacking, default on);" +

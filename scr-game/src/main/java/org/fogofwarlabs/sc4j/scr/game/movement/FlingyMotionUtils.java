@@ -160,6 +160,10 @@ public final class FlingyMotionUtils {
      * The offset of the vertical component of a direction in {@link #DIRECTION_COMPONENTS}.
      */
     private static final int VERTICAL_COMPONENT = 1;
+    /**
+     * The distance in pixels ahead of the exact position at which {@link #faceFrameDirection} sets the direction target.
+     */
+    private static final int FACING_TARGET_DISTANCE = 16;
 
     /**
      * The unsigned slope thresholds (the vertical delta times {@code 256} divided by the horizontal delta) of the directions of a quarter turn, one
@@ -402,6 +406,20 @@ public final class FlingyMotionUtils {
         }
 
         setDesiredDirection(object, direction);
+    }
+
+    /**
+     * Sets the direction target {@value #FACING_TARGET_DISTANCE} pixels ahead of the exact position in a frame direction, so the object turns to
+     * that direction once it stands on its waypoint ({@link #updateDirection}).
+     *
+     * @param object         the turning object
+     * @param frameDirection the direction in thirty-seconds of a turn ({@link #DIRECTION_THIRTY_SECOND_TURN} direction steps each)
+     */
+    public static void faceFrameDirection(@NotNull MovingEntity object, int frameDirection) {
+        long vector = calculateDirectionVector(DIRECTION_THIRTY_SECOND_TURN * frameDirection, FACING_TARGET_DISTANCE << FIXED_POINT_SHIFT);
+
+        object.setDirectionTargetX((object.getFixedPositionX() + (int) vector) >> FIXED_POINT_SHIFT);
+        object.setDirectionTargetY((object.getFixedPositionY() + (int) (vector >>> DIRECTION_VECTOR_VERTICAL_SHIFT)) >> FIXED_POINT_SHIFT);
     }
 
     /**

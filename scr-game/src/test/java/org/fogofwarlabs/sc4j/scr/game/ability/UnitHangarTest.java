@@ -43,6 +43,8 @@ final class UnitHangarTest {
     private static final int CARRIER_Y = 2300;
     private static final int SHUTTLE_X = 3300;
     private static final int SHUTTLE_Y = 2000;
+    private static final int MARINE_X = 3200;
+    private static final int MARINE_Y = 2600;
     private static final int PARENT_POOL_INDEX = 1;
     private static final int MAXIMUM_HANGAR_COUNT = 255;
     private static final int TARGET_DISTANCE = 20;
@@ -249,6 +251,62 @@ final class UnitHangarTest {
                 Assertions.assertNull(interceptor.getHangarParent(), "A released Interceptor has no parent.");
                 Assertions.assertEquals(DIE_ORDER, interceptor.getPrimaryOrder(), "A released stored Interceptor dies.");
             }
+        });
+    }
+
+    /**
+     * Checks that the stop order of a unit that is neither a Carrier nor a Reaver continues with the idle order of the stop order, as the
+     * Carrier Stop button a map gives a Marine does.
+     *
+     * @param carrierStop whether the order is Carrier Stop instead of Reaver Stop
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void update_parent_stop_should_continue_with_the_idle_order_of_the_stop_order(boolean carrierStop) {
+        RunningGameScenario.runInCommandDispatch(runtime, () -> {
+            Assertions.assertNotNull(runtime);
+
+            Game game = runtime.getGame();
+            Unit marine = RunningGameScenario.createUnit(game, ScrUnitIds.TERRAN_MARINE, MARINE_X, MARINE_Y, RunningGameScenario.HUMAN);
+
+            game.getOrders().issueUntargeted(marine,
+                                             carrierStop ? ScrOrderIds.CARRIER_STOP : ScrOrderIds.REAVER_STOP,
+                                             RunningGameScenario.INSTRUCTION_LIMIT);
+            game.getUnitHangar().updateParentStop(marine, RunningGameScenario.INSTRUCTION_LIMIT);
+
+            Assertions.assertEquals(carrierStop ? ScrOrderIds.CARRIER : ScrOrderIds.REAVER, marine.getPrimaryOrder());
+        });
+    }
+
+    /**
+     * Checks that the attack order of a unit that is neither a Carrier nor a Reaver continues with the fight order of the attack order.
+     *
+     * @param carrierAttack whether the order is Carrier Attack instead of Reaver Attack
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void update_parent_attack_should_continue_with_the_fight_order_of_the_attack_order(boolean carrierAttack) {
+        RunningGameScenario.runInCommandDispatch(runtime, () -> {
+            Assertions.assertNotNull(runtime);
+
+            Game game = runtime.getGame();
+            Unit marine = RunningGameScenario.createUnit(game, ScrUnitIds.TERRAN_MARINE, MARINE_X, MARINE_Y, RunningGameScenario.HUMAN);
+            Unit target = RunningGameScenario.createUnit(game,
+                                                         ScrUnitIds.ZERG_ZERGLING,
+                                                         MARINE_X + TARGET_DISTANCE, MARINE_Y,
+                                                         RunningGameScenario.COMPUTER);
+
+            game.getOrders().issue(marine,
+                                   carrierAttack ? ScrOrderIds.CARRIER_ATTACK : ScrOrderIds.REAVER_ATTACK,
+                                   target,
+                                   target.getPositionX(), target.getPositionY(),
+                                   ScrUnitIds.NONE,
+                                   false,
+                                   RunningGameScenario.INSTRUCTION_LIMIT);
+            game.getUnitHangar().updateParentAttack(marine, RunningGameScenario.INSTRUCTION_LIMIT);
+
+            Assertions.assertEquals(carrierAttack ? ScrOrderIds.CARRIER_FIGHT : ScrOrderIds.REAVER_FIGHT, marine.getPrimaryOrder());
+            Assertions.assertSame(target, marine.getOrderTargetUnit());
         });
     }
 

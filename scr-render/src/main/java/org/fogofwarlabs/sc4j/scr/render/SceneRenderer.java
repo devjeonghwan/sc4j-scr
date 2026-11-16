@@ -220,6 +220,16 @@ public interface SceneRenderer {
      */
     void setPlayerColorRows(byte @NotNull [] rows);
 
+    /**
+     * Sets the HD team color of a player shown in its custom color instead of the palette entry of its row's first byte, until the next
+     * {@link #setPlayerColorRows}. The default ignores it.
+     *
+     * @param player the player slot
+     * @param color  the packed {@code 0xRRGGBBAA} custom color
+     */
+    default void setCustomTeamColor(int player, int color) {
+    }
+
 
     /**
      * Draws the visible terrain from the current game tile identifiers, including creep edges.

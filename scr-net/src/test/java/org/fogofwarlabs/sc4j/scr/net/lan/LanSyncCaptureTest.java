@@ -2,29 +2,22 @@ package org.fogofwarlabs.sc4j.scr.net.lan;
 
 import org.fogofwarlabs.sc4j.engine.lockstep.LockstepTransport;
 import org.fogofwarlabs.sc4j.engine.lockstep.PeerTurn;
-import org.fogofwarlabs.sc4j.scr.content.ScrRaceIds;
 import org.fogofwarlabs.sc4j.scr.core.test.ExternalInput;
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
-import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplaySession;
 import org.fogofwarlabs.sc4j.scr.game.session.LiveGame;
 import org.fogofwarlabs.sc4j.scr.game.session.NetworkPeerUtils;
 import org.fogofwarlabs.sc4j.scr.game.session.SyncChecksumUtils;
-import org.fogofwarlabs.sc4j.scr.game.session.setup.LobbyResolution;
-import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -87,8 +80,6 @@ final class LanSyncCaptureTest {
     private static final int SEED = 0x6ABCBEE2;
     private static final int HOST_PLAYER = 0;
     private static final int JOINER_PLAYER = 1;
-    private static final int HOST_TEAM = 1;
-    private static final int JOINER_TEAM = 2;
     private static final @NotNull String MAP_NAME = "(2)Bottleneck.scm";
 
     private static final int UPDATES = 20;
@@ -133,37 +124,12 @@ final class LanSyncCaptureTest {
      */
     private static final int PARITY_DIGITS_START = 12;
 
-    private static @NotNull MeleeGameSetup createCapturedGameSetup(byte @NotNull [] mapData) throws IOException {
-        LanLobby.Setup setup = LanTestResources.createCapturedLobbySetup("B");
-        MeleeGameSetup.PlayerRecord[] records = new MeleeGameSetup.PlayerRecord[LanLobby.RECORDS];
-        byte[] lobbyData = new byte[LanLobby.LOBBY_DATA_SIZE];
-
-        for (int index = 0; index < LanLobby.RECORDS; index++) {
-            records[index] = setup.getRecord(index);
-        }
-
-        records[HOST_PLAYER]   = new MeleeGameSetup.PlayerRecord(HOST_PLAYER, PlayerTypes.HUMAN, ScrRaceIds.ZERG, HOST_TEAM, "B");
-        records[JOINER_PLAYER] = new MeleeGameSetup.PlayerRecord(JOINER_PLAYER, PlayerTypes.HUMAN, ScrRaceIds.TERRAN, JOINER_TEAM, "A");
-
-        for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
-            lobbyData[LanLobby.LOBBY_DATA_COLORS + slot] = (byte) LobbyResolution.COLOR_NONE;
-        }
-
-        LobbyResolution.Table table = LanLobby.createResolutionTable(LanLobby.createGameSettings(setup), records, lobbyData);
-
-        return MeleeGameSetup.createNetwork(mapData, "B",
-                                            table, LanLobby.createResolutionOptions(LanGameOptions.TOP_VS_BOTTOM_1),
-                                            LanGameOptions.TOP_VS_BOTTOM_1.createTemplate(),
-                                            GameSpeed.FASTEST, true);
-    }
-
-
     @Test
     void kind_2_and_kind_1_sync_words_equal_the_captured_host_syncs() throws Exception {
         Path mapPath = ExternalInput.INSTALLATION.resolveFile(ExternalInput.MAPS_FOLDER, MAP_NAME);
 
         byte[] mapData = MpqArchive.open(mapPath).readFile("staredit\\scenario.chk");
-        LiveGame live = new LiveGame(createCapturedGameSetup(mapData), SEED, HOST_PLAYER);
+        LiveGame live = new LiveGame(LanTestResources.createCapturedGameSetup(mapData), SEED, HOST_PLAYER);
 
         try (GameData gameData = GameData.loadFrom(ExternalInput.INSTALLATION.getPath())) {
             ReplayRuntime runtime = ReplayRuntime.createLiveGame(live.getReplay(), ChkFile.parseTolerant(mapData),
@@ -242,7 +208,7 @@ final class LanSyncCaptureTest {
         Path mapPath = ExternalInput.INSTALLATION.resolveFile(ExternalInput.MAPS_FOLDER, MAP_NAME);
 
         byte[] mapData = MpqArchive.open(mapPath).readFile("staredit\\scenario.chk");
-        LiveGame live = new LiveGame(createCapturedGameSetup(mapData), SEED, localPlayerIdentifier);
+        LiveGame live = new LiveGame(LanTestResources.createCapturedGameSetup(mapData), SEED, localPlayerIdentifier);
         List<byte[]> sent = new ArrayList<>();
         // The lobby ended with its turns 320 and 321 in transit: the game start step consumes 320, the first frame 321.
         int[] received = {LOBBY_TURNS_IN_TRANSIT};

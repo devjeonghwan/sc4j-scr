@@ -1,18 +1,26 @@
 package org.fogofwarlabs.sc4j.scr.game.trigger;
 
+import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.TriggerUnitGroups;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
+import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerRelations;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.scr.game.test.PlayerProgressTestUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * Checks local trigger presentation, waits, results and player-group selection.
@@ -129,9 +137,33 @@ final class LiveTriggerPresentationTest {
      */
     private static final int NO_EVENT_POSITION = -1;
 
+    /**
+     * The map strings of the sound path fixture: a short sound file name and a name longer than the native path buffer.
+     */
+    private static final @NotNull String SOUND_FILE = "staredit/wav/a.wav";
+    private static final int LONG_SOUND_FILE_LENGTH = 300;
+    private static final int SOUND_STRING = 1;
+    private static final int LONG_SOUND_STRING = 2;
+    /**
+     * A sound string DWORD whose high WORD the action ignores.
+     */
+    private static final int HIGH_WORD = 0x10000;
+    /**
+     * The offset of the first string in a two-string {@code STR } section: the count WORD and two offset WORDs come first.
+     */
+    private static final int FIRST_STRING_OFFSET = 6;
+    /**
+     * The offset in {@link #SOUND_FILE} of the {@code a} that the string writes replace.
+     */
+    private static final int REPLACED_CHARACTER_OFFSET = 13;
+
     private static @NotNull TriggerEvents runUntilEvents(@NotNull TriggerContext context, int replayMode) {
+        return runUntilEvents(context, replayMode, null);
+    }
+
+    private static @NotNull TriggerEvents runUntilEvents(@NotNull TriggerContext context, int replayMode, @Nullable Game world) {
         for (int call = 0; call < UPDATE_CALL_LIMIT; call++) {
-            ScrTriggerSystem.update(context, FRAME_DURATION, replayMode, 0, 0);
+            ScrTriggerSystem.update(context, FRAME_DURATION, replayMode, 0, 0, world, 0);
 
             if (context.getEvents().getCount() != 0) {
                 return context.getEvents();
@@ -141,6 +173,32 @@ final class LiveTriggerPresentationTest {
         Assertions.fail("No trigger events were produced.");
 
         return context.getEvents();
+    }
+
+    /**
+     * Creates a {@code STR } section payload of the given strings.
+     *
+     * @param strings the strings in table order
+     * @return the payload
+     */
+    private static byte @NotNull [] createStringSection(byte @NotNull [] @NotNull ... strings) {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteBuffer word = ByteBuffer.allocate(Short.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+        int offset = Short.BYTES * (strings.length + 1);
+
+        output.writeBytes(word.putShort(0, (short) strings.length).array());
+
+        for (byte[] string : strings) {
+            output.writeBytes(word.putShort(0, (short) offset).array());
+            offset += string.length + 1;
+        }
+
+        for (byte[] string : strings) {
+            output.writeBytes(string);
+            output.write(0);
+        }
+
+        return output.toByteArray();
     }
 
     private static void assertEvent(@NotNull TriggerEvents events, int index, int kind, int first, int second, int third) {
@@ -343,6 +401,41 @@ final class LiveTriggerPresentationTest {
 
         Assertions.assertEquals(1, events.getCount(), "Play WAV is silent while replaying; Display Text has no replay check.");
         assertEvent(events, 0, TEXT_EVENT, 5, 0, 0);
+    }
+
+    @Test
+    void play_wav_requests_the_sound_string_as_the_strings_hold_it_when_the_action_runs() {
+        byte[] records = new byte[TriggerRecordCodec.RECORD_SIZE];
+        ByteBuffer record = TriggerRecordScenario.createRecord(records, 0);
+
+        writeCondition(record, TriggerConditionIds.ALWAYS, 0, 0, 0, 0);
+        writeAction(record, 0, TriggerActionIds.PLAY_WAV, 0, 0, HIGH_WORD | SOUND_STRING, 0, 0, 0, 0);
+        writeAction(record, 1, TriggerActionIds.PLAY_WAV, 0, 0, LONG_SOUND_STRING, 0, 0, 0, 0);
+        record.put(TriggerRecordCodec.OWNERS_OFFSET, (byte) 1);
+
+        TriggerContext context = createContext(createPlayers(new int[]{PlayerTypes.HUMAN, PlayerTypes.NONE, PlayerTypes.NONE, PlayerTypes.NONE,
+                                                                       PlayerTypes.NONE, PlayerTypes.NONE, PlayerTypes.NONE, PlayerTypes.NONE}),
+                                               records,
+                                               0,
+                                               0);
+        byte[] longName = "x".repeat(LONG_SOUND_FILE_LENGTH).getBytes(StandardCharsets.US_ASCII);
+        MapStringSection strings = new MapStringSection(createStringSection(SOUND_FILE.getBytes(StandardCharsets.US_ASCII), longName), false);
+        Game world = Game.create(null, new GameMap(1, 1, 0, new int[1]), new LcgRandom(0));
+
+        world.getInterfaceLink().getMessageLines().setMapStringSection(strings);
+        // An EUD write to the string before the action runs changes the requested file; a write after it does not.
+        strings.writeByte(FIRST_STRING_OFFSET + REPLACED_CHARACTER_OFFSET, 'b');
+
+        TriggerEvents events = runUntilEvents(context, LIVE_GAME, world);
+
+        strings.writeByte(FIRST_STRING_OFFSET + REPLACED_CHARACTER_OFFSET, 'c');
+
+        Assertions.assertEquals(2, events.getCount());
+        assertEvent(events, 0, WAV_EVENT, HIGH_WORD | SOUND_STRING, 0, 0);
+        Assertions.assertArrayEquals("staredit/wav/b.wav".getBytes(StandardCharsets.US_ASCII), events.getPath(0),
+                                     "The low WORD selects the string.");
+        Assertions.assertArrayEquals(Arrays.copyOf(longName, TriggerEvents.SOUND_PATH_LIMIT), events.getPath(1),
+                                     "The path holds at most the native buffer's 259 bytes.");
     }
 
     @Test

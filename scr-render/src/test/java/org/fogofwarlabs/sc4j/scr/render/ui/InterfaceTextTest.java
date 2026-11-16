@@ -143,4 +143,17 @@ final class InterfaceTextTest {
         // A U+00A6 not preceded by code 0x04 is an ordinary glyph.
         Assertions.assertEquals("a¦b", InterfaceText.removeCaretGlyph("a¦b"));
     }
+
+    @Test
+    void is_hotkey_string_should_find_the_marked_hotkey_letter_in_any_label() {
+        Assertions.assertTrue(InterfaceText.isHotkeyString("l\u0004L\u0001ow"));
+        Assertions.assertTrue(InterfaceText.isHotkeyString("pS\u0004p\u0001eed"));
+        // A translated label marks the hotkey after its text.
+        Assertions.assertTrue(InterfaceText.isHotkeyString("l낮음 (\u0004L\u0001)"));
+        // A highlighted word that is not the first character, plain text and an empty string carry no hotkey.
+        Assertions.assertFalse(InterfaceText.isHotkeyString("WARNING: a \u0004permanent\u0002 operation"));
+        Assertions.assertFalse(InterfaceText.isHotkeyString("Latency"));
+        Assertions.assertFalse(InterfaceText.isHotkeyString("l\u0004"));
+        Assertions.assertFalse(InterfaceText.isHotkeyString(""));
+    }
 }

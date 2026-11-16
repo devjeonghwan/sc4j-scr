@@ -30,8 +30,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Checks installed script frames, random waits, free-list dispatch, lifted-building deaths, underlays and the overlays that scripts create on cloaked
- * units and hallucinations.
+ * Checks installed script frames, random waits, free-list dispatch, lifted-building deaths, underlays, the overlays that scripts create on cloaked
+ * units and hallucinations, and the turn of a trap's hide animation.
  */
 @RequiresInstallation
 final class IscriptExecutorTest {
@@ -243,6 +243,31 @@ final class IscriptExecutorTest {
      * The image flag of an image that is not drawn.
      */
     private static final int HIDDEN_IMAGE_FLAG = 0x40;
+    /**
+     * The horizontal position of the Floor Missile Trap.
+     */
+    private static final int TRAP_X = 3000;
+    /**
+     * The iscript of the Floor Missile Trap, whose Special State 2 animation (hide) starts with {@code setspawnframe 20} and {@code wait 1}.
+     */
+    private static final int FLOOR_MISSILE_TRAP_SCRIPT = 345;
+    /**
+     * The program counter advance over {@code setspawnframe 20} and {@code wait 1}.
+     */
+    private static final int SET_SPAWN_FRAME_ADVANCE = 4;
+    /**
+     * The horizontal offset of the direction target from the exact position: {@code 16} pixels in direction {@code 160} ({@code 20 * 8}), with
+     * eight fraction bits.
+     */
+    private static final int SPAWN_FRAME_OFFSET_X = -2896;
+    /**
+     * The vertical offset of the direction target from the exact position, like {@link #SPAWN_FRAME_OFFSET_X}.
+     */
+    private static final int SPAWN_FRAME_OFFSET_Y = 2896;
+    /**
+     * The fraction bits of an exact position.
+     */
+    private static final int FIXED_POINT_SHIFT = 8;
 
     private static @Nullable GameData gameData;
     private static @Nullable ReplayRuntime runtime;
@@ -537,6 +562,34 @@ final class IscriptExecutorTest {
             SpriteImage overlay = executeUntilImage(game, archon, ARCHON_OVERLAY);
 
             Assertions.assertEquals(HALLUCINATION_DRAW_FUNCTION, overlay.getModifier());
+        });
+    }
+
+    @Test
+    void hide_animation_of_a_floor_missile_trap_turns_it_with_setspawnframe() throws IOException {
+        Assertions.assertNotNull(gameData);
+
+        int animation = gameData.getIscript().getAnimationOffset(FLOOR_MISSILE_TRAP_SCRIPT, IscriptExecutor.ANIMATION_SPECIAL_STATE_2);
+
+        RunningGameScenario.runInCommandDispatch(runtime, () -> {
+            Assertions.assertNotNull(runtime);
+
+            Game game = runtime.getGame();
+            Unit trap = RunningGameScenario.createUnit(game, ScrUnitIds.SPECIAL_FLOOR_MISSILE_TRAP, TRAP_X, UNIT_ROW_Y, HUMAN);
+            Sprite sprite = trap.getSpriteOrNull();
+
+            Assertions.assertNotNull(sprite);
+
+            SpriteImage image = sprite.getMainImage();
+
+            Assertions.assertNotNull(image);
+
+            game.getIscriptExecutor().runSpriteAnimation(sprite, trap, IscriptExecutor.ANIMATION_SPECIAL_STATE_2, FORCED,
+                                                         RunningGameScenario.INSTRUCTION_LIMIT);
+
+            Assertions.assertEquals(animation + SET_SPAWN_FRAME_ADVANCE, image.getProgramCounter());
+            Assertions.assertEquals((trap.getFixedPositionX() + SPAWN_FRAME_OFFSET_X) >> FIXED_POINT_SHIFT, trap.getDirectionTargetX());
+            Assertions.assertEquals((trap.getFixedPositionY() + SPAWN_FRAME_OFFSET_Y) >> FIXED_POINT_SHIFT, trap.getDirectionTargetY());
         });
     }
 }

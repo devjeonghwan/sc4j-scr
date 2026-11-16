@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr.game.trigger;
 
 import org.fogofwarlabs.sc4j.scr.game.presentation.FrameEventBuffer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Retains the presentation output of trigger actions for the local player until acknowledged by the client or reset by the producer.
@@ -23,7 +24,8 @@ public final class TriggerEvents {
      */
     public static final int TEXT = 1;
     /**
-     * Play WAV: {@code first} is the map string index of the sound file.
+     * Play WAV, or the sound of a Transmission: {@code first} is the map string index of the sound file, and the event's path
+     * ({@link #getPath}) is that string as the action read it.
      */
     public static final int WAV = 2;
     /**
@@ -80,6 +82,11 @@ public final class TriggerEvents {
     public static final int NO_POSITION = -1;
 
     /**
+     * The longest sound path the native {@code 0x104}-byte path buffer holds.
+     */
+    public static final int SOUND_PATH_LIMIT = 0x103;
+
+    /**
      * The initial event slot count of the buffer.
      */
     private static final int INITIAL_CAPACITY = 16;
@@ -97,8 +104,9 @@ public final class TriggerEvents {
          * @param second the second value
          * @param third  the third value
          * @param fourth the fourth value
+         * @param path   the sound file path of a {@link #WAV} event, {@code null} for other events
          */
-        void present(int kind, int first, int second, int third, int fourth);
+        void present(int kind, int first, int second, int third, int fourth, byte @Nullable [] path);
     }
 
     /**
@@ -110,6 +118,7 @@ public final class TriggerEvents {
         private int second;
         private int third;
         private int fourth;
+        private byte @Nullable [] path;
 
         private Event() {
             this.kind   = 0;
@@ -117,6 +126,7 @@ public final class TriggerEvents {
             this.second = 0;
             this.third  = 0;
             this.fourth = 0;
+            this.path   = null;
         }
     }
 
@@ -181,6 +191,15 @@ public final class TriggerEvents {
         return this.events.get(index).fourth;
     }
 
+    /**
+     * @param index the event position
+     * @return the sound file path of a {@link #WAV} event, {@code null} for other events
+     * @throws IndexOutOfBoundsException if the index is negative or not below {@link #getCount()}
+     */
+    public byte @Nullable [] getPath(int index) {
+        return this.events.get(index).path;
+    }
+
 
     /**
      * Appends an event with a zero fourth value.
@@ -204,13 +223,17 @@ public final class TriggerEvents {
      * @param fourth the fourth value
      */
     void add(int kind, int first, int second, int third, int fourth) {
-        Event event = this.events.next();
+        this.append(kind, first, second, third, fourth, null);
+    }
 
-        event.kind   = kind;
-        event.first  = first;
-        event.second = second;
-        event.third  = third;
-        event.fourth = fourth;
+    /**
+     * Appends a {@link #WAV} event.
+     *
+     * @param stringIndex the map string index of the sound file
+     * @param path        the sound file path, retained
+     */
+    void addSound(int stringIndex, byte @NotNull [] path) {
+        this.append(WAV, stringIndex, 0, 0, 0, path);
     }
 
     /**
@@ -224,7 +247,7 @@ public final class TriggerEvents {
         for (int index = 0; index < this.events.getCount(); index++) {
             Event event = this.events.get(index);
 
-            presenter.present(event.kind, event.first, event.second, event.third, event.fourth);
+            presenter.present(event.kind, event.first, event.second, event.third, event.fourth, event.path);
         }
 
         this.clear();
@@ -235,5 +258,16 @@ public final class TriggerEvents {
      */
     public void clear() {
         this.events.clear();
+    }
+
+    private void append(int kind, int first, int second, int third, int fourth, byte @Nullable [] path) {
+        Event event = this.events.next();
+
+        event.kind   = kind;
+        event.first  = first;
+        event.second = second;
+        event.third  = third;
+        event.fourth = fourth;
+        event.path   = path;
     }
 }

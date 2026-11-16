@@ -36,11 +36,6 @@ public final class UnitTurret {
     private static final int TRANSITION_STATE_MORPHING = 3;
 
     /**
-     * The distance in pixels of the waypoint ahead in the {@code units.dat} direction that a sieging tank turns to.
-     */
-    private static final int FACING_WAYPOINT_DISTANCE = 16;
-
-    /**
      * The entries of the inner bounding box array: left, upper, right and lower pixel bounds.
      */
     private static final int BOX_LEFT = 0;
@@ -52,11 +47,6 @@ public final class UnitTurret {
      * The mask that wraps a direction or a direction difference to one byte.
      */
     private static final int BYTE_MASK = 0xFF;
-
-    /**
-     * The fraction bits of a fixed-point position or distance.
-     */
-    private static final int FIXED_POINT_FRACTION_BITS = 8;
 
     /**
      * Checks whether the unit faces its next target waypoint.
@@ -514,19 +504,13 @@ public final class UnitTurret {
     }
 
     /**
-     * Sets the next target waypoint {@code 16} pixels ahead in the {@code units.dat} unit direction.
+     * Sets the next target waypoint ahead in the {@code units.dat} unit direction ({@link FlingyMotionUtils#faceFrameDirection}).
      *
      * @param unit the turning unit
      * @throws NullPointerException if the world was built without game data
      */
     private void faceUnitDirection(@NotNull Unit unit) {
-        int direction = this.game.requireGameData().getUnitTypes().getInitialDirection(unit.getUnitId());
-        long vector = FlingyMotionUtils.calculateDirectionVector(FlingyMotionUtils.DIRECTION_THIRTY_SECOND_TURN * direction & BYTE_MASK,
-                                                                 FACING_WAYPOINT_DISTANCE << FIXED_POINT_FRACTION_BITS);
-
-        unit.setDirectionTargetX((unit.getFixedPositionX() + (int) vector) >> FIXED_POINT_FRACTION_BITS);
-        unit.setDirectionTargetY((unit.getFixedPositionY() + (int) (vector >>> FlingyMotionUtils.DIRECTION_VECTOR_VERTICAL_SHIFT)) >>
-                                 FIXED_POINT_FRACTION_BITS);
+        FlingyMotionUtils.faceFrameDirection(unit, this.game.requireGameData().getUnitTypes().getInitialDirection(unit.getUnitId()));
     }
 
     /**

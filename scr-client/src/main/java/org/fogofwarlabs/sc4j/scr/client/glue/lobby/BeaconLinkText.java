@@ -9,6 +9,9 @@ import java.util.Locale;
  * for them. A text with {@code %s} or {@code %d} takes its values through {@link #format}.
  */
 enum BeaconLinkText {
+    CONNECTION_REQUIREMENTS("Requirements: Your computer will need access to the Internet and an SC4J account.",
+                            "요구 조건: 컴퓨터가 인터넷에 연결되어 있고 SC4J 계정이 있어야 합니다."),
+
     MOD("Mod", "모드"),
     CONNECTING("Connecting", "연결 중"),
     NO_NODES("Not set up", "설정 없음"),

@@ -250,7 +250,7 @@ public final class ClientOptions {
         float cameraX = Float.NaN;
         float cameraY = Float.NaN;
         float zoom = Float.NaN;
-        HdRenderAssets.Quality sceneQuality = null;
+        HdRenderAssets.Quality sceneQuality = GraphicsChoice.HD.getQuality();
         boolean hdLighting = true;
         String hdSkin = null;
         int consolePlayer = -1;
@@ -1169,7 +1169,7 @@ public final class ClientOptions {
     }
 
     /**
-     * @return the HD scene asset quality selected by {@code --renderer}, or {@code null} for the classic renderer
+     * @return the HD scene asset quality selected by {@code --renderer} ({@code hd} by default), or {@code null} for the classic renderer
      */
     public @Nullable HdRenderAssets.Quality getSceneQuality() {
         return this.sceneQuality;
