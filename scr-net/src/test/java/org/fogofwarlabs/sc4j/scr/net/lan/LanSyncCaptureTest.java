@@ -12,7 +12,6 @@ import org.fogofwarlabs.sc4j.scr.game.replay.ReplaySession;
 import org.fogofwarlabs.sc4j.scr.game.session.LiveGame;
 import org.fogofwarlabs.sc4j.scr.game.session.NetworkPeerUtils;
 import org.fogofwarlabs.sc4j.scr.game.session.SyncChecksumUtils;
-import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.jetbrains.annotations.NotNull;

@@ -2138,7 +2138,7 @@ public final class LanLobby implements GameLobby {
             table.colorLock[slot]      = lobbyData[LOBBY_DATA_COLOR_LOCKS + slot] != 0;
             table.colorKept[slot]      = lobbyData[LOBBY_DATA_COLOR_KEPT + slot] != 0;
             // A kept slot's custom color entry holds its map color.
-            table.mapColor[slot]       = table.colorKept[slot] ? PlayerColorRows.decodeCustomColor(customColors, slot) >>> Byte.SIZE : -1;
+            table.mapColor[slot] = table.colorKept[slot] ? PlayerColorRows.decodeCustomColor(customColors, slot) >>> Byte.SIZE : -1;
         }
 
         for (int force = 0; force < FORCES; force++) {

@@ -162,9 +162,9 @@ final class EudOrderRequirementBuildTest {
                         int tileX = builderTileX + offsetX;
                         int tileY = builderTileY + offsetY;
                         int code = this.game.getUnitPlacement().getPlacementCode(builder, builder, this.player, unitType,
-                                                                                tileX * TerrainTileset.TILE_SIZE + width / CENTER_DIVISOR,
-                                                                                tileY * TerrainTileset.TILE_SIZE + height / CENTER_DIVISOR,
-                                                                                false, false);
+                                                                                 tileX * TerrainTileset.TILE_SIZE + width / CENTER_DIVISOR,
+                                                                                 tileY * TerrainTileset.TILE_SIZE + height / CENTER_DIVISOR,
+                                                                                 false, false);
 
                         if (tileX >= 0 && tileY >= 0 && code == PlacementResult.VALID) {
                             return new int[]{tileX, tileY};

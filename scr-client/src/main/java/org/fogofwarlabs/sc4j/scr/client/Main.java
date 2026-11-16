@@ -643,7 +643,7 @@ public final class Main {
      * Starts a LAN game whose lobby counted down: the lobby's table resolves with the host's seed, the local player plays its own record, and the
      * game takes over the lobby's turn stream with three own turns in transit. The system property {@link #LAN_KEEP_ALIVE_PROPERTY} set to
      * {@code true} is a debug switch: turns then carry Keep Alive instead of Sync.
-     *
+     * <p>
      * The game writes its desync dump to the desync folder ({@link LiveGame#setDesyncDumpTarget}).
      *
      * @param clientContext the client resources
