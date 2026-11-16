@@ -122,9 +122,9 @@ public final class ReplaySettings extends GameSettings {
     }
 
     /**
-     * Returns the field previously interpreted as starting gas.
+     * Returns the header field named starting gas.
      * <p>
-     * Its meaning is unverified; this value is retained without interpreting it as a resource amount.
+     * Its meaning is not known; the value is kept raw, not read as a resource amount.
      *
      * @return the raw unsigned value at header offset {@code 0x9c}
      */

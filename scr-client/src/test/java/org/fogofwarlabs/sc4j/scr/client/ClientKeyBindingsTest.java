@@ -15,7 +15,7 @@ final class ClientKeyBindingsTest {
     private static final int NO_MODIFIERS = 0;
 
     /**
-     * The keys and modifiers the client used to bind: F7, F12, Ctrl+F12 and the replay viewer letters and signs.
+     * The keys and modifiers that the client leaves unbound: F7, F12, Ctrl+F12 and the replay viewer letters and signs.
      */
     private static final @NotNull Object @NotNull [] @NotNull [] REMOVED_KEYS = {
             {Key.F7, NO_MODIFIERS}, {Key.F12, NO_MODIFIERS}, {Key.F12, KeyModifier.CONTROL.getMask()},

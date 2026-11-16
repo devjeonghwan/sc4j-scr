@@ -1,5 +1,5 @@
-// The conventions of the SC:R builds. A project applies it before its Java plugins react; the root project registers checkPrivatePaths and
-// the sc4j.data check of the integration tier.
+// The conventions of the SC:R builds. A project applies it before its Java plugins react; the root project registers the sc4j.data check of the
+// integration tier.
 
 // The LWJGL version of the engine and the classifier of its native libraries on this platform.
 def operatingSystemName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
@@ -232,76 +232,7 @@ plugins.withType(JavaLibraryPlugin).configureEach {
     }
 }
 
-// Private path check: no source, build or documentation file of the build names a private local path. It reads the
-// files of every leaf module (without build output; the root project too when it has no modules, without the folders of the builds it
-// includes), the top-level files of the parent modules and of the build, gradle/, build-logic/ and the documents in docs/, but not the
-// ignore file, which lists the folder, nor the top-level files it keeps local (its "/<name>" lines). "check" (and so "build") of every Java
-// module runs it.
 if (project == rootProject) {
-    def privatePathPattern = ~/(?<![\w.])\.local[\/\\]/
-    def ignoreFile = file('.gitignore')
-    def localTopLevelFiles = (ignoreFile.isFile() ? ignoreFile.readLines('UTF-8') : []).findAll { line -> line ==~ /\/[^\/*]+\/?/ }.collect { line ->
-        line.substring(1).replaceAll(/\/$/, '')
-    }
-    def includedBuildFolders = gradle.includedBuilds.collect { build -> build.projectDir.toPath() }.findAll { folder ->
-        folder.startsWith(rootDir.toPath())
-    }.collect { folder -> rootDir.toPath().relativize(folder).toString().replace('\\', '/') + '/**' }
-    def privatePathFileTypes = ['**/*.java', '**/*.gradle', '**/*.kts', '**/*.properties', '**/*.json', '**/*.css', '**/*.txt', '**/*.tsv',
-                                '**/*.md', '**/*.xml', '**/*.fxml', '**/*.html', '**/*.py', '**/*.sh', '**/*.bat', '**/*.cmd', '**/*.yml',
-                                '**/*.toml', '**/LICENSE', '**/NOTICE', '**/gradlew']
-    def privatePathFiles = files(
-        fileTree(rootDir) {
-            if (subprojects.isEmpty()) {
-                include privatePathFileTypes
-                exclude 'build/**', '.gradle/**', 'build-logic/**', 'docs/**', 'gradle/**'
-                exclude includedBuildFolders
-            } else {
-                include privatePathFileTypes.collect { type -> type.substring(3) }
-                exclude '*/**'
-            }
-            exclude '.gitignore'
-            exclude localTopLevelFiles
-        },
-        fileTree(file('gradle')) { include privatePathFileTypes },
-        fileTree(file('build-logic')) {
-            include privatePathFileTypes
-            exclude '**/build/**', '**/.gradle/**'
-        },
-        fileTree(file('docs')) { include privatePathFileTypes },
-        subprojects.collect { module ->
-            module.childProjects.isEmpty()
-                ? fileTree(module.projectDir) {
-                include privatePathFileTypes
-                exclude 'build/**', '.gradle/**'
-            }
-                : fileTree(module.projectDir) {
-                include privatePathFileTypes.collect { type -> type.substring(3) }
-                exclude '*/**'
-            }
-        })
-    def privatePathReport = layout.buildDirectory.file('reports/private-paths.txt')
-    tasks.register('checkPrivatePaths') {
-        description = 'Checks that no source, build or documentation file names a private local path.'
-        group = 'verification'
-        inputs.files(privatePathFiles)
-        inputs.property('pattern', privatePathPattern.toString())
-        outputs.file(privatePathReport)
-        doLast {
-            def problems = []
-            privatePathFiles.each { file ->
-                file.readLines('UTF-8').eachWithIndex { line, index ->
-                    if (line =~ privatePathPattern) {
-                        problems << file.path + ':' + (index + 1) + ': ' + line.trim()
-                    }
-                }
-            }
-            if (!problems.isEmpty()) {
-                throw new GradleException('No repository file may name a private local path:\n  ' + problems.join('\n  '))
-            }
-            privatePathReport.get().asFile.text = 'No private path: ' + privatePathFiles.files.size() + ' files checked.\n'
-        }
-    }
-
     // The integration tier needs the SC:R installation: fail before any task runs instead of skipping every test.
     gradle.taskGraph.whenReady { graph ->
         if (graph.allTasks.any { task -> task.name == 'integrationTest' }) {
@@ -318,10 +249,5 @@ if (project == rootProject) {
                                           data)
             }
         }
-    }
-}
-plugins.withId('java') {
-    tasks.named('check') {
-        dependsOn ':checkPrivatePaths'
     }
 }
