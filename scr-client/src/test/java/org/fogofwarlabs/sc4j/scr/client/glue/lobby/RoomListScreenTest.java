@@ -319,8 +319,7 @@ final class RoomListScreenTest {
      * Draws the local network's game creation over the same map folder after a press on the turn rate slider's track: its map list shares the
      * file rows of the Beacon.Link map browser.
      */
-    private @NotNull String drawLanCreateFrame(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private @NotNull String drawLanCreateFrame(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         PlayerPresence kerrigan = createPlayer(KERRIGAN_KEY, "Kerrigan", PlayerStatus.IN_ROOM);
         Path installRoot = this.createMapFolder(name);
 
@@ -357,8 +356,7 @@ final class RoomListScreenTest {
      *
      * @return the check box's offset when it is more than the tolerance, empty otherwise
      */
-    private @NotNull List<String> findCheckBoxOffset(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private @NotNull List<String> findCheckBoxOffset(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         Path root = this.directory;
 
         Assertions.assertNotNull(root);

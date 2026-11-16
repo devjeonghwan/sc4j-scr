@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr.game.visibility;
 
 import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
+import org.fogofwarlabs.sc4j.scr.content.ScrWeaponIds;
 import org.fogofwarlabs.sc4j.scr.core.test.ExternalInput;
 import org.fogofwarlabs.sc4j.scr.core.test.RequiresInstallation;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
@@ -115,6 +116,10 @@ final class UnitCloakingTest {
      * The image flag of an image that is not drawn.
      */
     private static final int HIDDEN_IMAGE_FLAG = 0x40;
+    /**
+     * The maximum range of the none weapon.
+     */
+    private static final int NONE_WEAPON_RANGE = 0;
 
     private static @Nullable GameData gameData;
 
@@ -141,6 +146,42 @@ final class UnitCloakingTest {
         Assertions.assertNotNull(gameData);
 
         return SelectedUnitScenario.createGame(gameData, unitType);
+    }
+
+    /**
+     * Runs the cloak-nearby order of a Zealot, a type without an air weapon, with one Marine of the same owner at the Zealot's position.
+     *
+     * @return the Marine after the order ran
+     */
+    private static @NotNull Unit cloakNearbyMarineOfUnitWithoutAirWeapon() {
+        Assertions.assertNotNull(gameData);
+
+        Game game = createGame(ScrUnitIds.PROTOSS_ZEALOT);
+        UnitPool pool = game.getUnitSystem().getUnitPool();
+
+        Assertions.assertNotNull(pool);
+
+        Unit unit = pool.getUnit(UNIT_POOL_INDEX);
+        Unit target = pool.getUnit(TARGET_POOL_INDEX);
+
+        UnitStorageConstructor.clearBeforeInnerInitialization(target);
+
+        Assertions.assertTrue(game.getUnitInitializer().initialize(target,
+                                                                   ScrUnitIds.TERRAN_MARINE,
+                                                                   UNIT_POSITION, UNIT_POSITION,
+                                                                   FIRST_PLAYER,
+                                                                   INSTRUCTION_LIMIT));
+
+        target.setPrimaryOrder(ScrOrderIds.PLAYER_GUARD);
+
+        UnitSpatialIndex spatialIndex = game.getUnitSystem().getUnitSpatialIndex();
+
+        Assertions.assertNotNull(spatialIndex);
+
+        spatialIndex.insert(target, gameData.getUnitTypes());
+        game.getUnitCloaking().updateCloakNearbyUnits(unit);
+
+        return target;
     }
 
 
@@ -179,6 +220,18 @@ final class UnitCloakingTest {
         Assertions.assertEquals(SINGLE_CLOAK_COUNT, target.getCloakCounter());
         Assertions.assertNotEquals(0, target.getStatus() & PASSIVELY_CLOAKED_STATUS);
         Assertions.assertSame(target, game.getUnitCloaking().getFirstCloakedUnit());
+    }
+
+    @Test
+    void update_cloak_nearby_units_without_an_air_weapon_should_query_the_empty_box_of_the_none_weapon_range() {
+        Assertions.assertNotNull(gameData);
+        Assertions.assertEquals(ScrWeaponIds.NONE, gameData.getUnitTypes().getAirWeapon(ScrUnitIds.PROTOSS_ZEALOT));
+        Assertions.assertEquals(NONE_WEAPON_RANGE, gameData.getWeaponTypes().getMaximumRange(ScrWeaponIds.NONE));
+
+        Unit target = cloakNearbyMarineOfUnitWithoutAirWeapon();
+
+        Assertions.assertEquals(0, target.getCloakCounter());
+        Assertions.assertEquals(0, target.getStatus() & PASSIVELY_CLOAKED_STATUS);
     }
 
     @Test

@@ -65,8 +65,7 @@ final class ScrContentImporterTest {
         return schema.parse(new byte[schema.getExpectedSize()]);
     }
 
-    private static @NotNull ContentDefinition importContent(@NotNull DatTable units, @NotNull DatTable weapons, @NotNull DatTable upgrades)
-    throws IOException {
+    private static @NotNull ContentDefinition importContent(@NotNull DatTable units, @NotNull DatTable weapons, @NotNull DatTable upgrades) throws IOException {
         ContentRegistry registry = new ContentRegistry();
 
         new ScrContentImporter(units, weapons, createTable(FlingyDat.createSchema()), createTable(SpritesDat.createSchema()),

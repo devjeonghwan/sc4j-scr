@@ -399,8 +399,8 @@ public final class TriggerConditions {
     }
 
     /**
-     * Tests Opponents: a single player {@code 0..7} (or the current player) counts its own opponents, players {@code 8..12}
-     * and the selectors {@code 22..25} count none, and the group selectors sum the count of every selected player.
+     * Tests Opponents: a single player {@code 0..7} (or the current player) counts its own opponents, any other player
+     * ({@link #countOpponents}) and the selectors {@code 22..25} count none, and the group selectors sum the count of every selected player.
      */
     private static boolean testOpponents(@NotNull TriggerContext context, @NotNull TriggerConditionOperands condition) {
         int selector = condition.getSelector();
@@ -408,16 +408,12 @@ public final class TriggerConditions {
         int count = 0;
 
         if (single >= 0) {
-            if (single < PlayerTable.PLAYABLE_PLAYER_SLOTS) {
-                count = countOpponents(context, single);
-            }
+            count = countOpponents(context, single);
         } else {
             for (int selected = TriggerPlayersUtils.getNextSelectedPlayer(context, selector, TriggerContext.WALK_START);
                  selected < PlayerTable.PLAYER_SLOTS;
                  selected = TriggerPlayersUtils.getNextSelectedPlayer(context, selector, selected)) {
-                if (selected < PlayerTable.PLAYABLE_PLAYER_SLOTS) {
-                    count += countOpponents(context, selected);
-                }
+                count += countOpponents(context, selected);
             }
         }
 
@@ -731,12 +727,17 @@ public final class TriggerConditions {
     }
 
     /**
-     * Counts one player's opponents as the single-player branch of the Opponents condition: none for rescuable and
-     * neutral players; otherwise every player of the active-player walk that is not rescuable or neutral and lacks mutual
-     * allied victory with the player or one of its mutual allies (the player included) is counted once.
+     * Counts one player's opponents as the single-player branch of the Opponents condition: none for a player from 8 (an
+     * observer slot id included) and for rescuable and neutral players; otherwise every player of the active-player walk
+     * that is not rescuable or neutral and lacks mutual allied victory with the player or one of its mutual allies (the
+     * player included) is counted once.
+     *
+     * @param context the trigger context
+     * @param player  the player, any value
+     * @return the number of opponents
      */
-    private static int countOpponents(@NotNull TriggerContext context, int player) {
-        if (!canOppose(context.requirePlayer(player))) {
+    static int countOpponents(@NotNull TriggerContext context, int player) {
+        if (Integer.compareUnsigned(player, PlayerTable.PLAYABLE_PLAYER_SLOTS) >= 0 || !canOppose(context.requirePlayer(player))) {
             return 0;
         }
 

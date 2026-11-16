@@ -3,12 +3,12 @@ package org.fogofwarlabs.sc4j.scr.game.visibility;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
-import org.fogofwarlabs.sc4j.scr.content.ScrWeaponIds;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrImageTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.SoundIds;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
+import org.fogofwarlabs.sc4j.scr.game.combat.UnitTargeting;
 import org.fogofwarlabs.sc4j.scr.game.order.ScrOrderSystem;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
@@ -238,20 +238,16 @@ public final class UnitCloaking {
 
     /**
      * Sustains the cloak of the owner's units within the Arbiter's air weapon range.
+     * <p>
+     * A unit without an air weapon uses the range of the none weapon ({@link UnitTargeting#getWeaponMaximumRange}).
      *
      * @param unit the Arbiter
-     * @throws IllegalStateException         if the Arbiter has no air weapon or no sprite
+     * @throws IllegalStateException         if the Arbiter has no sprite
      * @throws NullPointerException          if the world was built without game data
      * @throws UnsupportedOperationException if the game has no unit finder
      */
     public void updateCloakNearbyUnits(@NotNull Unit unit) {
-        int weapon = this.game.getUnitTargeting().getAirWeapon(unit);
-
-        if (weapon == ScrWeaponIds.NONE) {
-            throw Exceptions.newIllegalStateException("A cloaking Arbiter has no air weapon.");
-        }
-
-        int range = this.game.getUnitTargeting().getWeaponMaximumRange(unit, weapon);
+        int range = this.game.getUnitTargeting().getWeaponMaximumRange(unit, this.game.getUnitTargeting().getAirWeapon(unit));
         Sprite sprite = unit.requireSprite();
         // Build and clamp the box in signed WORDs; the range test compares unsigned.
         int left = (short) (sprite.getX() - range);

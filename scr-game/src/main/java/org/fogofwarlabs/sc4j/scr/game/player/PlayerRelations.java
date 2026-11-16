@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr.game.player;
 
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.game.visibility.SightCoverage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,8 +84,17 @@ public final class PlayerRelations {
      * @return {@code true} if the offset lies in the alliance bytes or the shared-vision DWORDs, {@code false} otherwise
      */
     public static boolean hasContextOffset(int contextOffset) {
-        return contextOffset >= ALLIANCE_OFFSET && contextOffset < ALLIANCE_END ||
-               contextOffset >= SHARED_VISION_OFFSET && contextOffset < SHARED_VISION_END;
+        return hasAllianceOffset(contextOffset) || contextOffset >= SHARED_VISION_OFFSET && contextOffset < SHARED_VISION_END;
+    }
+
+    /**
+     * Checks whether a game-context offset lies in the alliance bytes.
+     *
+     * @param contextOffset a game-context offset
+     * @return {@code true} if the offset lies in the alliance bytes, {@code false} otherwise
+     */
+    public static boolean hasAllianceOffset(int contextOffset) {
+        return contextOffset >= ALLIANCE_OFFSET && contextOffset < ALLIANCE_END;
     }
 
     private final byte @NotNull [] @NotNull [] alliances;
@@ -231,6 +241,15 @@ public final class PlayerRelations {
      */
     public void setSharedVision(int playerIndex, int mask) {
         this.sharedVision[playerIndex] = mask;
+    }
+
+    /**
+     * Makes the sight coverage use these shared-vision DWORDs instead of a copy.
+     *
+     * @param sight the game's sight coverage
+     */
+    public void shareVision(@NotNull SightCoverage sight) {
+        sight.useSharedVisionMasks(this.sharedVision);
     }
 
     /**

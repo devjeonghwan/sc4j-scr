@@ -331,7 +331,7 @@ final class TriggerActionsUtils {
      * @param result  the player result ({@link TriggerPlayerResults})
      */
     private static void endGame(@NotNull TriggerContext context, int player, int result) {
-        int playerType = context.requirePlayer(player).getType() & BYTE_MASK;
+        int playerType = context.getPlayerType(player);
 
         if (playerType == PlayerTypes.HUMAN || playerType == PlayerTypes.COMPUTER) {
             context.setPlayerResult(player, result);
@@ -481,7 +481,7 @@ final class TriggerActionsUtils {
                                              @NotNull RunningTrigger record,
                                              TriggerDefinition.@NotNull Action action) {
         int player = context.currentPlayer;
-        int playerType = context.requirePlayer(player).getType() & BYTE_MASK;
+        int playerType = context.getPlayerType(player);
 
         if ((action.getLocation() & BYTE_MASK) == 0 || context.phaseGate != 0 || isNonInteractive(playerType)) {
             return true;
@@ -554,7 +554,7 @@ final class TriggerActionsUtils {
             return true;
         }
 
-        int playerType = context.requirePlayer(player).getType() & BYTE_MASK;
+        int playerType = context.getPlayerType(player);
 
         if (isNonInteractive(playerType)) {
             return true;
@@ -618,14 +618,21 @@ final class TriggerActionsUtils {
     }
 
     /**
-     * Executes Set Mission Objectives: the string index is stored for the current player.
+     * Executes Set Mission Objectives: the string index is stored for the current player; for a current player past player 11 it is written to
+     * the player's mission objectives DWORD of the game data through the EUD address space.
+     *
+     * @throws UnsupportedOperationException if the address space does not represent the DWORD of a player past 11
      */
     private static boolean executeSetMissionObjectives(@NotNull TriggerContext context,
                                                        @NotNull RunningTrigger record,
                                                        TriggerDefinition.@NotNull Action action) {
         int player = context.currentPlayer;
 
-        context.setMissionObjectivesStringIndex(player, action.getStringIndex());
+        if (Integer.compareUnsigned(player, PlayerTable.PLAYER_SLOTS) < 0) {
+            context.setMissionObjectivesStringIndex(player, action.getStringIndex());
+        } else {
+            ExtendedDeathsUtils.writeGameDataDword(context, TriggerContext.MISSION_OBJECTIVES_OFFSET + Integer.BYTES * player, action.getStringIndex());
+        }
 
         return true;
     }
@@ -677,9 +684,7 @@ final class TriggerActionsUtils {
                                               TriggerDefinition.@NotNull Action action) {
         int player = context.currentPlayer;
         int script = action.getSecondaryOperand();
-        int playerType = context.requirePlayer(player).getType() & BYTE_MASK;
-
-        if (!canRunScript(script, playerType)) {
+        if (!canRunScript(context, script, player)) {
             return true;
         }
 
@@ -768,9 +773,7 @@ final class TriggerActionsUtils {
         }
 
         int script = action.getSecondaryOperand();
-        int playerType = context.requirePlayer(player).getType() & BYTE_MASK;
-
-        if (!canRunScript(script, playerType)) {
+        if (!canRunScript(context, script, player)) {
             return true;
         }
 
@@ -1469,7 +1472,7 @@ final class TriggerActionsUtils {
             return false;
         }
 
-        int playerType = context.requirePlayer(context.currentPlayer).getType() & BYTE_MASK;
+        int playerType = context.getPlayerType(context.currentPlayer);
 
         if (isNonInteractive(playerType)) {
             return false;
@@ -1494,9 +1497,15 @@ final class TriggerActionsUtils {
      * Applies Set Alliance Status to one player: the ally status becomes allied, the allied victory status allied
      * victory, anything else enemy; the current player's own entry is never selected. A nonzero value different from
      * the current player's diagonal then replaces every nonzero entry of the current player's row, including the
-     * diagonal and the neutral player (original behavior).
+     * diagonal and the neutral player. The bytes are addressed unchecked ({@link TriggerPlayersUtils#readAlliance}): player 12 is column 0 of
+     * the next row, and the row of a current player past player 11 lies in the game data after the alliance table.
+     *
+     * @param context the trigger context
+     * @param target  the target player, {@code 0} through {@code 12}
+     * @param status  the action's status WORD
+     * @throws UnsupportedOperationException if the EUD address space does not represent a byte outside the table
      */
-    private static void setAllianceStatus(@NotNull TriggerContext context, int target, int status) {
+    static void setAllianceStatus(@NotNull TriggerContext context, int target, int status) {
         int current = context.currentPlayer;
 
         if (target == current) {
@@ -1505,48 +1514,37 @@ final class TriggerActionsUtils {
 
         int value = status == STATUS_ALLY ? PlayerRelations.ALLIED
                                           : status == STATUS_ALLIED_VICTORY ? PlayerRelations.ALLIED_VICTORY : PlayerRelations.ENEMY;
-        int[] row = new int[PlayerTable.PLAYER_SLOTS];
 
-        for (int player = 0; player < PlayerTable.PLAYER_SLOTS; player++) {
-            row[player] = context.requireRelations().getAlliance(current, player);
-        }
+        TriggerPlayersUtils.writeAlliance(context, current, target, value);
 
-        if (target == PlayerTable.PLAYER_SLOTS) {
-            // Player 12 addresses column 0 of the next player's alliance row.
-            int[] next = new int[PlayerTable.PLAYER_SLOTS];
-
+        if (value != PlayerRelations.ENEMY && value != TriggerPlayersUtils.readAlliance(context, current, current)) {
             for (int player = 0; player < PlayerTable.PLAYER_SLOTS; player++) {
-                next[player] = context.requireRelations().getAlliance(current + 1, player);
-            }
-
-            next[0] = value;
-
-            context.requireRelations().setAlliances(current + 1, next);
-        } else {
-            row[target] = value;
-        }
-
-        if (value != 0 && value != row[current]) {
-            for (int player = 0; player < PlayerTable.PLAYER_SLOTS; player++) {
-                if (row[player] != 0) {
-                    row[player] = value;
+                if (TriggerPlayersUtils.readAlliance(context, current, player) != PlayerRelations.ENEMY) {
+                    TriggerPlayersUtils.writeAlliance(context, current, player, value);
                 }
             }
         }
-
-        context.requireRelations().setAlliances(current, row);
     }
 
     /**
      * Tests the owner gate of Run AI Script and Run AI Script At Location: the scripts human players may start run for
-     * every player, other scripts only for computer players, and the rescue script also for neutral players.
+     * every player, other scripts only for computer players, and the rescue script also for neutral players. The player
+     * record is read only for the other scripts ({@link TriggerContext#getPlayerType}).
      *
-     * @param script     the script identifier
-     * @param playerType the type of the current player
+     * @param context the trigger context
+     * @param script  the script identifier
+     * @param player  the current player
      * @return {@code true} if the script runs for the player, {@code false} otherwise
+     * @throws UnsupportedOperationException if the record of the player lies past the sixteen player records
      */
-    private static boolean canRunScript(int script, int playerType) {
-        return isHumanScript(script) || playerType == PlayerTypes.COMPUTER || playerType == PlayerTypes.NEUTRAL && script == RESCUE_SCRIPT;
+    static boolean canRunScript(@NotNull TriggerContext context, int script, int player) {
+        if (isHumanScript(script)) {
+            return true;
+        }
+
+        int playerType = context.getPlayerType(player);
+
+        return playerType == PlayerTypes.COMPUTER || playerType == PlayerTypes.NEUTRAL && script == RESCUE_SCRIPT;
     }
 
     /**

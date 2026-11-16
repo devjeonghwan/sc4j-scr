@@ -121,11 +121,11 @@ public final class PlayerColorRows {
     }
 
     /**
-     * Decodes an entry of a custom color table.
+     * Decodes an entry of a custom color table: each channel is clamped to {@code 0..1}, multiplied by {@code 255} and truncated.
      *
      * @param table the custom color table
      * @param entry the entry
-     * @return the packed {@code 0xRRGGBBAA} color, each channel rounded to {@code 0..255}
+     * @return the packed {@code 0xRRGGBBAA} color
      */
     public static int decodeCustomColor(byte @NotNull [] table, int entry) {
         ByteBuffer entries = ByteBuffer.wrap(table).order(ByteOrder.LITTLE_ENDIAN);
@@ -134,7 +134,7 @@ public final class PlayerColorRows {
         for (int channel = 0; channel < CUSTOM_COLOR_CHANNELS; channel++) {
             float value = entries.getFloat(entry * CUSTOM_COLOR_ENTRY_SIZE + channel * Float.BYTES);
 
-            color = color << Byte.SIZE | Math.clamp(Math.round(value * CHANNEL_MAXIMUM), 0, CHANNEL_MASK);
+            color = color << Byte.SIZE | (int) (Math.clamp(value, 0f, 1f) * CHANNEL_MAXIMUM);
         }
 
         return color;
@@ -146,7 +146,7 @@ public final class PlayerColorRows {
      */
     private final byte @NotNull [] mapColors;
     /**
-     * The packed {@code 0xRRGGBBAA} custom color of each playable slot.
+     * The packed {@code 0xRRGGBBAA} custom color of each player slot.
      */
     private final int @NotNull [] customColors;
     /**
@@ -160,7 +160,7 @@ public final class PlayerColorRows {
     PlayerColorRows() {
         this.bytes        = new byte[SIZE];
         this.mapColors    = new byte[MAP_COLORS_SIZE];
-        this.customColors = new int[PlayerTable.PLAYABLE_PLAYER_SLOTS];
+        this.customColors = new int[PlayerTable.PLAYER_SLOTS];
 
         this.customColorsActive = false;
     }
@@ -201,7 +201,7 @@ public final class PlayerColorRows {
     }
 
     /**
-     * @param player the playable slot
+     * @param player the player slot
      * @return the packed {@code 0xRRGGBBAA} custom color, {@code 0} where the slot has none
      */
     public int getCustomColor(int player) {
@@ -218,6 +218,18 @@ public final class PlayerColorRows {
      */
     public int getPlayerColor(int player, @NotNull IntUnaryOperator palette) {
         return this.hasCustomColor(player) ? this.customColors[player] : palette.applyAsInt(this.getUnitColor(player, 0));
+    }
+
+    /**
+     * Returns the color of a player's minimap dots in the player color mode: the custom color of any slot while the game keeps its custom colors,
+     * otherwise the palette color of its minimap index.
+     *
+     * @param player  the player slot
+     * @param palette the packed {@code 0xRRGGBBAA} color of a palette index
+     * @return the packed {@code 0xRRGGBBAA} color
+     */
+    public int getMinimapPlayerColor(int player, @NotNull IntUnaryOperator palette) {
+        return this.customColorsActive ? this.customColors[player] : palette.applyAsInt(this.getMinimapColor(player));
     }
 
     /**
@@ -240,8 +252,8 @@ public final class PlayerColorRows {
 
         boolean active = false;
 
-        for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
-            for (int offset = 0; table != null && offset < CUSTOM_COLOR_ENTRY_SIZE; offset++) {
+        for (int slot = 0; slot < PlayerTable.PLAYER_SLOTS; slot++) {
+            for (int offset = 0; table != null && slot < PlayerTable.PLAYABLE_PLAYER_SLOTS && offset < CUSTOM_COLOR_ENTRY_SIZE; offset++) {
                 active |= table[slot * CUSTOM_COLOR_ENTRY_SIZE + offset] != 0;
             }
 

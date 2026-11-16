@@ -287,8 +287,7 @@ final class CreateGameScreenTest {
      *
      * @return the frame's offsets when they differ by more than the tolerance, empty otherwise
      */
-    private @NotNull List<String> findMapRowLines(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private @NotNull List<String> findMapRowLines(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         Path root = this.directory;
 
         Assertions.assertNotNull(root);

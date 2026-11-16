@@ -1131,23 +1131,23 @@ public final class MinimapImage {
 
 
     /**
-     * Chooses the live player minimap color in player mode, a team color in replay modes, or the alliance color during play.
+     * Chooses the live player minimap color in player mode ({@link PlayerColorRows#getMinimapPlayerColor}), a team color in replay modes, or the
+     * alliance color during play.
      *
      * @param view   the game view
      * @param assets the tileset interface assets
      * @param owner  the owning player
      * @param replay whether replay vision rules apply
-     * @return the packed opaque {@code 0xRRGGBBAA} color
+     * @return the packed {@code 0xRRGGBBAA} color
      */
     private int getOwnerColor(@NotNull ScrGameView view, @NotNull InterfaceAssets assets, int owner, boolean replay) {
         Player player = owner < PlayerTable.PLAYER_SLOTS ? view.getPlayerTable().getPlayer(owner) : null;
 
         if (this.colorMode == PLAYER_COLOR_MODE) {
-            // Use the current player color row when available.
             PlayerColorRows rows = owner < PlayerTable.PLAYER_SLOTS ? view.getPlayerTable().getPlayerColorRows() : null;
 
             if (rows != null) {
-                return assets.getPaletteColor(rows.getMinimapColor(owner));
+                return rows.getMinimapPlayerColor(owner, assets::getPaletteColor);
             }
 
             return assets.getPaletteColor(assets.getMinimapPlayerIndex(player != null ? player.getColor() : owner));

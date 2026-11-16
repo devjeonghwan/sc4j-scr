@@ -7,7 +7,8 @@ import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceAssets;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Resolves the color a player is shown in, the same in the chat, the unit wireframes, the observer panels, the minimap pings and the dialogs.
+ * Resolves the color a player is shown in, the same in the chat, the unit wireframes, the observer panels, the minimap pings and the dialogs, and
+ * the color of its leaderboard box.
  */
 public final class PlayerColorUtils {
     /**
@@ -26,6 +27,27 @@ public final class PlayerColorUtils {
 
         if (rows != null) {
             return rows.getPlayerColor(player, assets::getPaletteColor);
+        }
+
+        Player record = slot ? players.getPlayer(player) : null;
+
+        return assets.getMinimapPlayerColor(record != null ? record.getColor() : player);
+    }
+
+    /**
+     * Returns the palette color of a player's minimap index, ignoring custom colors; without color rows, the minimap color of its color.
+     *
+     * @param players the player table
+     * @param assets  the tileset interface assets
+     * @param player  the player slot
+     * @return the packed {@code 0xRRGGBBAA} color
+     */
+    public static int getMinimapIndexColor(@NotNull PlayerTable players, @NotNull InterfaceAssets assets, int player) {
+        boolean slot = player >= 0 && player < PlayerTable.PLAYER_SLOTS;
+        PlayerColorRows rows = slot ? players.getPlayerColorRows() : null;
+
+        if (rows != null) {
+            return assets.getPaletteColor(rows.getMinimapColor(player));
         }
 
         Player record = slot ? players.getPlayer(player) : null;

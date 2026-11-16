@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -1003,6 +1005,20 @@ final class LanLobbyInMemoryTest {
         // The host shows its own map's names (it skips 0x4b).
         Assertions.assertEquals("Top", network.host.getForceName(0));
         Assertions.assertEquals("", network.host.getForceName(2));
+    }
+
+    @Test
+    void force_names_in_utf8_and_cp949_korean_read_as_the_same_text() {
+        Charset korean = Charset.forName("x-windows-949");
+        byte[][] names = {"고수팀".getBytes(StandardCharsets.UTF_8), "고수팀".getBytes(korean), "Team 한국".getBytes(korean), "Force 4".getBytes()};
+        Network network = new Network(LanTestResources.createCapturedLobbySetup("host").withForceNames(names));
+
+        for (LanLobby lobby : new LanLobby[]{network.requireJoinerLobby(), network.host}) {
+            Assertions.assertEquals("고수팀", lobby.getForceName(0));
+            Assertions.assertEquals("고수팀", lobby.getForceName(1));
+            Assertions.assertEquals("Team 한국", lobby.getForceName(2));
+            Assertions.assertEquals("Force 4", lobby.getForceName(3));
+        }
     }
 
     @Test

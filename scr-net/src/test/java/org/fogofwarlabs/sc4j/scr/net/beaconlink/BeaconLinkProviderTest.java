@@ -311,8 +311,7 @@ final class BeaconLinkProviderTest {
      * it.
      */
     private static @NotNull Player openPlayer(@NotNull ClientScenario link, @NotNull PeerSocket node, @NotNull NatType type,
-                                              @NotNull ModIdentity identity, @NotNull String name, @NotNull MapFolders mapFolders)
-    throws IOException {
+                                              @NotNull ModIdentity identity, @NotNull String name, @NotNull MapFolders mapFolders) throws IOException {
         BeaconLinkClient session = link.openClient(identity, List.of(ClientScenario.listed(node)), link.openNat(type).openEndpoint());
 
         link.await(() -> session.getObservedAddress() != null, "the session registers");
@@ -657,8 +656,7 @@ final class BeaconLinkProviderTest {
      * @param relayExpected whether a pair of joiners reaches each other only through the host
      * @throws Exception if the map cannot be read or the game fails
      */
-    private void play(@NotNull String mapName, @NotNull NatType hostType, @NotNull NatType @NotNull [] joinerTypes, boolean relayExpected)
-    throws Exception {
+    private void play(@NotNull String mapName, @NotNull NatType hostType, @NotNull NatType @NotNull [] joinerTypes, boolean relayExpected) throws Exception {
         Path mapPath = ExternalInput.INSTALLATION.resolveFile(ExternalInput.MAPS_FOLDER, mapName);
         byte[] mapFile = Files.readAllBytes(mapPath);
         byte[] mapData = MpqArchive.open(mapPath).readFile(SCENARIO);

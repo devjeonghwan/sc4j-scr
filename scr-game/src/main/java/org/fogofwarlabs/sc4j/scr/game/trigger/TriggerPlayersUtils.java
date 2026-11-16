@@ -115,18 +115,58 @@ final class TriggerPlayersUtils {
 
         return switch (selector) {
             case TriggerPlayerSelectors.ALL_PLAYERS -> true;
-            case TriggerPlayerSelectors.FOES -> player != context.currentPlayer && context.requireRelations().getAlliance(context.currentPlayer, player) == PlayerRelations.ENEMY;
-            case TriggerPlayerSelectors.ALLIES -> player != context.currentPlayer && context.requireRelations().getAlliance(context.currentPlayer, player) == PlayerRelations.ALLIED_VICTORY;
-            case TriggerPlayerSelectors.NEUTRAL_PLAYERS -> player != context.currentPlayer && context.requireRelations().getAlliance(context.currentPlayer, player) == PlayerRelations.ALLIED;
+            case TriggerPlayerSelectors.FOES -> player != context.currentPlayer && readAlliance(context, context.currentPlayer, player) == PlayerRelations.ENEMY;
+            case TriggerPlayerSelectors.ALLIES -> player != context.currentPlayer && readAlliance(context, context.currentPlayer, player) == PlayerRelations.ALLIED_VICTORY;
+            case TriggerPlayerSelectors.NEUTRAL_PLAYERS -> player != context.currentPlayer && readAlliance(context, context.currentPlayer, player) == PlayerRelations.ALLIED;
             case TriggerPlayerSelectors.FORCE_1,
                  TriggerPlayerSelectors.FORCE_2,
                  TriggerPlayerSelectors.FORCE_3,
                  TriggerPlayerSelectors.FORCE_4 -> (context.requirePlayer(player).getTeam() & BYTE_MASK) == selector - FORCE_BASE;
             case TriggerPlayerSelectors.NON_ALLIED_VICTORY_PLAYERS -> player != context.currentPlayer &&
-                                                                      (context.requireRelations().getAlliance(player, context.currentPlayer) != PlayerRelations.ALLIED_VICTORY ||
-                                                                       context.requireRelations().getAlliance(context.currentPlayer, player) != PlayerRelations.ALLIED_VICTORY);
+                                                                      (readAlliance(context, player, context.currentPlayer) != PlayerRelations.ALLIED_VICTORY ||
+                                                                       readAlliance(context, context.currentPlayer, player) != PlayerRelations.ALLIED_VICTORY);
             default -> false;
         };
+    }
+
+    /**
+     * Reads the alliance byte of a source and a target player at game context {@link PlayerRelations#ALLIANCE_OFFSET} plus
+     * {@code 12 * source + target}, with unchecked indexes; a byte outside the alliance table is read through the EUD address space.
+     *
+     * @param context the trigger context
+     * @param source  the source player index, any value
+     * @param target  the target player index, any value
+     * @return the alliance byte
+     * @throws UnsupportedOperationException if the address space does not represent a byte outside the table
+     */
+    static int readAlliance(@NotNull TriggerContext context, int source, int target) {
+        int offset = getAllianceOffset(source, target);
+
+        return PlayerRelations.hasAllianceOffset(offset) ? context.requireRelations().readContextByte(offset)
+                                                         : ExtendedDeathsUtils.readGameDataByte(context, offset);
+    }
+
+    /**
+     * Writes the alliance byte of a source and a target player at the game-context offset {@link #readAlliance} reads.
+     *
+     * @param context the trigger context
+     * @param source  the source player index, any value
+     * @param target  the target player index, any value
+     * @param value   the alliance byte
+     * @throws UnsupportedOperationException if the address space does not represent a byte outside the table
+     */
+    static void writeAlliance(@NotNull TriggerContext context, int source, int target, int value) {
+        int offset = getAllianceOffset(source, target);
+
+        if (PlayerRelations.hasAllianceOffset(offset)) {
+            context.requireRelations().writeContextByte(offset, value);
+        } else {
+            ExtendedDeathsUtils.writeGameDataByte(context, offset, value);
+        }
+    }
+
+    private static int getAllianceOffset(int source, int target) {
+        return PlayerRelations.ALLIANCE_OFFSET + PlayerTable.PLAYER_SLOTS * source + target;
     }
 
 

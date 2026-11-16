@@ -806,12 +806,18 @@ public final class WorldInterface implements WorldOverlayState, LocalSelection {
         return units;
     }
 
+    /**
+     * Lists the living units of a local control group.
+     *
+     * @param units the units of the group
+     * @return the living units in group order
+     */
     private @NotNull List<Unit> getLiveUnits(@NotNull Unit @NotNull [] units) {
         UnitPool pool = this.console.getView().getUnitSystem().getUnitPool();
         List<Unit> live = new ArrayList<>();
 
         for (Unit unit : units) {
-            if (pool != null && unit.getSpriteOrNull() != null && pool.isAllocated(unit.getIndex()) &&
+            if (pool != null && unit.getSpriteOrNull() != null && !unit.isDestroyed() && pool.isAllocated(unit.getIndex()) &&
                 pool.getUnit(unit.getIndex()) == unit) {
                 live.add(unit);
             }

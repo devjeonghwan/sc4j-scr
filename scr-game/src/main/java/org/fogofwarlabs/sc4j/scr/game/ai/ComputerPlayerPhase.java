@@ -1628,7 +1628,7 @@ public final class ComputerPlayerPhase {
      * @throws UnsupportedOperationException if the unit pool is not initialized
      */
     @Nullable ComputerTown startTown(int owner, int positionX, int positionY, int resourceArea, int instructionLimit) {
-        int first = owner < PlayerTable.PLAYER_SLOTS ? this.game.getUnitSystem().requireUnitPool().getFirstOwnerIndex(owner) : 0;
+        int first = this.game.getUnitSystem().requireUnitPool().getFirstOwnerIndex(owner);
 
         if (first == 0) {
             return null;

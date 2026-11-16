@@ -134,8 +134,7 @@ final class ChannelChatScreenTest {
     @TempDir
     @Nullable Path directory;
 
-    private @NotNull String drawFrame(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private @NotNull String drawFrame(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         Path root = this.directory;
 
         Assertions.assertNotNull(root);
@@ -179,8 +178,7 @@ final class ChannelChatScreenTest {
      * Opens the status drop-down, chooses Away where its list lies over the Friends tab, then opens the tab's popup and joins a typed
      * channel: only the channel tab's popup (the channel list) joins one.
      */
-    private @NotNull String chooseAway(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private @NotNull String chooseAway(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         Path root = this.directory;
 
         Assertions.assertNotNull(root);
@@ -273,8 +271,7 @@ final class ChannelChatScreenTest {
                                 GlueCanvas.HD_PREFIX);
     }
 
-    private void showTooManyDevices(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix)
-    throws IOException {
+    private void showTooManyDevices(@NotNull String name, @NotNull String locale, int width, int height, @NotNull String qualityPrefix) throws IOException {
         Path root = this.directory;
 
         Assertions.assertNotNull(root);

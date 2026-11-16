@@ -6,6 +6,7 @@ import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
 import org.fogofwarlabs.sc4j.scr.game.test.PlayerProgressTestUtils;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.ClassicAddressSpace.GameDataRegion;
+import org.fogofwarlabs.sc4j.scr.game.visibility.SightCoverage;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -33,6 +34,7 @@ final class GameDataTriggerStateTest {
     private static final int LOCATION_COUNT = 255;
     private static final int LOCATION_SIZE = 20;
     private static final int BYTE_MASK = 0xFF;
+    private static final int MAP_WIDTH = 64;
 
     @Test
     void locations_are_twenty_byte_records_with_their_string_word() {
@@ -116,6 +118,21 @@ final class GameDataTriggerStateTest {
         space.writeDword(GAME_DATA + VICTORY_STATES, 0x0200);
 
         Assertions.assertEquals(2, players[1].getVictoryState());
+    }
+
+    @Test
+    void shared_vision_written_by_eud_reaches_the_sight_of_the_game() {
+        PlayerRelations relations = new PlayerRelations(new int[PlayerTable.PLAYER_SLOTS], false, false, false);
+        SightCoverage sight = new SightCoverage(MAP_WIDTH);
+        ClassicAddressSpace space = new ClassicAddressSpace();
+
+        relations.shareVision(sight);
+        space.add(new GameDataRegion(null, PlayerProgressTestUtils.createPlayerScores(), null, null, null, null, relations, null));
+
+        space.writeDword(GAME_DATA + SHARED_VISION + 7 * Integer.BYTES, 0x83);
+
+        Assertions.assertEquals(0x83, sight.getSharedVisionMask(7), "The sight reads the vision table that the EUD write changed.");
+        Assertions.assertEquals(1, sight.getSharedVisionMask(0));
     }
 
     @Test
