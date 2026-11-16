@@ -24,7 +24,7 @@
 - [빌드와 실행](#빌드와-실행)
 - [테스트](#테스트)
 - [기여](#기여)
-- [릴리스](#릴리스)
+- [릴리즈](#릴리즈)
 - [라이선스](#라이선스)
 
 ## 구성
@@ -87,9 +87,9 @@ cd sc4j-scr
 
 엔진의 [기여 안내](https://github.com/fogofwarlabs/sc4j/blob/main/CONTRIBUTING.ko.md)를 따릅니다. 설치본이 있으면 `integrationTest`도 실행합니다. 게임 데이터나 거기서 뽑아낸 것은 커밋하지 않습니다.
 
-## 릴리스
+## 릴리즈
 
-`develop`에서 `gradle.properties`에 `version=X.Y.Z`와 릴리스된 `sc4jVersion`을 정한 뒤, `develop`에서 `main`으로 ``Release version `X.Y.Z` `` 제목의 풀 리퀘스트를 열어 merge commit으로 병합합니다. `main`에 푸시되면 `scr.jar`와 `scr.jar.sha256`이 붙은 GitHub 릴리스 `vX.Y.Z`가 만들어집니다.
+`develop`에서 `gradle.properties`에 `version=X.Y.Z`와 릴리즈된 `sc4jVersion`을 정한 뒤, `develop`에서 `main`으로 ``Release version `X.Y.Z` `` 제목의 풀 리퀘스트를 열어 merge commit으로 병합합니다. `main`에 푸시되면 `scr.jar`와 `scr.jar.sha256`이 붙은 GitHub 릴리즈 `vX.Y.Z`가 만들어집니다.
 
 ## 라이선스
 
