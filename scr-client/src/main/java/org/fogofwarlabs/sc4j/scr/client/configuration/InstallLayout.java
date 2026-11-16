@@ -35,6 +35,11 @@ public final class InstallLayout {
     public static final @NotNull String REPLAY_FOLDER = "replays";
 
     /**
+     * The folder of the desync dumps a network game writes at its first sync mismatch.
+     */
+    public static final @NotNull String DESYNC_FOLDER = "desyncs";
+
+    /**
      * The saved-game folder; each single-player identifier has its own subfolder.
      */
     public static final @NotNull String SAVE_FOLDER = "save";
@@ -274,6 +279,13 @@ public final class InstallLayout {
      */
     public @NotNull Path getReplayDirectory() {
         return this.root.resolve(REPLAY_FOLDER);
+    }
+
+    /**
+     * @return {@code <root>/desyncs}
+     */
+    public @NotNull Path getDesyncDirectory() {
+        return this.root.resolve(DESYNC_FOLDER);
     }
 
     /**

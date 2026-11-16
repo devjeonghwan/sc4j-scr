@@ -3,18 +3,13 @@ package org.fogofwarlabs.sc4j.scr.game.session;
 import org.fogofwarlabs.sc4j.base.binary.LittleEndianUtils;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
-import org.fogofwarlabs.sc4j.scr.game.player.Player;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
-import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
-import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
-
 /**
- * Retains the Sync records of a game and their diagnostic hash inputs in a fixed ring.
+ * Retains the Sync records of a game and their diagnostic hash inputs in a fixed ring: in a multiplayer session each record
+ * keeps the state it hashed ({@link SyncState}), for the mismatch report and the desync dump.
  * <p>
  * Each record combines the current state hash with drawing samples; the outgoing turn sends the newest record.
  * Drawing values are sampled before the frame, and its state hash is computed after commands execute. The first drawn row,
@@ -43,31 +38,6 @@ public final class SyncRing {
      */
     private static final int LOAD_RECORDS = 3;
 
-    /**
-     * The values of one unit record: pool index, owner and six hash inputs.
-     */
-    private static final int UNIT_INPUTS = 8;
-    private static final int UNIT_OWNER = 1;
-    private static final int UNIT_TYPE = 2;
-    private static final int UNIT_SHIELDS = 3;
-    private static final int UNIT_ENERGY = 4;
-    private static final int UNIT_X = 5;
-    private static final int UNIT_Y = 6;
-    private static final int UNIT_HIT_POINTS = 7;
-
-    /**
-     * The resource inputs: minerals and gas of every player, then the generator state and frame.
-     */
-    private static final int RESOURCE_VALUES_PER_PLAYER = 2;
-    private static final int RESOURCE_GAS = 1;
-    private static final int RESOURCE_PLAYER_VALUES = RESOURCE_VALUES_PER_PLAYER * PlayerTable.PLAYER_SLOTS;
-    private static final int RESOURCE_GENERATOR = RESOURCE_PLAYER_VALUES;
-    private static final int RESOURCE_FRAME = RESOURCE_GENERATOR + 1;
-    private static final int RESOURCE_TRAILER_VALUES = 2;
-    private static final int RESOURCE_INPUTS = RESOURCE_PLAYER_VALUES + RESOURCE_TRAILER_VALUES;
-
-    private static final int INITIAL_KEPT_UNITS = 64;
-    private static final int KEPT_INPUTS_GROWTH_FACTOR = 2;
     private static final int REPORTED_UNITS = 48;
 
     private static final int KIND_INDEX_BYTE = 1;
@@ -79,7 +49,6 @@ public final class SyncRing {
     private static final int MINIMAP_COUNT_BYTE = 6;
 
     private static final int BYTE_MASK = 0xFF;
-    private static final int WORD_MASK = 0xFFFF;
 
     private final int localSlot;
     private final boolean multiplayer;
@@ -93,11 +62,13 @@ public final class SyncRing {
     private final int @NotNull [] @NotNull [] visibility;
 
     /**
-     * Diagnostics: the frame each record was made in and its hash inputs ({@link #describe}).
+     * Diagnostics: the frame each record was made in, its kind hash and tile row hash, and in a multiplayer session the state it
+     * hashed ({@link #describe}, {@link #createDump}).
      */
     private final long @NotNull [] frames;
-    private final int @NotNull [] @Nullable [] inputs;
-    private final int @NotNull [] inputLengths;
+    private final int @NotNull [] kindHashes;
+    private final int @NotNull [] rowHashes;
+    private final @NotNull SyncState @NotNull [] states;
 
     private boolean @NotNull [] checkedSprites;
     private int @NotNull [] sampledVisibility;
@@ -138,15 +109,17 @@ public final class SyncRing {
         this.parities   = new int[RECORDS];
         this.visibility = new int[RECORDS][];
 
-        this.frames       = new long[RECORDS];
-        this.inputs       = new int[RECORDS][];
-        this.inputLengths = new int[RECORDS];
+        this.frames     = new long[RECORDS];
+        this.kindHashes = new int[RECORDS];
+        this.rowHashes  = new int[RECORDS];
+        this.states     = new SyncState[RECORDS];
 
         this.checkedSprites    = new boolean[0];
         this.sampledVisibility = new int[SyncChecksumUtils.SPRITE_ROWS];
 
         for (int index = 0; index < RECORDS; index++) {
             this.visibility[index] = new int[SyncChecksumUtils.SPRITE_ROWS];
+            this.states[index]     = new SyncState();
         }
 
         this.drawingDue      = false;
@@ -278,63 +251,13 @@ public final class SyncRing {
         this.parities[index]   = this.sampledParity;
         this.visibility[index] = this.sampledVisibility;
         this.frames[index]     = game.getCurrentFrame();
+        this.kindHashes[index] = hash;
+        this.rowHashes[index]  = rowHash;
 
+        // Only a multiplayer session checks records, so only it keeps their state.
         if (kind != KIND_NONE) {
-            this.keepInputs(game, index, kind);
+            this.states[index].capture(game, this.updates - 1, this.sampledVisibility);
         }
-    }
-
-    /**
-     * Keeps the record's hash inputs for {@link #describe}: per active unit (in hash order) its pool index, owner, type,
-     * shields, energy, x, y and hit points; or the resources, generator state and frame.
-     *
-     * @param game  the game state
-     * @param index the record index
-     * @param kind  the record kind
-     */
-    private void keepInputs(@NotNull Game game, int index, int kind) {
-        int[] kept = this.inputs[index];
-        int length = 0;
-
-        if (kind == KIND_UNITS) {
-            UnitPool pool = game.getUnitSystem().getUnitPool();
-
-            for (int unitIndex = pool == null ? 0 : pool.getFirstCreatedIndex(true); unitIndex != 0;
-                 unitIndex = pool.getNextCreatedIndex(unitIndex)) {
-                if (kept == null || kept.length < length + UNIT_INPUTS) {
-                    kept = Arrays.copyOf(kept == null ? new int[0] : kept,
-                                         Math.max(INITIAL_KEPT_UNITS * UNIT_INPUTS, (length + UNIT_INPUTS) * KEPT_INPUTS_GROWTH_FACTOR));
-                }
-
-                Unit unit = pool.getUnit(unitIndex);
-
-                kept[length++] = unitIndex;
-                kept[length++] = unit.getOwnerIndex();
-                kept[length++] = unit.getUnitId();
-                kept[length++] = unit.getShieldPoints();
-                kept[length++] = unit.getEnergy() & WORD_MASK;
-                kept[length++] = unit.getPositionX();
-                kept[length++] = unit.getPositionY();
-                kept[length++] = unit.getHitPoints();
-            }
-        } else {
-            if (kept == null || kept.length < RESOURCE_INPUTS) {
-                kept = new int[Math.max(INITIAL_KEPT_UNITS * UNIT_INPUTS, RESOURCE_INPUTS)];
-            }
-
-            for (int slot = 0; slot < PlayerTable.PLAYER_SLOTS; slot++) {
-                Player player = game.getPlayerTable().getPlayer(slot);
-
-                kept[length++] = player == null ? 0 : player.getMinerals();
-                kept[length++] = player == null ? 0 : player.getGas();
-            }
-
-            kept[length++] = game.getRandom().getState();
-            kept[length++] = game.getCurrentFrame();
-        }
-
-        this.inputs[index]       = kept;
-        this.inputLengths[index] = length;
     }
 
     /**
@@ -347,35 +270,56 @@ public final class SyncRing {
      */
     public @NotNull String describe(byte @NotNull [] sync) {
         int index = (sync[KIND_INDEX_BYTE] & BYTE_MASK) >>> RECORD_INDEX_SHIFT;
-        int[] kept = this.inputs[index];
-        int length = this.inputLengths[index];
+        SyncState state = this.states[index];
 
         StringBuilder text = new StringBuilder(String.format("record %d kind %d made in frame %d (sent kind %d)", index, this.kinds[index],
                                                              this.frames[index], sync[KIND_INDEX_BYTE] & KIND_MASK));
 
-        if (kept == null) {
+        if (!state.isCaptured()) {
             return text.toString();
         }
 
         if (this.kinds[index] == KIND_UNITS) {
-            text.append(", ").append(length / UNIT_INPUTS).append(" units:");
-
-            for (int offset = 0; offset < length && offset < REPORTED_UNITS * UNIT_INPUTS; offset += UNIT_INPUTS) {
-                text.append(String.format(" %d:%d:%d s%d e%d %d,%d hp%d", kept[offset], kept[offset + UNIT_OWNER],
-                                          kept[offset + UNIT_TYPE], kept[offset + UNIT_SHIELDS], kept[offset + UNIT_ENERGY],
-                                          kept[offset + UNIT_X], kept[offset + UNIT_Y], kept[offset + UNIT_HIT_POINTS]));
-            }
+            state.describeUnits(text, REPORTED_UNITS);
         } else {
-            text.append(", resources:");
-
-            for (int offset = 0; offset < RESOURCE_PLAYER_VALUES; offset += RESOURCE_VALUES_PER_PLAYER) {
-                text.append(' ').append(kept[offset]).append('/').append(kept[offset + RESOURCE_GAS]);
-            }
-
-            text.append(String.format(", generator 0x%08X, frame %d", kept[RESOURCE_GENERATOR], kept[RESOURCE_FRAME]));
+            state.describeResources(text);
         }
 
         return text.toString();
+    }
+
+    /**
+     * Creates the desync dump of the record a Sync command names: the record's values, a copy of the state it hashed and a full
+     * capture of the current state. The copies are taken now, so the dump can be formatted on another thread.
+     *
+     * @param sync the seven command bytes
+     * @param game the game state
+     * @return the dump
+     * @throws NullPointerException if the world was built without game data
+     */
+    @NotNull DesyncDump createDump(byte @NotNull [] sync, @NotNull Game game) {
+        int index = (sync[KIND_INDEX_BYTE] & BYTE_MASK) >>> RECORD_INDEX_SHIFT;
+        int comparisonMask = game.getLocalVision().getComparisonMask();
+        StringBuilder record = new StringBuilder();
+
+        SyncState.appendLine(record, "record index %d update %d kind %d frame %d", index, this.findUpdate(index), this.kinds[index],
+                             this.frames[index]);
+        SyncState.appendLine(record, "record word 0x%04X kind hash 0x%08X tile row hash 0x%08X", this.words[index], this.kindHashes[index],
+                             this.rowHashes[index]);
+        SyncState.appendLine(record, "record drawing first row %d fold 0x%02X minimap count %d parity 0x%02X", this.rows[index],
+                             this.folds[index], this.counts[index], this.parities[index]);
+        SyncState.appendLine(record, "record local slot %d comparison mask 0x%08X slot masks 0x%08X", this.localSlot, comparisonMask,
+                             SyncChecksumUtils.calculateSlotMasks(comparisonMask, this.localSlot));
+
+        if (this.checkedSprites.length == 0) {
+            this.checkedSprites = SyncChecksumUtils.createCheckedSpriteTypes(game);
+        }
+
+        SyncState current = new SyncState();
+
+        current.captureCurrent(game, this.checkedSprites);
+
+        return new DesyncDump(record.toString(), this.states[index].copy(), current);
     }
 
     /**
@@ -427,9 +371,16 @@ public final class SyncRing {
             failed.append(" kind ").append(this.kinds[index]);
         }
 
-        return failed.isEmpty() ? null
-                                : String.format("record %d (update %d):%s", index,
-                                                this.updates - ((this.updates - index) % RECORDS + RECORDS) % RECORDS,
-                                                failed);
+        return failed.isEmpty() ? null : String.format("record %d (update %d):%s", index, this.findUpdate(index), failed);
+    }
+
+    /**
+     * Finds the update that made the record at an index: the newest one that maps to it.
+     *
+     * @param index the record index
+     * @return the update number
+     */
+    private int findUpdate(int index) {
+        return this.updates - ((this.updates - index) % RECORDS + RECORDS) % RECORDS;
     }
 }

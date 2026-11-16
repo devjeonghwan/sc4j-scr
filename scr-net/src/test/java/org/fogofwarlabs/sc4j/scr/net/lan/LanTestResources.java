@@ -1,6 +1,8 @@
 package org.fogofwarlabs.sc4j.scr.net.lan;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
+import org.fogofwarlabs.sc4j.scr.content.ScrRaceIds;
+import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.LobbyResolution;
@@ -196,6 +198,38 @@ final class LanTestResources {
                                   lobbyData,
                                   records,
                                   CAPTURED_MAP_FILE_NAME, CAPTURED_MAP_FILE_SIZE, CAPTURED_MAP_CHECKSUM);
+    }
+
+    /**
+     * Creates the network setup of the recorded Top vs Bottom game on Bottleneck: the host (player {@code 0}, Zerg, named
+     * {@code B}) against the joiner (player {@code 1}, Terran, named {@code A}) at the fastest speed.
+     *
+     * @param mapData the map's scenario data
+     * @return the created setup
+     * @throws IOException if the setup cannot be resolved from the map
+     */
+    static @NotNull MeleeGameSetup createCapturedGameSetup(byte @NotNull [] mapData) throws IOException {
+        LanLobby.Setup setup = createCapturedLobbySetup("B");
+        MeleeGameSetup.PlayerRecord[] records = new MeleeGameSetup.PlayerRecord[LanLobby.RECORDS];
+        byte[] lobbyData = new byte[LanLobby.LOBBY_DATA_SIZE];
+
+        for (int index = 0; index < LanLobby.RECORDS; index++) {
+            records[index] = setup.getRecord(index);
+        }
+
+        records[HOST_SLOT]   = new MeleeGameSetup.PlayerRecord(HOST_SLOT, PlayerTypes.HUMAN, ScrRaceIds.ZERG, TOP_FORCE, "B");
+        records[JOINER_SLOT] = new MeleeGameSetup.PlayerRecord(JOINER_SLOT, PlayerTypes.HUMAN, ScrRaceIds.TERRAN, BOTTOM_FORCE, "A");
+
+        for (int slot = 0; slot < PlayerTable.PLAYABLE_PLAYER_SLOTS; slot++) {
+            lobbyData[LanLobby.LOBBY_DATA_COLORS + slot] = (byte) LobbyResolution.COLOR_NONE;
+        }
+
+        LobbyResolution.Table table = LanLobby.createResolutionTable(LanLobby.createGameSettings(setup), records, lobbyData);
+
+        return MeleeGameSetup.createNetwork(mapData, "B",
+                                            table, LanLobby.createResolutionOptions(LanGameOptions.TOP_VS_BOTTOM_1),
+                                            LanGameOptions.TOP_VS_BOTTOM_1.createTemplate(),
+                                            GameSpeed.FASTEST, true);
     }
 
     /**

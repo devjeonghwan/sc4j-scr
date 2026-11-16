@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.mod.*;
+import org.fogofwarlabs.sc4j.engine.mod.identity.ModIdentity;
 import org.fogofwarlabs.sc4j.scr.client.Main;
 import org.fogofwarlabs.sc4j.scr.client.configuration.InstallLayout;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 /**
@@ -31,8 +33,8 @@ import java.util.List;
  * ({@link ScrSaveFormat}).
  * <p>
  * The client runs with the mod's storage folder as its root, so its in-game options ({@code sc4j-settings.json}), maps
- * (the only folder the map list shows), replays, saved games, single player IDs ({@code characters}) and caches live in
- * {@code <install>/userdata/mods/scr/}, while the log is the runtime's. The installation's build version is added to the
+ * (the only folder the map list shows), replays, desync dumps ({@code desyncs}), saved games, single player IDs ({@code characters}) and
+ * caches live in {@code <install>/userdata/mods/scr/}, while the log is the runtime's. The installation's build version is added to the
  * mod identity. The text language is the setting {@value #LOCALE_SETTING} when the installation has it, English otherwise.
  */
 public final class ScrMod implements Mod {
@@ -108,11 +110,25 @@ public final class ScrMod implements Mod {
             }
 
             try {
-                Main.launch(InstallLayout.of(this.clientRoot), this.resources, launch.getBeaconLink(), arguments.toArray(String[]::new));
+                Main.launch(InstallLayout.of(this.clientRoot), this.resources, launch.getBeaconLink(), describeBuild(launch.getIdentity()),
+                            arguments.toArray(String[]::new));
             } catch (IOException exception) {
                 throw Exceptions.newUncheckedIOException(exception);
             }
         }
+    }
+
+
+    /**
+     * Describes the run's identity as the runtime's {@code IDENTITY} line does, with the full content and data digests.
+     *
+     * @param identity the run's identity
+     * @return the description
+     */
+    private static @NotNull String describeBuild(@NotNull ModIdentity identity) {
+        return identity.getModId() + " " + identity.getModVersion() + " (engine " + identity.getEngine() +
+               ", content " + HexFormat.of().formatHex(identity.getContentDigest()) +
+               ", data " + HexFormat.of().formatHex(identity.getDataDigest()) + ")";
     }
 
 

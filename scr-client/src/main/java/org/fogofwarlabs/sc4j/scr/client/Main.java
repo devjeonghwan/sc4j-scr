@@ -285,6 +285,11 @@ public final class Main {
     private static final int DEFAULT_NETWORK_TURNS_IN_TRANSIT = 3;
 
     /**
+     * The build identity of a client started without the SC4J runtime.
+     */
+    private static final @NotNull String UNKNOWN_BUILD = "unknown (client started without the SC4J runtime)";
+
+    /**
      * The network latency-message keys in latency order.
      */
     private static final @NotNull List<String> LATENCY_MESSAGES = List.of("strFIRSTLATENCY_s", "strFIRSTLATENCY_s-1", "strFIRSTLATENCY_s-2");
@@ -558,7 +563,7 @@ public final class Main {
 
         String[] launchArguments = CommandLineArgumentsUtils.recover(arguments);
 
-        start(ClientOptions.parse(launchArguments), launchArguments, null, null);
+        start(ClientOptions.parse(launchArguments), launchArguments, null, null, UNKNOWN_BUILD);
     }
 
     /**
@@ -573,28 +578,29 @@ public final class Main {
      *                     bounded replay load fails
      */
     public static void launch(@NotNull InstallLayout layout, @NotNull ScrResourceProvider resources, @NotNull String @NotNull [] arguments) throws IOException {
-        launch(layout, resources, null, arguments);
+        launch(layout, resources, null, UNKNOWN_BUILD, arguments);
     }
 
     /**
-     * Starts the client below a given root with the run's Beacon.Link, which the multiplayer menu offers next to LAN: as
-     * {@link #launch(InstallLayout, ScrResourceProvider, String[])}.
+     * Starts the client below a given root with the run's Beacon.Link, which the multiplayer menu offers next to LAN, and the run's build
+     * identity: as {@link #launch(InstallLayout, ScrResourceProvider, String[])}.
      *
      * @param layout     the client root and its folders
      * @param resources  the mod's resource provider, which the client context reads and closes
      * @param beaconLink the run's Beacon.Link, or {@code null} if the run offers none
+     * @param build      the run's build identity, which the desync dumps of network games name
      * @param arguments  the launch options; {@code --help} describes available options
      * @throws IOException if the data directory holds no data pack, the startup storage is missing or invalid, a screenshot cannot be written or a
      *                     bounded replay load fails
      */
     public static void launch(@NotNull InstallLayout layout, @NotNull ScrResourceProvider resources, @Nullable BeaconLink beaconLink,
-                              @NotNull String @NotNull [] arguments) throws IOException {
+                              @NotNull String build, @NotNull String @NotNull [] arguments) throws IOException {
         ConsoleOutputUtils.install();
-        start(ClientOptions.parse(arguments, layout), arguments, resources, beaconLink);
+        start(ClientOptions.parse(arguments, layout), arguments, resources, beaconLink, build);
     }
 
     private static void start(@NotNull ClientOptions options, @NotNull String @NotNull [] launchArguments,
-                              @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink) throws IOException {
+                              @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink, @NotNull String build) throws IOException {
         options.getInstallLayout().applyProcessProperties();
         Logging.setLevel(options.getLogLevel());
         installTextProbe(options.getInstallLayout());
@@ -629,7 +635,7 @@ public final class Main {
             return;
         }
 
-        new Main(options, resources, beaconLink).run();
+        new Main(options, resources, beaconLink, build).run();
         LOGGER.info("CLIENT END");
     }
 
@@ -638,17 +644,20 @@ public final class Main {
      * game takes over the lobby's turn stream with three own turns in transit. The system property {@link #LAN_KEEP_ALIVE_PROPERTY} set to
      * {@code true} is a debug switch: turns then carry Keep Alive instead of Sync.
      *
+     * The game writes its desync dump to the desync folder ({@link LiveGame#setDesyncDumpTarget}).
+     *
      * @param clientContext the client resources
      * @param request       the network game request of the lobby
      * @param gameDirectory the StarCraft: Remastered data folder
      * @param locale        the session locale, or {@code null} for the installed one
+     * @param build         the run's build identity, which the desync dump names
      * @return the started session
      * @throws IOException if the LAN game has no lobby or map, or the game cannot be loaded
      */
     private static @NotNull ClientSession startNetworkGame(@NotNull ClientContext clientContext,
                                                            @NotNull GlueGameRequest request,
                                                            @NotNull Path gameDirectory,
-                                                           @Nullable String locale) throws IOException {
+                                                           @Nullable String locale, @NotNull String build) throws IOException {
         LanClient lanClient = request.getLanClient();
         Path mapPath = request.getPath();
         LanLobby lobby = lanClient == null ? null : lanClient.getLobby();
@@ -672,6 +681,7 @@ public final class Main {
 
             started.attachNetworkChat(lanClient);
             started.setGameFlags(lanClient.getGameFlags());
+            setDesyncDumpTarget(started, clientContext, mapPath, build);
 
             return started;
         }
@@ -694,12 +704,23 @@ public final class Main {
 
         started.attachNetworkChat(lanClient);
         started.setGameFlags(lanClient.getGameFlags());
+        setDesyncDumpTarget(started, clientContext, mapPath, build);
 
         if (feed != null) {
             feed.attach(started);
         }
 
         return started;
+    }
+
+    private static void setDesyncDumpTarget(@NotNull ClientSession started, @NotNull ClientContext clientContext, @NotNull Path mapPath,
+                                            @NotNull String build) {
+        LiveGame liveGame = started.getLiveGame();
+        Path mapName = mapPath.getFileName();
+
+        if (liveGame != null) {
+            liveGame.setDesyncDumpTarget(clientContext.getInstallLayout().getDesyncDirectory(), mapName == null ? "" : mapName.toString(), build);
+        }
     }
 
     /**
@@ -973,6 +994,10 @@ public final class Main {
      */
     private final @NotNull BeaconLinkAccess beaconLink;
     /**
+     * The run's build identity, which the desync dumps of network games name.
+     */
+    private final @NotNull String build;
+    /**
      * The client resources for the whole run ({@link ClientContext}), opened on first use.
      */
     @Nullable ClientContext clientContext;
@@ -1186,17 +1211,18 @@ public final class Main {
      * @param resources the mod's resource provider, or {@code null} to open one from the game directory
      */
     Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources) {
-        this(options, resources, null);
+        this(options, resources, null, UNKNOWN_BUILD);
     }
 
     /**
-     * Creates a {@link Main} instance with the run's Beacon.Link.
+     * Creates a {@link Main} instance with the run's Beacon.Link and build identity.
      *
      * @param options    the configured launch and live client settings
      * @param resources  the mod's resource provider, or {@code null} to open one from the game directory
      * @param beaconLink the run's Beacon.Link, or {@code null} if the run offers none
+     * @param build      the run's build identity, which the desync dumps of network games name
      */
-    Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink) {
+    Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink, @NotNull String build) {
         this.clientHost = null;
 
         this.hostWindow = null;
@@ -1294,6 +1320,7 @@ public final class Main {
 
         this.resources     = resources;
         this.beaconLink    = new BeaconLinkAccess(beaconLink);
+        this.build         = build;
         this.clientContext = null;
 
         this.consoleView = null;
@@ -3499,7 +3526,7 @@ public final class Main {
                 Path gameDirectory = this.options.requireGameDirectory();
                 ClientContext context = this.requireClientContext();
 
-                return startNetworkGame(context, request, gameDirectory, this.options.getLocale());
+                return startNetworkGame(context, request, gameDirectory, this.options.getLocale(), this.build);
             }
             case SAVED_GAME -> {
                 if (map == null) {

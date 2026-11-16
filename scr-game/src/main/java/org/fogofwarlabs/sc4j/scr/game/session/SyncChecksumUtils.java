@@ -331,7 +331,14 @@ public final class SyncChecksumUtils {
                type == DARK_SWARM_TYPE || type == DISRUPTION_WEB_TYPE;
     }
 
-    private static int getMinimapVisibilityFlags(@NotNull Unit unit) {
+    /**
+     * Reads the players a unit shows to on the minimap: its sprite's visibility flags, masked with its detection flags while it
+     * is cloaked.
+     *
+     * @param unit the unit
+     * @return the player bits
+     */
+    static int getMinimapVisibilityFlags(@NotNull Unit unit) {
         Sprite sprite = unit.getSpriteOrNull();
         int flags = sprite == null ? 0 : sprite.getVisibilityFlags();
 
