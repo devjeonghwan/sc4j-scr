@@ -421,8 +421,7 @@ public final class ListBox extends ScrControl {
     }
 
     /**
-     * Appends an item with a color of its own: the row text starts in that color (its inline color codes still change it), as the message history
-     * rows carry their record color as item data.
+     * Appends an item with a color of its own: the row text starts in that color, selected or not, and its inline color codes still change it.
      *
      * @param text  the item text
      * @param code  the color code of the unselected row without a color
@@ -642,24 +641,22 @@ public final class ListBox extends ScrControl {
                 canvas.drawBar(this.sheetPath, frame, left, rowTop, rowWidth, tile);
             }
 
-            int code = selected ? DialogPainter.CODE_HIGHLIGHT : item.code;
-            int color = selected ? NO_COLOR : item.color;
-
             // Row text includes the bottom pixel below the control-height rectangle.
-            if (color == NO_COLOR) {
+            if (item.color == NO_COLOR) {
                 canvas.drawCodeText(fontSlot,
                                     item.text,
                                     left + TEXT_INDENT, rowTop,
                                     rowWidth - TEXT_INDENT, itemHeight + 1,
                                     InterfaceText.LEFT | InterfaceText.TOP,
-                                    code);
+                                    selected ? DialogPainter.CODE_HIGHLIGHT : item.code);
             } else {
+                // A row with its own color starts in it, selected or not.
                 canvas.drawColorText(fontSlot,
                                      item.text,
                                      left + TEXT_INDENT, rowTop,
                                      rowWidth - TEXT_INDENT, itemHeight + 1,
                                      InterfaceText.LEFT | InterfaceText.TOP,
-                                     color);
+                                     item.color);
             }
         }
 
