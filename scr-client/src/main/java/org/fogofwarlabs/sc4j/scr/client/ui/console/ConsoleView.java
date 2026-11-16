@@ -45,7 +45,6 @@ import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogImportUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
-import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceTimers;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
@@ -2209,7 +2208,6 @@ public final class ConsoleView implements AutoCloseable {
         // The leaderboard keeps its offsets from the game view's top edge.
         float scale = viewport.getScale();
         boolean greed = this.leaderboard.getMode() == Leaderboard.Mode.GREED;
-        PlayerColorRows colors = model.getView().getPlayerTable().getPlayerColorRows();
 
         for (int row = 0; row < Leaderboard.ROWS; row++) {
             int player = this.leaderboard.getRowPlayer(row);
@@ -2219,9 +2217,7 @@ public final class ConsoleView implements AutoCloseable {
             }
 
             DialogLayout.Control box = dialog.getControl(Leaderboard.FIRST_BOX - row);
-            int color = loaded.getPaletteColor(colors != null && player < PlayerTable.PLAYABLE_PLAYER_SLOTS
-                                               ? colors.getMinimapColor(player)
-                                               : player);
+            int color = PlayerColorUtils.getMinimapIndexColor(model.getView().getPlayerTable(), loaded, player);
 
             this.renderer.fillRectangle(viewport.toScreenX(box.getX()), viewport.toScreenY(box.getY()),
                                         box.getWidth() * scale, box.getHeight() * scale,
