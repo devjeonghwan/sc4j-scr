@@ -41,6 +41,8 @@ import org.fogofwarlabs.sc4j.scr.game.creep.CreepFramePhase;
 import org.fogofwarlabs.sc4j.scr.game.creep.CreepRecession;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGameExtensionUtils;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationExtensionUtils;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.frame.*;
 import org.fogofwarlabs.sc4j.scr.game.map.MapSpriteEffectLoader;
 import org.fogofwarlabs.sc4j.scr.game.map.MapUnitLoader;
@@ -266,13 +268,15 @@ public final class Game implements GameSystem, StateHashContributor {
     private @Nullable PlayerSlots playerSlots;
 
     /* The engine game, attached after creation, its frame clock, which holds the frame counter, the hook points the SC:R systems call,
-       the SC:R modifier of each stat and the plugins and memory sources of the mod's game extensions. */
+       the SC:R modifier of each stat, the plugins and memory sources of the mod's game extensions and the plugins of its simulation
+       extensions. */
     private org.fogofwarlabs.sc4j.engine.game.@Nullable Game engineGame;
     private @Nullable FrameClock clock;
     private @Nullable ScrHooks hooks;
     private @Nullable ScrStatModifier @NotNull [] statModifiers;
     private @NotNull ScrGamePlugin @NotNull [] plugins;
     private @NotNull ClassicMemorySource @NotNull [] memorySources;
+    private @Nullable ScrSimulationPlugins simulationPlugins;
 
     /* Frame counters and world lifecycle. */
     private int turnCount;
@@ -465,12 +469,13 @@ public final class Game implements GameSystem, StateHashContributor {
         this.replayPlayback = false;
         this.playerSlots    = null;
 
-        this.engineGame    = null;
-        this.clock         = null;
-        this.hooks         = null;
-        this.statModifiers = new ScrStatModifier[0];
-        this.plugins       = new ScrGamePlugin[0];
-        this.memorySources = new ClassicMemorySource[0];
+        this.engineGame        = null;
+        this.clock             = null;
+        this.hooks             = null;
+        this.statModifiers     = new ScrStatModifier[0];
+        this.plugins           = new ScrGamePlugin[0];
+        this.memorySources     = new ClassicMemorySource[0];
+        this.simulationPlugins = null;
 
         this.turnCount                  = 0;
         this.commandDispatchMarkerCount = 0;
@@ -676,7 +681,8 @@ public final class Game implements GameSystem, StateHashContributor {
      * ({@link UnitDamage#getShieldLayer}) to every unit type, and replaces the setup's game
      * data with the game's own copy over the engine content ({@link GameData#createGameCopy(GameContent)}), which starts
      * with the values of the setup's tables. The systems created with this game read the game data only after it
-     * attaches.
+     * attaches. Last it creates the plugins and memory sources of the mod's game extensions ({@link ScrGameExtensionUtils}) and the plugins of
+     * its simulation extensions ({@link ScrSimulationExtensionUtils}).
      *
      * @param game the game
      */
@@ -723,8 +729,9 @@ public final class Game implements GameSystem, StateHashContributor {
             this.gameData = setupData.createGameCopy(game.getContent());
         }
 
-        this.plugins       = ScrGameExtensionUtils.createPlugins(this);
-        this.memorySources = ScrGameExtensionUtils.createMemorySources(this);
+        this.plugins           = ScrGameExtensionUtils.createPlugins(this);
+        this.memorySources     = ScrGameExtensionUtils.createMemorySources(this);
+        this.simulationPlugins = ScrSimulationExtensionUtils.createPlugins(this);
     }
 
     private void addModifier(@NotNull GameContent content, @NotNull Stat stat, @NotNull ScrStatModifier modifier) {
@@ -1695,6 +1702,14 @@ public final class Game implements GameSystem, StateHashContributor {
      */
     public @NotNull ClassicMemorySource @NotNull [] getMemorySources() {
         return this.memorySources;
+    }
+
+    /**
+     * @return the plugins of the running mod's simulation extensions, created when the game system attached
+     * ({@link ScrSimulationExtensionUtils#createPlugins}), which the simulation routines report to and ask; {@code null} if no extension created one
+     */
+    public @Nullable ScrSimulationPlugins getSimulationPlugins() {
+        return this.simulationPlugins;
     }
 
     /**

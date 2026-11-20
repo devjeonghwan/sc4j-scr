@@ -9,6 +9,7 @@ import org.fogofwarlabs.sc4j.engine.controller.ControllerSource;
 import org.fogofwarlabs.sc4j.engine.lockstep.*;
 import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
@@ -871,6 +872,24 @@ public final class LiveGame {
         this.outgoingTurn.queue(command);
 
         return true;
+    }
+
+    /**
+     * Queues a mod command of the local player into the outgoing turn ({@link ReplayCommandIds#MOD_COMMAND}): when it runs, the game's
+     * simulation plugins receive the data ({@link ScrSimulationPlugin#onModCommand}).
+     *
+     * @param data the command data, at most {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes
+     * @return {@code true} if queued, {@code false} if the outgoing turn has no room for it
+     * @throws IllegalArgumentException if the data is longer than {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes
+     */
+    public boolean submitModCommand(byte @NotNull [] data) {
+        byte[] payload = ReplayCommandCodecs.encode(ReplayCommandCodecs.MOD_COMMAND, new ReplayModCommand(data.clone()));
+
+        if (!this.outgoingTurn.hasRoom(1 + payload.length)) {
+            return false;
+        }
+
+        return this.submit(ReplayCommandIds.MOD_COMMAND, payload);
     }
 
     /**

@@ -298,46 +298,9 @@ final class TriggerActionsUtils {
      * or secured result; only human and computer players receive the result.
      */
     private static boolean executeGameEnd(@NotNull TriggerContext context, @NotNull RunningTrigger record, TriggerDefinition.@NotNull Action action) {
-        int player = context.currentPlayer;
+        int result = action.getType() == TriggerActionIds.VICTORY ? TriggerPlayerResults.VICTORY : TriggerPlayerResults.DEFEAT;
 
-        if (action.getType() == TriggerActionIds.DEFEAT && hasSecuredResult(context, player)) {
-            return false;
-        }
-
-        endGame(context, player, action.getType() == TriggerActionIds.VICTORY ? TriggerPlayerResults.VICTORY : TriggerPlayerResults.DEFEAT);
-
-        return true;
-    }
-
-    /**
-     * Tests whether a player's pending result is victory or secured, which Defeat and Draw do not replace.
-     *
-     * @param context the trigger context
-     * @param player  the trigger player
-     * @return {@code true} if the player's result is victory or secured, {@code false} otherwise
-     */
-    private static boolean hasSecuredResult(@NotNull TriggerContext context, int player) {
-        int result = context.getPlayerResult(player);
-
-        return result == TriggerPlayerResults.VICTORY || result == TriggerPlayerResults.SECURED;
-    }
-
-    /**
-     * Ends the game for a player as Victory, Defeat and Draw do: a human or computer player receives the result, and the
-     * victory countdown reloads ({@code 1} while triggers run during the phase gate).
-     *
-     * @param context the trigger context
-     * @param player  the trigger player
-     * @param result  the player result ({@link TriggerPlayerResults})
-     */
-    private static void endGame(@NotNull TriggerContext context, int player, int result) {
-        int playerType = context.getPlayerType(player);
-
-        if (playerType == PlayerTypes.HUMAN || playerType == PlayerTypes.COMPUTER) {
-            context.setPlayerResult(player, result);
-        }
-
-        context.victoryCountdown = context.triggersEnabledWhileGated != 0 ? 1 : TriggerContext.VICTORY_COUNTDOWN_RELOAD;
+        return context.endGame(context.currentPlayer, result);
     }
 
     /**
@@ -902,7 +865,7 @@ final class TriggerActionsUtils {
             centerY = context.locations[source].getCenterY();
         }
 
-        world.getTriggerLocations().moveLocation(context, destination - 1, centerX, centerY);
+        world.getTriggerLocations().moveLocation(context.locations[destination - 1], centerX, centerY);
 
         context.preparationFlag = 0;
 
@@ -1019,15 +982,7 @@ final class TriggerActionsUtils {
      * result and the victory countdown is set as for Victory.
      */
     private static boolean executeDraw(@NotNull TriggerContext context, @NotNull RunningTrigger record, TriggerDefinition.@NotNull Action action) {
-        int player = context.currentPlayer;
-
-        if (hasSecuredResult(context, player)) {
-            return false;
-        }
-
-        endGame(context, player, TriggerPlayerResults.DRAW);
-
-        return true;
+        return context.endGame(context.currentPlayer, TriggerPlayerResults.DRAW);
     }
 
     /**
@@ -1278,9 +1233,9 @@ final class TriggerActionsUtils {
 
             boolean counted = switch (action.getType()) {
                 case TriggerActionIds.GIVE_UNITS_TO_PLAYER -> world.getTriggerUnitActions().giveUnit(context, unit, action.getSecondaryOperand());
-                case TriggerActionIds.MODIFY_UNIT_HIT_POINTS -> world.getTriggerUnitActions().modifyHitPoints(units, unit, action.getSecondaryOperand(), context.instructionLimit);
-                case TriggerActionIds.MODIFY_UNIT_ENERGY -> world.getTriggerUnitActions().modifyEnergy(units, unit, action.getSecondaryOperand());
-                case TriggerActionIds.MODIFY_UNIT_SHIELD_POINTS -> TriggerUnitActions.modifyShields(units, unit, action.getSecondaryOperand());
+                case TriggerActionIds.MODIFY_UNIT_HIT_POINTS -> world.getTriggerUnitActions().modifyHitPoints(unit, action.getSecondaryOperand(), context.instructionLimit);
+                case TriggerActionIds.MODIFY_UNIT_ENERGY -> world.getTriggerUnitActions().modifyEnergy(unit, action.getSecondaryOperand());
+                case TriggerActionIds.MODIFY_UNIT_SHIELD_POINTS -> world.getTriggerUnitActions().modifyShields(unit, action.getSecondaryOperand());
                 case TriggerActionIds.MODIFY_UNIT_RESOURCE_AMOUNT -> world.getTriggerUnitActions().modifyResources(units, unit, action.getSecondaryOperand(), context.instructionLimit);
                 default -> world.getTriggerUnitActions().modifyHangar(context, unit, action.getSecondaryOperand());
             };
@@ -1338,22 +1293,7 @@ final class TriggerActionsUtils {
                 continue;
             }
 
-            if (UnitQueries.isGroundedBuilding(unit)) {
-                world.getUnitBuildingMove().move(unit, targetX, targetY, context.instructionLimit);
-
-                if (--remaining == 0) {
-                    break;
-                }
-
-                continue;
-            }
-
-            boolean moved = world.getUnitRelocation().relocate(unit, targetX, targetY);
-
-            // A pending queue activates, otherwise the unit returns to its computer or idle order.
-            if (moved && (unit.getStatus() & UnitStatusFlags.COMPLETED) != 0) {
-                world.getOrders().finishOrder(unit, context.instructionLimit);
-            }
+            world.getTriggerUnitActions().moveUnit(unit, targetX, targetY, context.instructionLimit);
 
             if (--remaining == 0) {
                 break;

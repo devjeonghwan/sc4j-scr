@@ -1158,6 +1158,40 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
+     * Ends the game for a player as the Victory, Defeat and Draw actions do: Defeat and Draw fail against a pending victory or secured
+     * result; otherwise a human or computer player receives the pending result and the victory countdown reloads ({@code 1} while triggers run
+     * during the phase gate). The trigger step of the frame then applies the pending results ({@link ScrTriggerSystem}).
+     *
+     * @param player the trigger-owner index
+     * @param result {@link TriggerPlayerResults#VICTORY}, {@link TriggerPlayerResults#DEFEAT} or {@link TriggerPlayerResults#DRAW}
+     * @return {@code true} if the game ended for the player, {@code false} if a Defeat or Draw met a victory or secured result
+     * @throws IllegalArgumentException      if the result is not victory, defeat or draw
+     * @throws IllegalStateException         if players have not been bound
+     * @throws UnsupportedOperationException if the player's record or result byte is not represented
+     */
+    public boolean endGame(int player, int result) {
+        if (result != TriggerPlayerResults.VICTORY && result != TriggerPlayerResults.DEFEAT && result != TriggerPlayerResults.DRAW) {
+            throw Exceptions.newIllegalArgumentException("A game ends in victory, defeat or a draw, not in the result {0}.", result);
+        }
+
+        int pending = this.getPlayerResult(player);
+
+        if (result != TriggerPlayerResults.VICTORY && (pending == TriggerPlayerResults.VICTORY || pending == TriggerPlayerResults.SECURED)) {
+            return false;
+        }
+
+        int playerType = this.getPlayerType(player);
+
+        if (playerType == PlayerTypes.HUMAN || playerType == PlayerTypes.COMPUTER) {
+            this.setPlayerResult(player, result);
+        }
+
+        this.victoryCountdown = this.triggersEnabledWhileGated != 0 ? 1 : VICTORY_COUNTDOWN_RELOAD;
+
+        return true;
+    }
+
+    /**
      * @param player the trigger-owner index
      * @return the actual number of retained executable records
      * @throws IllegalStateException if players have not been bound

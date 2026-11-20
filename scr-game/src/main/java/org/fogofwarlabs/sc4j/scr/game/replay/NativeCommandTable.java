@@ -4,8 +4,10 @@ import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.command.CommandRegistry;
 import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
+import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -13,7 +15,8 @@ import java.util.List;
 /**
  * Creates the native command types of one command dispatcher ({@link ReplayCommandExecutor}): an {@link ScrCommandType} for every command type
  * byte the native dispatcher has a case for, with its payload codec ({@link ReplayCommandCodecs}, the one codec of the type) and its case,
- * registered in an engine {@link CommandRegistry} by type byte. A type byte without a type is not dispatched.
+ * registered in an engine {@link CommandRegistry} by type byte, and the SC4J mod command ({@link ReplayCommandIds#MOD_COMMAND}), which hands
+ * its data to the game's simulation plugins. A type byte without a type is not dispatched.
  */
 final class NativeCommandTable {
     /**
@@ -133,6 +136,15 @@ final class NativeCommandTable {
         // The minimap ping has no simulation-state effect.
         register(registry, ReplayPositionCommand.CODEC, ScrCommandType.Dispatch.SELECTION, (game, commandPlayer, command) -> {
         }, ReplayCommandIds.MINIMAP_PING);
+        // A game without simulation plugins runs the mod command without an effect.
+        register(registry, ReplayModCommand.CODEC, ScrCommandType.Dispatch.SESSION, (game, commandPlayer, command) -> {
+            ScrSimulationPlugins simulation = game.getSimulationPlugins();
+            Player player = game.getPlayerTable().getPlayer(commandPlayer);
+
+            if (simulation != null && player != null) {
+                simulation.runModCommand(player, command.copyData());
+            }
+        }, ReplayCommandIds.MOD_COMMAND);
     }
 
     private void registerPlayer(@NotNull CommandRegistry<ScrCommandType<?>> registry) {

@@ -13,6 +13,7 @@ import org.fogofwarlabs.sc4j.scr.data.type.ScrFlingyTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrWeaponTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.WeaponBehaviors;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.movement.FlingyMotionUtils;
 import org.fogofwarlabs.sc4j.scr.game.save.SaveReferences;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
@@ -1420,6 +1421,12 @@ public final class ProjectilePhase {
 
         context.activeCount++;
 
+        ScrSimulationPlugins simulation = this.game.getSimulationPlugins();
+
+        if (simulation != null) {
+            simulation.reportBulletCreated(bullet, weapon, bullet.owner, source, bullet.targetUnit, bullet.targetX, bullet.targetY);
+        }
+
         return bullet;
     }
 
@@ -1746,6 +1753,17 @@ public final class ProjectilePhase {
             for (int bounce = 0; bounce < BOUNCE_COUNT - 1 - bullet.remainingBounces; bounce++) {
                 divisor *= BOUNCE_DAMAGE_DIVISOR;
             }
+        }
+
+        ScrSimulationPlugins simulation = this.game.getSimulationPlugins();
+
+        if (simulation != null) {
+            simulation.reportBulletHit(bullet,
+                                       bullet.weapon,
+                                       bullet.owner,
+                                       bullet.ownerUnit, bullet.targetUnit,
+                                       bullet.targetX, bullet.targetY,
+                                       (bullet.hitFlags & HIT_FLAG_MISSED) != 0);
         }
 
         this.game.getUnitDamage().hitBullet(bullet.weapon,

@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayCommandIds;
 import org.fogofwarlabs.sc4j.scr.data.format.text.LegacyTextUtils;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGameExtensionUtils;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationExtensionUtils;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTypes;
@@ -61,7 +62,8 @@ public final class LanLobby implements GameLobby {
      * The lobby protocol version the host requires in the joined-game command, a 16-bit number read from the resource
      * {@code lan-lobby.properties} next to this class ({@code 5} in the SC:R mod, as native SC:R). A host refuses a joiner with another
      * version, so a mod built from the SC:R mod's sources sets its own version there to keep apart from SC:R mod players on a LAN; a mod whose
-     * game extensions provide memory ({@link ScrGameExtensionUtils#providesMemory()}) must.
+     * game extensions provide memory ({@link ScrGameExtensionUtils#providesMemory()}) or that has simulation extensions
+     * ({@link ScrSimulationExtensionUtils#hasExtensions()}) must.
      */
     public static final int JOIN_VERSION = readJoinVersion();
     /**
@@ -1503,6 +1505,11 @@ public final class LanLobby implements GameLobby {
 
         if (version == SCR_JOIN_VERSION && ScrGameExtensionUtils.providesMemory()) {
             throw Exceptions.newIllegalStateException("The game extensions provide memory, so the {0} of {1} must differ from the SC:R version {2}.",
+                                                      JOIN_VERSION_KEY, LOBBY_SETTINGS_RESOURCE, SCR_JOIN_VERSION);
+        }
+
+        if (version == SCR_JOIN_VERSION && ScrSimulationExtensionUtils.hasExtensions()) {
+            throw Exceptions.newIllegalStateException("The mod has simulation extensions, so the {0} of {1} must differ from the SC:R version {2}.",
                                                       JOIN_VERSION_KEY, LOBBY_SETTINGS_RESOURCE, SCR_JOIN_VERSION);
         }
 

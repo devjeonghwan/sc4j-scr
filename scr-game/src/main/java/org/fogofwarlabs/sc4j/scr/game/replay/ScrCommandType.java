@@ -30,8 +30,8 @@ public final class ScrCommandType<C> implements CommandType<C> {
          */
         MARKER,
         /**
-         * A session command (Restart Game, Replay Seek and the ignored session commands): it runs outside the issuer's selection and resets the
-         * dispatch marker count.
+         * A session command (Restart Game, Replay Seek, the ignored session commands and the SC4J mod command): it runs outside the issuer's
+         * selection and resets the dispatch marker count.
          */
         SESSION,
         /**

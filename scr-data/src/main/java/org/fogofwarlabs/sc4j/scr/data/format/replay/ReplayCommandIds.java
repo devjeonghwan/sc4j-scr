@@ -326,6 +326,12 @@ public final class ReplayCommandIds {
      * Dynamic turn rate.
      */
     public static final int DYNAMIC_TURN_RATE = 0x66;
+    /**
+     * The SC4J mod command ({@link ReplayModCommand}): data for the simulation plugins of a mod, a length byte and up to
+     * {@value ReplayModCommand#MAXIMUM_DATA_LENGTH} data bytes. SC:R has no command of this type: its dispatcher has cases up to
+     * {@code 0x69} and its length table ends at {@code 0x75}.
+     */
+    public static final int MOD_COMMAND = 0x80;
 
     private ReplayCommandIds() {
     }

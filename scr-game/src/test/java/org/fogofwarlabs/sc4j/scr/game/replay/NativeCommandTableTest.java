@@ -59,6 +59,7 @@ final class NativeCommandTableTest {
         Assertions.assertEquals(ScrCommandType.Dispatch.SESSION, types.get(ReplayCommandIds.RESTART_GAME).getDispatch());
         Assertions.assertEquals(ScrCommandType.Dispatch.SESSION, types.get(ReplayCommandIds.REPLAY_SEEK).getDispatch());
         Assertions.assertEquals(ScrCommandType.Dispatch.SESSION, types.get(ReplayCommandIds.TURN_RATE).getDispatch());
+        Assertions.assertEquals(ScrCommandType.Dispatch.SESSION, types.get(ReplayCommandIds.MOD_COMMAND).getDispatch());
         Assertions.assertEquals(ScrCommandType.Dispatch.SELECTION, types.get(ReplayCommandIds.PAUSE).getDispatch());
         Assertions.assertEquals(ScrCommandType.Dispatch.SELECTION, types.get(ReplayCommandIds.SELECT_121).getDispatch());
     }
@@ -84,11 +85,12 @@ final class NativeCommandTableTest {
                 {0x3C, 0x00},
                 {0x78, 0x56, 0x34, 0x12},
                 {0x40, 0x01, (byte) 0xC0, 0x00},
-                {0x00, 0x01, 0x02, 0x03, 0x04, 0x05}
+                {0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
+                {0x02, 0x07, 0x08}
         };
         int[] ids = {ReplayCommandIds.STIM, ReplayCommandIds.TARGETED_ORDER_121, ReplayCommandIds.RIGHT_CLICK, ReplayCommandIds.SELECT_121,
                      ReplayCommandIds.BUILD, ReplayCommandIds.CHAT, ReplayCommandIds.HOTKEY, ReplayCommandIds.STOP, ReplayCommandIds.TRAIN,
-                     ReplayCommandIds.CHEAT, ReplayCommandIds.LIFT_OFF, ReplayCommandIds.SYNC};
+                     ReplayCommandIds.CHEAT, ReplayCommandIds.LIFT_OFF, ReplayCommandIds.SYNC, ReplayCommandIds.MOD_COMMAND};
 
         for (int index = 0; index < ids.length; index++) {
             Assertions.assertArrayEquals(payloads[index], roundTrip(types.get(ids[index]), payloads[index]), "type byte " + ids[index]);

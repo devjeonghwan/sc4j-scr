@@ -16,6 +16,7 @@ import org.fogofwarlabs.sc4j.scr.game.ai.ComputerPlayerPhase;
 import org.fogofwarlabs.sc4j.scr.game.ai.ComputerTargets;
 import org.fogofwarlabs.sc4j.scr.game.ai.ComputerUnits;
 import org.fogofwarlabs.sc4j.scr.game.combat.UnitDamage;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.movement.FlingyMotionUtils;
 import org.fogofwarlabs.sc4j.scr.game.order.OrderPool;
 import org.fogofwarlabs.sc4j.scr.game.order.ScrOrderSystem;
@@ -740,6 +741,8 @@ public final class UnitSpells {
                     this.game.getUnitEnergy().spend(unit, this.getEnergyCost(technology));
                 }
 
+                this.reportSpellCast(unit, technology, target, unit.getOrderTargetX(), unit.getOrderTargetY());
+
                 int cooldown = this.game.getUnitAttack().getModifiedCooldown(unit, weapon) +
                                (this.game.getRandom().next(SPELL_COOLDOWN_RANDOM_SOURCE) & SPELL_COOLDOWN_RANDOM_MASK) - 1;
 
@@ -914,6 +917,7 @@ public final class UnitSpells {
 
         if (scan != null) {
             this.game.getUnitEnergy().spend(unit, cost);
+            this.reportSpellCast(unit, ScrTechIds.SCANNER_SWEEP, null, creationX, creationY);
             this.playSound(SoundIds.COMSAT_SCANNER_SWEEP, unit);
         }
     }
@@ -1123,6 +1127,8 @@ public final class UnitSpells {
 
         Unit target = unit.requireOrderTargetUnit();
 
+        this.reportSpellCast(unit, ScrTechIds.DEFENSIVE_MATRIX, target, unit.getOrderTargetX(), unit.getOrderTargetY());
+
         target.setDefensiveMatrixHealth(DEFENSIVE_MATRIX_HEALTH << FIXED_POINT_FRACTION_BITS);
         target.setDefensiveMatrixTimer(DEFENSIVE_MATRIX_DURATION);
         this.createDefensiveMatrixImage(target, instructionLimit);
@@ -1172,6 +1178,7 @@ public final class UnitSpells {
                 unit.setOrderTargetY(targetSprite.getY());
             }
 
+            this.reportSpellCast(unit, ScrTechIds.RECALL, orderTarget, unit.getOrderTargetX(), unit.getOrderTargetY());
             this.createEffect(SpriteIds.RECALL_FIELD,
                               (short) unit.getOrderTargetX(), (short) unit.getOrderTargetY(),
                               unit.requireSprite().getElevationLevel() + 1,
@@ -1328,6 +1335,8 @@ public final class UnitSpells {
         Unit target = unit.requireOrderTargetUnit();
         UnitCreationContext context = this.game.getUnitSystem().requireUnitCreationContext();
 
+        this.reportSpellCast(unit, ScrTechIds.HALLUCINATION, target, unit.getOrderTargetX(), unit.getOrderTargetY());
+
         for (int copy = 0; copy < HALLUCINATION_COPIES; copy++) {
             Unit hallucination = this.createHallucination(target, unit.getOwnerIndex(), instructionLimit);
 
@@ -1458,6 +1467,8 @@ public final class UnitSpells {
             return;
         }
 
+        this.reportSpellCast(unit, ScrTechIds.MIND_CONTROL, target, unit.getOrderTargetX(), unit.getOrderTargetY());
+
         if ((target.getStatus() & UnitStatusFlags.HALLUCINATION) != 0) {
             this.game.getUnitLifecycle().kill(target, instructionLimit);
         } else {
@@ -1503,6 +1514,7 @@ public final class UnitSpells {
         }
 
         if (target.getEnergy() != 0) {
+            this.reportSpellCast(unit, ScrTechIds.FEEDBACK, target, unit.getOrderTargetX(), unit.getOrderTargetY());
             this.game.getUnitDamage().dealWeaponDamage(ScrWeaponIds.FEEDBACK,
                                                        target.getEnergy(),
                                                        FULL_DAMAGE_DIVISOR,
@@ -2540,5 +2552,22 @@ public final class UnitSpells {
         this.game.getInterfaceLink().getSoundEvents().add(sound,
                                                           sprite == null ? 0 : sprite.getX(), sprite == null ? 0 : sprite.getY(),
                                                           unit.getUnitId());
+    }
+
+    /**
+     * Reports a cast technology to the simulation plugins ({@link ScrSimulationPlugins#reportSpellCast}) when the game has them.
+     *
+     * @param caster     the casting unit
+     * @param technology the techdata.dat entry
+     * @param target     the target unit, or {@code null} for none
+     * @param positionX  the target X coordinate
+     * @param positionY  the target Y coordinate
+     */
+    private void reportSpellCast(@NotNull Unit caster, int technology, @Nullable Unit target, int positionX, int positionY) {
+        ScrSimulationPlugins simulation = this.game.getSimulationPlugins();
+
+        if (simulation != null) {
+            simulation.reportSpellCast(caster, technology, target, positionX, positionY);
+        }
     }
 }

@@ -255,6 +255,48 @@ final class ReplayWriterTest {
     }
 
     @Test
+    void write_should_keep_mod_commands_up_to_the_largest_data_length() throws IOException {
+        byte[] largest = new byte[ReplayModCommand.HEADER_SIZE - 1 + ReplayModCommand.MAXIMUM_DATA_LENGTH];
+        byte[] small = {2, 0x11, 0x22};
+        List<ReplayCommand> commands = new ArrayList<>();
+
+        largest[0] = (byte) ReplayModCommand.MAXIMUM_DATA_LENGTH;
+        largest[largest.length - 1] = 0x33;
+
+        commands.add(new ReplayCommand(FIRST_COMMAND_FRAME, 0, ReplayCommandIds.MOD_COMMAND, small));
+        commands.add(new ReplayCommand(FIRST_COMMAND_FRAME, 1, ReplayCommandIds.MOD_COMMAND, largest));
+        commands.add(new ReplayCommand(SECOND_COMMAND_FRAME, 0, ReplayCommandIds.STOP, new byte[]{0}));
+
+        Assertions.assertTrue(ReplayWriter.isRecorded(ReplayCommandIds.MOD_COMMAND, largest.length));
+
+        byte[] header = new ReplayHeaderBuilder().setEngine(SYNTHETIC_ENGINE)
+                                                 .setFrames(SYNTHETIC_FRAME_COUNT)
+                                                 .setSeed(SYNTHETIC_RANDOM_SEED)
+                                                 .setMapSize(SYNTHETIC_MAP_SIZE, SYNTHETIC_MAP_SIZE)
+                                                 .setGameType(SYNTHETIC_GAME_TYPE, SYNTHETIC_GAME_SUBTYPE)
+                                                 .build();
+        byte[] file = new ReplayWriter(header,
+                                       ReplayWriter.encodeCommands(commands),
+                                       new byte[]{1, 2, 3},
+                                       ReplayWriter.encodeNames(new byte[NAME_COUNT][0]),
+                                       new byte[ReplayWriter.SKIN_SIZE],
+                                       ReplayWriter.CURRENT_LIMITS,
+                                       ReplayWriter.CURRENT_FIX_FLAGS,
+                                       new byte[ReplayWriter.CUSTOM_COLORS_SIZE],
+                                       ReplayWriter.encodeVersionBlock(SYNTHETIC_BUILD_NUMBER, 0)).write();
+        List<ReplayCommand> parsed = ReplayFile.parse(file).getCommands();
+
+        Assertions.assertEquals(commands.size(), parsed.size());
+
+        for (int index = 0; index < commands.size(); index++) {
+            Assertions.assertEquals(commands.get(index).getFrame(), parsed.get(index).getFrame());
+            Assertions.assertEquals(commands.get(index).getPlayerId(), parsed.get(index).getPlayerId());
+            Assertions.assertEquals(commands.get(index).getTypeId(), parsed.get(index).getTypeId());
+            Assertions.assertArrayEquals(commands.get(index).getPayload(), parsed.get(index).getPayload());
+        }
+    }
+
+    @Test
     void encode_names_should_put_each_name_cut_to_its_record() {
         byte[][] names = new byte[NAME_COUNT][0];
         byte[] longName = new byte[NAME_RECORD_SIZE + 1];

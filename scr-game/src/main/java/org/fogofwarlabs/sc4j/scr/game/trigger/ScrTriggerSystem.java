@@ -6,6 +6,7 @@ import org.fogofwarlabs.sc4j.scr.core.GameSettings;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkSection;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplaySettings;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayFrameRunner;
@@ -430,6 +431,12 @@ public final class ScrTriggerSystem implements TriggerSystem {
             }
 
             context.players[player].setVictoryState(result);
+
+            ScrSimulationPlugins simulation = world != null ? world.getSimulationPlugins() : null;
+
+            if (simulation != null) {
+                simulation.reportPlayerResult(player, context.players[player].getVictoryState());
+            }
 
             if (result == TriggerPlayerResults.DEFEAT) {
                 // The elimination message is only presentation; the removal follows.
