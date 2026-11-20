@@ -10,6 +10,7 @@ import org.fogofwarlabs.sc4j.engine.lockstep.*;
 import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
@@ -47,7 +48,7 @@ import java.util.function.IntSupplier;
  * Live play, the saved replay and playback use the common replay runtime and one command path. A single-player
  * command queued at the current frame executes and is recorded in the following frame.
  */
-public final class LiveGame {
+public final class LiveGame implements ScrModCommandSubmitter {
     /**
      * The frame count stored in the running header; the saved header receives the real count.
      */
@@ -884,12 +885,14 @@ public final class LiveGame {
 
     /**
      * Queues a mod command of the local player into the outgoing turn ({@link ReplayCommandIds#MOD_COMMAND}): when it runs, the game's
-     * simulation plugins receive the data ({@link ScrSimulationPlugin#onModCommand}).
+     * simulation plugins receive the data ({@link ScrSimulationPlugin#onModCommand}). The turn holds a limited number of bytes, so a command is
+     * refused while the commands queued for the turn leave no room for it; it can be submitted again for a later turn.
      *
-     * @param data the command data, at most {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes
+     * @param data the command data, at most {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes; the submitter keeps a copy
      * @return {@code true} if queued, {@code false} if the outgoing turn has no room for it
      * @throws IllegalArgumentException if the data is longer than {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes
      */
+    @Override
     public boolean submitModCommand(byte @NotNull [] data) {
         byte[] payload = ReplayCommandCodecs.encode(ReplayCommandCodecs.MOD_COMMAND, new ReplayModCommand(data.clone()));
 
@@ -902,7 +905,8 @@ public final class LiveGame {
 
     /**
      * Supplies the game's player slots that resolve the issuers of its commands, outgoing turn buffer, provider turn limits,
-     * timing, lobby state and initial pause counts; a single-player game also starts its Sync records from this game.
+     * timing, lobby state and initial pause counts, and this game as the game's mod command submitter unless the local player observes; a
+     * single-player game also starts its Sync records from this game.
      *
      * @param game   the game's state
      * @param timing the game's speed configuration, whose turn-wait budget schedules the turn exchanges
@@ -923,6 +927,7 @@ public final class LiveGame {
         game.setPlayerSlots(this.playerSlots);
         game.getInterfaceLink().setOutgoingTurn(this.outgoingTurn);
         game.getInterfaceLink().setSessionTurnLimits(latencyTurns, MAXIMUM_TURN_BYTES);
+        game.getInterfaceLink().setModCommandSubmitter(this.isLocalObserver() ? null : this);
         game.getGameContext().setContextLobbyColors(this.setup.getResolvedLobbyColors());
 
         int[] lobbyTypes = this.setup.getLobbyTypes();

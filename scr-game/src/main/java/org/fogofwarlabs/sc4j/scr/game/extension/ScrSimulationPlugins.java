@@ -77,7 +77,7 @@ public final class ScrSimulationPlugins {
     /**
      * Hands a mod command to every plugin ({@link ScrSimulationPlugin#onModCommand}).
      *
-     * @param player the command player of the issuing record
+     * @param player the issuing player's record
      * @param data   the command data
      */
     public void runModCommand(@NotNull Player player, byte @NotNull [] data) {

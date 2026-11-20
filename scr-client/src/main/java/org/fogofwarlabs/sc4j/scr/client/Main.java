@@ -7446,7 +7446,7 @@ public final class Main {
     /**
      * Applies EUD interface and view writes for the next render, routing changed mouse coordinates through the current layout.
      */
-    private void applyLocalViewWrite() {
+    void applyLocalViewWrite() {
         if (this.session == null) {
             return;
         }

@@ -39,7 +39,8 @@ import java.util.Random;
  * Checks the simulation plugins of a running game: plugin creation sees the scenario of live, replayed and saved games and the map archive of a
  * live game started from a map file, the frame start runs before the triggers, a death by weapon damage names its killer and
  * weapon, a weapon damage decision and an order decision change what the routines do, a mod command reaches the plugins and is kept in the
- * written replay, a replay section a live game sets is offered when its replay plays back, and a plugin that does not allow a save stops it.
+ * written replay, the mod command submitter a live session supplies queues the local player's commands, a replay section a live game sets is
+ * offered when its replay plays back, and a plugin that does not allow a save stops it.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -317,6 +318,49 @@ final class ScrSimulationExtensionTest {
 
         Assertions.assertEquals(1, recorded.size());
         Assertions.assertArrayEquals(new byte[]{(byte) MOD_COMMAND_DATA.length, 0x53, 0x43, 0x34, 0x4A}, recorded.getFirst().getPayload());
+    }
+
+    @Test
+    void mod_command_submitter_of_a_live_session_queues_commands_of_the_local_player(@NotNull InstallationTestResources resources) throws Throwable {
+        Path map = GameTestResources.getPath(GameTestResources.MAP_EUD_COMPUTER);
+        byte[] scenario = MpqArchive.open(map).readFile(ChkFile.ARCHIVE_ENTRY);
+        MeleeGameSetup setup = MeleeGameSetup.createUseMapSettings(scenario, HUMAN_NAME, ScrRaceIds.TERRAN, 0, GameSpeed.FASTEST);
+        LiveGame live = new LiveGame(setup, SEED);
+        RecordingSimulationPluginSource.Recording recording = new RecordingSimulationPluginSource.Recording();
+        Game[] games = new Game[1];
+        ScrModCommandSubmitter[] submitters = new ScrModCommandSubmitter[2];
+
+        RecordingSimulationPluginSource.record(recording, () -> {
+            ReplayRuntime runtime = ReplayRuntime.createLiveGame(live.getReplay(), ChkFile.parseTolerant(scenario), resources.getGameData(),
+                                                                 live.getLocalPlayer(),
+                                                                 RunningGameScenario.VIEWPORT_WIDTH, RunningGameScenario.VIEWPORT_HEIGHT,
+                                                                 RunningGameScenario.INSTRUCTION_LIMIT);
+
+            games[0] = runtime.getGame();
+            NetworkReplayScenario.copyCodeConstants(runtime.getGame(), resources.getGamePath());
+            NetworkReplayScenario.prepare(runtime.getGame());
+            runtime.setSourceFile(GameSourceFile.read(map));
+            runtime.start(0, 0);
+
+            submitters[0] = runtime.getGame().getInterfaceLink().getModCommandSubmitter();
+
+            live.startSession(runtime.getGame(), runtime.getFrameTiming());
+
+            ScrModCommandSubmitter submitter = runtime.getGame().getInterfaceLink().getModCommandSubmitter();
+
+            Assertions.assertNotNull(submitter);
+            Assertions.assertTrue(submitter.submitModCommand(MOD_COMMAND_DATA));
+
+            submitters[1] = submitter;
+
+            new ReplayRunScenario(runtime, GameSpeed.FASTEST_DURATION, live::exchangeTurn).runTo(MOD_COMMAND_FRAMES);
+        });
+
+        Assertions.assertNull(submitters[0], "no submitter before the session starts");
+        Assertions.assertSame(live, submitters[1]);
+        Assertions.assertEquals(1, recording.getModCommandData().size());
+        Assertions.assertArrayEquals(MOD_COMMAND_DATA, recording.getModCommandData().getFirst());
+        Assertions.assertSame(games[0].getPlayerTable().getPlayer(live.getLocalPlayer()), recording.getModCommandPlayers().getFirst());
     }
 
     @Test

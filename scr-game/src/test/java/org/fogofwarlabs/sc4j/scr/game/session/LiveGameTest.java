@@ -712,4 +712,24 @@ final class LiveGameTest {
         Assertions.assertEquals(HOST_PLAYER, commands.getFirst().getPlayerId());
         Assertions.assertArrayEquals(new byte[]{(byte) data.length, 0x10, 0x20, 0x30}, commands.getFirst().getPayload());
     }
+
+    @Test
+    void submit_mod_command_should_refuse_a_command_the_outgoing_turn_has_no_room_for() throws IOException {
+        LiveGame live = new LiveGame(createSetup(createTable()), SEED, HOST_PLAYER);
+        byte[] largest = new byte[ReplayModCommand.MAXIMUM_DATA_LENGTH];
+        int commandLength = ReplayModCommand.HEADER_SIZE + largest.length;
+        int initialLength = live.getOutgoingTurn().getLength();
+        int queued = 0;
+
+        while (live.submitModCommand(largest)) {
+            queued++;
+        }
+
+        int length = live.getOutgoingTurn().getLength();
+
+        Assertions.assertTrue(queued > 0);
+        Assertions.assertTrue(length <= LiveGame.MAXIMUM_TURN_BYTES, "the queued commands fit the turn");
+        Assertions.assertTrue(length + commandLength > LiveGame.MAXIMUM_TURN_BYTES, "the refused command does not fit");
+        Assertions.assertEquals(initialLength + queued * commandLength, length, "the refused command leaves the turn unchanged");
+    }
 }

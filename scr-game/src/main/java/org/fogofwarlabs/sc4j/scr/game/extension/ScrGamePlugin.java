@@ -4,8 +4,10 @@ import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.data.resource.ScrImageAnimation;
 import org.fogofwarlabs.sc4j.scr.data.resource.ScrImageSheet;
+import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.ClassicMemoryView;
+import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalView;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,6 +15,13 @@ import org.jetbrains.annotations.Nullable;
  * The per-game state of a {@link ScrGameExtension}. A plugin reads the game and keeps presentation state of its own; it changes no simulation
  * state, so the state hash, saves, replays and network games are the same with or without it. Its methods run on the thread that runs and draws
  * the game.
+ * <p>
+ * A plugin turns local input into simulation input only through mod commands: it sees the local keyboard and mouse ({@link #onKeyInput},
+ * {@link #onMouseInput}) and queues mod commands of the local player through the game's submitter ({@link InterfaceLink#getModCommandSubmitter()}),
+ * which a live session supplies after the plugin is created; the game's simulation plugins receive them at the same frame on every peer. It reads
+ * the local camera and centers the local view through the game's local view ({@link InterfaceLink#getLocalView()}): the screen position of the
+ * last frame ({@link LocalView#getScreenX()}, {@link LocalView#getScreenY()}) and the centering of the network game's Center View trigger action
+ * ({@link LocalView#centerScreen}), which the client applies after the input method or the frame that called it.
  */
 public interface ScrGamePlugin {
     /**
@@ -22,6 +31,36 @@ public interface ScrGamePlugin {
      * @param memory the read-only view of the address space
      */
     default void onAddressSpaceCreated(@NotNull ClassicMemoryView memory) {
+    }
+
+    /**
+     * Called when the local player presses or releases a key in a running game, live or replayed, before the game's own keys see the press: the
+     * command card hotkeys, the control group and screen position keys, the speed keys and Escape. The plugins see an input in extension order
+     * until one consumes it. The client delivers a press only while the game takes play keys: not while the chat box is open, a game menu or
+     * dialog is open, or the triggers pause the game. It does not deliver the keys that open the chat box (Enter) and the game menu (F10), the
+     * presses that run an interface accelerator (the menus and their dialogs, the sound, music and graphics toggles, the chat history), nor the
+     * repeats of a held key.
+     * A release is delivered when its press was, also if the chat box opened in between; a release reaches no game key, so its consumption has no
+     * effect.
+     *
+     * @param input the key input
+     * @return {@code true} if the plugin consumed the press, which then reaches neither the later plugins nor the game, {@code false} otherwise
+     */
+    default boolean onKeyInput(@NotNull ScrKeyInput input) {
+        return false;
+    }
+
+    /**
+     * Called when the local player presses or releases a mouse button over the map of a running game, live or replayed, before the game's own
+     * handling: selection, orders, targeting and placement. The plugins see an input in extension order until one consumes it. The client delivers
+     * a press over the map view only: not over the console, its minimap and dialogs, the replay controls or a game menu. A release is delivered when
+     * its press was, wherever the pointer is; it reaches the game when its press did, whatever the plugin returns for it.
+     *
+     * @param input the mouse input
+     * @return {@code true} if the plugin consumed the press, which then reaches neither the later plugins nor the game, {@code false} otherwise
+     */
+    default boolean onMouseInput(@NotNull ScrMouseInput input) {
+        return false;
     }
 
     /**

@@ -7,7 +7,6 @@ import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
-import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -30,11 +29,23 @@ final class NativeCommandTable {
                                      ScrCommandType.@NotNull Action<C> action,
                                      int @NotNull ... ids) {
         for (int id : ids) {
-            if (ReplayCommandCodecs.find(id) != codec) {
-                throw Exceptions.newIllegalStateException("The command type {0} is registered with another codec than its own.", id);
-            }
-
+            requireOwnCodec(codec, id);
             registry.register(new ScrCommandType<>(id, codec, dispatch, action));
+        }
+    }
+
+    private static <C> void registerWithIssuer(@NotNull CommandRegistry<ScrCommandType<?>> registry,
+                                               @NotNull ReplayCommandCodec<C> codec,
+                                               ScrCommandType.@NotNull Dispatch dispatch,
+                                               ScrCommandType.@NotNull IssuerAction<C> action,
+                                               int id) {
+        requireOwnCodec(codec, id);
+        registry.register(new ScrCommandType<>(id, codec, dispatch, action));
+    }
+
+    private static void requireOwnCodec(@NotNull ReplayCommandCodec<?> codec, int id) {
+        if (ReplayCommandCodecs.find(id) != codec) {
+            throw Exceptions.newIllegalStateException("The command type {0} is registered with another codec than its own.", id);
         }
     }
 
@@ -136,13 +147,13 @@ final class NativeCommandTable {
         // The minimap ping has no simulation-state effect.
         register(registry, ReplayPositionCommand.CODEC, ScrCommandType.Dispatch.SELECTION, (game, commandPlayer, command) -> {
         }, ReplayCommandIds.MINIMAP_PING);
-        // A game without simulation plugins runs the mod command without an effect.
-        register(registry, ReplayModCommand.CODEC, ScrCommandType.Dispatch.SESSION, (game, commandPlayer, command) -> {
+        // The plugins receive the issuing record, not its command player (a team's leader); a game without simulation plugins runs the mod
+        // command without an effect.
+        registerWithIssuer(registry, ReplayModCommand.CODEC, ScrCommandType.Dispatch.SESSION, (game, issuer, commandPlayer, command) -> {
             ScrSimulationPlugins simulation = game.getSimulationPlugins();
-            Player player = game.getPlayerTable().getPlayer(commandPlayer);
 
-            if (simulation != null && player != null) {
-                simulation.runModCommand(player, command.copyData());
+            if (simulation != null) {
+                simulation.runModCommand(issuer, command.copyData());
             }
         }, ReplayCommandIds.MOD_COMMAND);
     }

@@ -2,6 +2,7 @@ package org.fogofwarlabs.sc4j.scr.game.presentation;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.game.ability.TransportCargo;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplaySession;
 import org.fogofwarlabs.sc4j.scr.game.session.OutgoingTurnBuffer;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalInterfaceState;
@@ -14,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Connects one game to the local interface: the presentation events the simulation raises for the client (sounds, under-attack alerts, command
  * errors, notifications, message lines) and the local inputs it reads (key states, interface state, view, the local selection, the outgoing turn
- * buffer and turn limits of the session).
+ * buffer and turn limits of the session), and the mod command submitter of a live session's local player.
  * <p>
  * None of this is simulation state; the state hash does not cover it.
  */
@@ -51,6 +52,10 @@ public final class InterfaceLink {
      * The maximum turn bytes of the session, or {@link #UNSUPPLIED}.
      */
     private int maximumTurnBytes;
+    /**
+     * The mod command submitter of the live session's local player, or {@code null} when no session supplies it.
+     */
+    private @Nullable ScrModCommandSubmitter modCommandSubmitter;
 
     /**
      * Creates an {@link InterfaceLink} instance without a local interface or session.
@@ -70,6 +75,8 @@ public final class InterfaceLink {
         this.outgoingTurn     = null;
         this.latencyTurns     = UNSUPPLIED;
         this.maximumTurnBytes = UNSUPPLIED;
+
+        this.modCommandSubmitter = null;
     }
 
     /**
@@ -177,6 +184,14 @@ public final class InterfaceLink {
     }
 
     /**
+     * @return the submitter of the local player's mod commands, which a live session supplies when it starts unless the local player observes;
+     * {@code null} in a replay, while observing and before the session starts
+     */
+    public @Nullable ScrModCommandSubmitter getModCommandSubmitter() {
+        return this.modCommandSubmitter;
+    }
+
+    /**
      * Sets the local interface's selection that the simulation reports to (live play only; a replay records the resulting commands).
      *
      * @param localSelection the local selection, or {@code null} for a new {@link HeadlessLocalSelection}
@@ -203,6 +218,15 @@ public final class InterfaceLink {
     public void setSessionTurnLimits(int latencyTurns, int maximumTurnBytes) {
         this.latencyTurns     = latencyTurns;
         this.maximumTurnBytes = maximumTurnBytes;
+    }
+
+    /**
+     * Sets the submitter of the local player's mod commands, which the live session owns.
+     *
+     * @param modCommandSubmitter the submitter, or {@code null} when the local player submits none
+     */
+    public void setModCommandSubmitter(@Nullable ScrModCommandSubmitter modCommandSubmitter) {
+        this.modCommandSubmitter = modCommandSubmitter;
     }
 
 

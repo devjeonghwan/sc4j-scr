@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.scr.game.extension;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationEvent;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
+import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,9 +44,12 @@ public interface ScrSimulationPlugin {
     }
 
     /**
-     * Called when a mod command of a player runs, at its place in the command stream of the frame.
+     * Called when a mod command of a player runs, at its place in the command stream of the frame. The player is the record the command's issuer
+     * resolved to, the issuing player's own record also in a team game, where the other commands of every member act for the team's leader. A
+     * live game queues the mod commands of the local player through the game's mod command submitter
+     * ({@link InterfaceLink#getModCommandSubmitter()}).
      *
-     * @param player the command player of the issuing record
+     * @param player the issuing player's record
      * @param data   the command data, which every plugin of the game receives; the plugin does not change it
      */
     default void onModCommand(@NotNull Player player, byte @NotNull [] data) {
