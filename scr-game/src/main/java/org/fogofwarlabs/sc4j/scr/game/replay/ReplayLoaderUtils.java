@@ -510,8 +510,8 @@ public final class ReplayLoaderUtils {
     }
 
     /**
-     * Creates the setup of a replay's game: the map's scenario, the header seed and options, the rules version of the replay
-     * format, the cheat option and the players of the header.
+     * Creates the setup of a replay's game: the map's scenario, the archive of a live game's map file, the replay, the header seed and options,
+     * the rules version of the replay format, the cheat option and the players of the header.
      */
     private static GameSetup.@NotNull Builder createSetup(@NotNull ReplayFile replay, @NotNull ChkFile mapFile,
                                                           @NotNull GameData gameData,
@@ -521,6 +521,8 @@ public final class ReplayLoaderUtils {
 
         GameSetup.Builder setup = new GameSetup.Builder(gameData, map, random)
                 .setScenario(mapFile)
+                .setMapArchive(replay.getMapArchive())
+                .setReplay(replay)
                 .setSeed((int) header.getRandomSeed())
                 .setSettings(header.getSettings())
                 .setRulesVersion(GameRulesVersion.forReplay(replay.getGameVersion(), replay.getFormat() != ReplayContainerFormat.MODERN_121))

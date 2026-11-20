@@ -10,7 +10,8 @@ import org.jetbrains.annotations.NotNull;
  * The per-game state of a {@link ScrSimulationExtension}. A plugin reads and changes the game through the {@link Game} it was created for; its
  * methods run on the thread that runs the game, inside the routines that call them, in the same order on every peer and in every replay of the
  * game. A plugin keeps the simulation deterministic: it draws no numbers from the game's random generator and keeps its own
- * generator, seeded from the game's seed, for its own draws. Its state is not part of the game's state hash or saves.
+ * generator, seeded from the game's seed, for its own draws. Its state is not part of the game's state hash or saves; a plugin whose game must not
+ * be saved says so ({@link #allowsSave()}).
  * <p>
  * Decisions ({@link #decide}) run inside the routine that offers them, which continues with the values the plugin leaves in the decision
  * object; a plugin changes only the decision object there. Events ({@link #onEvent}) are reported while their routine runs, so a plugin that
@@ -48,5 +49,16 @@ public interface ScrSimulationPlugin {
      * @param data   the command data, which every plugin of the game receives; the plugin does not change it
      */
     default void onModCommand(@NotNull Player player, byte @NotNull [] data) {
+    }
+
+    /**
+     * Tells whether the game can be saved while this plugin runs it; a game is saved only when every plugin allows it
+     * ({@link Game#isSaveAllowed()}), so a plugin whose state a saved game would lose returns {@code false}. The SC:R mod asks when it offers a
+     * save, when it sends a save command and when it writes a saved game.
+     *
+     * @return {@code true} if the game can be saved, {@code false} otherwise
+     */
+    default boolean allowsSave() {
+        return true;
     }
 }

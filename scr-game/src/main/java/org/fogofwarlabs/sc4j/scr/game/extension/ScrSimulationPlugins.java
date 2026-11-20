@@ -60,6 +60,21 @@ public final class ScrSimulationPlugins {
     }
 
     /**
+     * Asks every plugin whether the game can be saved ({@link ScrSimulationPlugin#allowsSave()}).
+     *
+     * @return {@code true} if every plugin allows a save, {@code false} otherwise
+     */
+    public boolean allowsSave() {
+        for (ScrSimulationPlugin plugin : this.plugins) {
+            if (!plugin.allowsSave()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Hands a mod command to every plugin ({@link ScrSimulationPlugin#onModCommand}).
      *
      * @param player the command player of the issuing record

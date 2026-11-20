@@ -16,8 +16,7 @@ import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.replay.GameSourceFile;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayLoaderUtils;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
-import org.fogofwarlabs.sc4j.scr.game.save.SaveGameFile;
-import org.fogofwarlabs.sc4j.scr.game.save.SaveGameSession;
+import org.fogofwarlabs.sc4j.scr.game.save.*;
 import org.fogofwarlabs.sc4j.scr.game.session.LiveGame;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
@@ -31,14 +30,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Random;
 
 /**
- * Checks the simulation plugins of a running game: plugin creation sees the scenario of live, replayed and saved games, the frame start runs
- * before the triggers, a death by weapon damage names its killer and
- * weapon, a weapon damage decision and an order decision change what the routines do, and a mod command reaches the plugins and is kept in the
- * written replay.
+ * Checks the simulation plugins of a running game: plugin creation sees the scenario of live, replayed and saved games and the map archive of a
+ * live game started from a map file, the frame start runs before the triggers, a death by weapon damage names its killer and
+ * weapon, a weapon damage decision and an order decision change what the routines do, a mod command reaches the plugins and is kept in the
+ * written replay, a replay section a live game sets is offered when its replay plays back, and a plugin that does not allow a save stops it.
  */
 @RequiresInstallation
 @ExtendWith(GameResourcesExtension.class)
@@ -59,6 +60,12 @@ final class ScrSimulationExtensionTest {
      */
     private static final int LETHAL_DAMAGE = 1000 << 8;
     private static final byte @NotNull [] MOD_COMMAND_DATA = {0x53, 0x43, 0x34, 0x4A};
+    private static final @NotNull String REPLAY_SECTION_TAG = "TEST";
+    /**
+     * The size of the replay section a live game sets: many chunks of random data.
+     */
+    private static final int REPLAY_SECTION_SIZE = 3 * 1024 * 1024 + 7;
+    private static final byte @NotNull [] SAVED_GAME_NAME = "refused".getBytes(StandardCharsets.US_ASCII);
 
     private static @NotNull Game createLiveGame(@NotNull GameData gameData, @NotNull LiveGame live, @NotNull ChkFile scenario) throws IOException {
         ReplayRuntime runtime = ReplayRuntime.createLiveGame(live.getReplay(), scenario, gameData,
@@ -310,5 +317,108 @@ final class ScrSimulationExtensionTest {
 
         Assertions.assertEquals(1, recorded.size());
         Assertions.assertArrayEquals(new byte[]{(byte) MOD_COMMAND_DATA.length, 0x53, 0x43, 0x34, 0x4A}, recorded.getFirst().getPayload());
+    }
+
+    @Test
+    void plugin_creation_sees_the_map_archive_of_a_live_game_started_from_a_map_file(@NotNull InstallationTestResources resources) throws Throwable {
+        GameData gameData = resources.getGameData();
+        Path map = GameTestResources.getPath(GameTestResources.MAP_EUD_COMPUTER);
+        MeleeGameSetup loaded = MeleeGameSetup.loadUseMapSettings(map, HUMAN_NAME, "terran", 0, GameSpeed.FASTEST);
+        MpqArchive networkArchive = MpqArchive.open(map);
+        MeleeGameSetup network = MeleeGameSetup.createUseMapSettings(networkArchive.readFile(ChkFile.ARCHIVE_ENTRY), HUMAN_NAME, ScrRaceIds.TERRAN, 0,
+                                                                     GameSpeed.FASTEST);
+        ReplayFile replay = ReplayFile.parse(GameTestResources.readAllBytes(GameTestResources.REPLAY_ZVZ_COMPUTER_SHORT));
+        LiveGame saved = SaveGameSession.read(SaveGameFile.parse(GameTestResources.readAllBytes(GameTestResources.SAVE_SINGLE_PLAYER_WITH_COMPUTER)))
+                                        .createLiveGame();
+        byte[] replayMapData = replay.getMapData();
+        RecordingSimulationPluginSource.Recording recording = new RecordingSimulationPluginSource.Recording();
+
+        Assertions.assertNotNull(replayMapData);
+        network.setMapArchive(networkArchive);
+
+        RecordingSimulationPluginSource.record(recording, () -> {
+            createLiveGame(gameData, new LiveGame(loaded, SEED), ChkFile.parseTolerant(loaded.getMapData()));
+            createLiveGame(gameData, new LiveGame(network, SEED), ChkFile.parseTolerant(network.getMapData()));
+            new ReplayRuntime(replay, ChkFile.parseTolerant(replayMapData), gameData,
+                              RunningGameScenario.VIEWPORT_WIDTH, RunningGameScenario.VIEWPORT_HEIGHT,
+                              RunningGameScenario.INSTRUCTION_LIMIT);
+            createLiveGame(gameData, saved, ChkFile.parseTolerant(saved.getSetup().getMapData()));
+        });
+
+        MpqArchive loadedArchive = loaded.getMapArchive();
+
+        Assertions.assertNotNull(loadedArchive);
+        Assertions.assertArrayEquals(loaded.getMapData(), loadedArchive.readFile(ChkFile.ARCHIVE_ENTRY), "the archive holds the scenario");
+        Assertions.assertEquals(4, recording.getMapArchives().size());
+        Assertions.assertSame(loadedArchive, recording.getMapArchives().get(0), "a single-player game loaded from its map file");
+        Assertions.assertSame(networkArchive, recording.getMapArchives().get(1), "a network game whose map archive is set");
+        Assertions.assertNull(recording.getMapArchives().get(2), "a replay");
+        Assertions.assertNull(recording.getMapArchives().get(3), "a game started from a saved game");
+    }
+
+    @Test
+    void replay_section_a_live_game_sets_is_offered_when_its_replay_plays_back(@NotNull InstallationTestResources resources) throws Throwable {
+        GameData gameData = resources.getGameData();
+        Path map = GameTestResources.getPath(GameTestResources.MAP_EUD_COMPUTER);
+        LiveGame live = new LiveGame(MeleeGameSetup.loadUseMapSettings(map, HUMAN_NAME, "terran", 0, GameSpeed.FASTEST), SEED);
+        byte[] data = new byte[REPLAY_SECTION_SIZE];
+        RecordingSimulationPluginSource.Recording writing = new RecordingSimulationPluginSource.Recording();
+        RecordingSimulationPluginSource.Recording reading = new RecordingSimulationPluginSource.Recording();
+
+        new Random(SEED).nextBytes(data);
+        writing.setReplaySection(REPLAY_SECTION_TAG, data);
+        reading.setReplaySection(REPLAY_SECTION_TAG, null);
+
+        RecordingSimulationPluginSource.record(writing, () -> {
+            ReplayRuntime runtime = LiveMapGameScenario.startLive(gameData, live, map);
+
+            for (int frame = 0; frame < STEPPED_FRAMES; frame++) {
+                LiveMapGameScenario.stepFrame(runtime, live);
+            }
+        });
+
+        ReplayFile written = ReplayFile.parse(live.writeReplay(STEPPED_FRAMES, 0));
+        byte[] writtenMapData = written.getMapData();
+
+        Assertions.assertNotNull(writtenMapData);
+
+        RecordingSimulationPluginSource.record(reading, () -> new ReplayRuntime(written, ChkFile.parseTolerant(writtenMapData), gameData,
+                                                                                RunningGameScenario.VIEWPORT_WIDTH,
+                                                                                RunningGameScenario.VIEWPORT_HEIGHT,
+                                                                                RunningGameScenario.INSTRUCTION_LIMIT));
+
+        Assertions.assertNull(writing.getReplaySections().getFirst(), "a live game's own recording holds no section");
+        Assertions.assertArrayEquals(data, written.readModSection(REPLAY_SECTION_TAG));
+        Assertions.assertArrayEquals(data, reading.getReplaySections().getFirst(), "the played back replay offers the section");
+    }
+
+    @Test
+    void save_is_refused_while_a_simulation_plugin_does_not_allow_it(@NotNull InstallationTestResources resources) throws Throwable {
+        GameData gameData = resources.getGameData();
+        Path map = GameTestResources.getPath(GameTestResources.MAP_EUD_COMPUTER);
+        LiveGame live = new LiveGame(MeleeGameSetup.loadUseMapSettings(map, HUMAN_NAME, "terran", 0, GameSpeed.FASTEST), SEED);
+        SaveGameDescription description = new SaveGameDescription(SaveGameDescription.CLIENT_VERSION, false, SAVED_GAME_NAME, List.of(HUMAN_NAME),
+                                                                   SaveGameDescription.CUSTOM_GAME_TYPE, "", "", 0);
+        RecordingSimulationPluginSource.Recording recording = new RecordingSimulationPluginSource.Recording();
+
+        recording.setSaveAllowed(false);
+
+        RecordingSimulationPluginSource.record(recording, () -> {
+            ReplayRuntime runtime = LiveMapGameScenario.startLive(gameData, live, map);
+            int queued = live.getOutgoingTurn().getLength();
+
+            Assertions.assertFalse(runtime.getGame().isSaveAllowed());
+
+            live.requestSaveGame(0, SAVED_GAME_NAME);
+
+            Assertions.assertEquals(queued, live.getOutgoingTurn().getLength(), "no Save Game command is queued");
+            Assertions.assertThrows(IllegalStateException.class, () -> SaveGameUtils.write(new SaveGameContext(runtime, live), description));
+
+            recording.setSaveAllowed(true);
+            live.requestSaveGame(0, SAVED_GAME_NAME);
+
+            Assertions.assertTrue(live.getOutgoingTurn().getLength() > queued, "a Save Game command is queued once the plugin allows it");
+            Assertions.assertNotNull(SaveGameUtils.write(new SaveGameContext(runtime, live), description));
+        });
     }
 }

@@ -23,8 +23,10 @@ public interface ScrSimulationExtension {
      * <p>
      * At this point the game offers its creation inputs ({@link Game#getSetup()}): the game data, the map, the players, the game options and the
      * scenario the map was built from ({@link GameSetup#getScenario()}; for a loaded save, the scenario built from the save; {@code null} for a
-     * game without one), so an extension can return {@code null} for maps it does not handle. The map objects and units are not created, the
-     * trigger locations are not loaded and the map model is not set yet.
+     * game without one), so an extension can return {@code null} for maps it does not handle. A live game started from a map file also offers the
+     * map's archive ({@link GameSetup#getMapArchive()}), and a replay played back offers the mod sections a game of the mod stored in it
+     * ({@link GameSetup#readReplaySection}, {@link Game#setReplaySection}). The map objects and units are not created, the trigger locations are
+     * not loaded and the map model is not set yet.
      *
      * @param game the game, attached and not yet initialized
      * @return the created plugin, or {@code null} if the game needs none

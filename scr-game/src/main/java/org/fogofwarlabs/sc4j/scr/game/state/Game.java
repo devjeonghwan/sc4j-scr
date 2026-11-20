@@ -33,6 +33,7 @@ import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.content.load.ScrContentImporter;
 import org.fogofwarlabs.sc4j.scr.core.GameSettings;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.data.format.replay.ReplayFile;
 import org.fogofwarlabs.sc4j.scr.game.ability.*;
 import org.fogofwarlabs.sc4j.scr.game.ai.*;
 import org.fogofwarlabs.sc4j.scr.game.combat.*;
@@ -42,6 +43,7 @@ import org.fogofwarlabs.sc4j.scr.game.creep.CreepRecession;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGameExtensionUtils;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationExtensionUtils;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.frame.*;
 import org.fogofwarlabs.sc4j.scr.game.map.MapSpriteEffectLoader;
@@ -77,7 +79,9 @@ import org.fogofwarlabs.sc4j.scr.game.visibility.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The game: the SC:R game system of an engine game ({@link #SYSTEM_KEY}), created from an explicit {@link GameSetup}
@@ -268,8 +272,8 @@ public final class Game implements GameSystem, StateHashContributor {
     private @Nullable PlayerSlots playerSlots;
 
     /* The engine game, attached after creation, its frame clock, which holds the frame counter, the hook points the SC:R systems call,
-       the SC:R modifier of each stat, the plugins and memory sources of the mod's game extensions and the plugins of its simulation
-       extensions. */
+       the SC:R modifier of each stat, the plugins and memory sources of the mod's game extensions, the plugins of its simulation
+       extensions and the mod sections of the replay written of this game. */
     private org.fogofwarlabs.sc4j.engine.game.@Nullable Game engineGame;
     private @Nullable FrameClock clock;
     private @Nullable ScrHooks hooks;
@@ -277,6 +281,7 @@ public final class Game implements GameSystem, StateHashContributor {
     private @NotNull ScrGamePlugin @NotNull [] plugins;
     private @NotNull ClassicMemorySource @NotNull [] memorySources;
     private @Nullable ScrSimulationPlugins simulationPlugins;
+    private final @NotNull Map<String, byte @NotNull []> replaySections;
 
     /* Frame counters and world lifecycle. */
     private int turnCount;
@@ -476,6 +481,7 @@ public final class Game implements GameSystem, StateHashContributor {
         this.plugins           = new ScrGamePlugin[0];
         this.memorySources     = new ClassicMemorySource[0];
         this.simulationPlugins = null;
+        this.replaySections    = new LinkedHashMap<>();
 
         this.turnCount                  = 0;
         this.commandDispatchMarkerCount = 0;
@@ -1710,6 +1716,44 @@ public final class Game implements GameSystem, StateHashContributor {
      */
     public @Nullable ScrSimulationPlugins getSimulationPlugins() {
         return this.simulationPlugins;
+    }
+
+    /**
+     * @return a copy of the replay sections ({@link #setReplaySection}) by tag, in the order their tags were first set; the data arrays are
+     * shared
+     */
+    public @NotNull Map<String, byte @NotNull []> getReplaySections() {
+        synchronized (this.replaySections) {
+            return new LinkedHashMap<>(this.replaySections);
+        }
+    }
+
+    /**
+     * Sets a replay section of this game: the SC:R mod writes it as a mod section of the replay it writes of a live game
+     * ({@link ReplayFile#readModSection}), and the setup of a game that plays the replay back offers it ({@link GameSetup#readReplaySection}).
+     * Mods choose their own tags; a section of a tag set before is replaced. A replay played back writes no replay.
+     *
+     * @param tag  the section tag: four printable ASCII characters other than SC:R's own tags ({@link ReplayFile#isModSectionTag})
+     * @param data the section data, retained, not copied
+     * @throws IllegalArgumentException if the tag is not a mod section tag
+     */
+    public void setReplaySection(@NotNull String tag, byte @NotNull [] data) {
+        if (!ReplayFile.isModSectionTag(tag)) {
+            throw Exceptions.newIllegalArgumentException("\"{0}\" is not a mod section tag.", tag);
+        }
+
+        synchronized (this.replaySections) {
+            this.replaySections.put(tag, data);
+        }
+    }
+
+    /**
+     * Checks whether this game can be saved: every simulation plugin allows it ({@link ScrSimulationPlugin#allowsSave()}).
+     *
+     * @return {@code true} if the game can be saved, {@code false} otherwise
+     */
+    public boolean isSaveAllowed() {
+        return this.simulationPlugins == null || this.simulationPlugins.allowsSave();
     }
 
     /**

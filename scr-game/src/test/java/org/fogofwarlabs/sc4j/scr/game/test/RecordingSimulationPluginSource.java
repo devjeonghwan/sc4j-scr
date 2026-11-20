@@ -1,6 +1,8 @@
 package org.fogofwarlabs.sc4j.scr.game.test;
 
+import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
+import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationExtension;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
@@ -11,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.function.Executable;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -18,8 +21,9 @@ import java.util.function.ToIntFunction;
 
 /**
  * A simulation extension of the tests, named by the service file of the tests, that creates a plugin only while a thread records with it
- * ({@link #record}): the plugin keeps the scenarios its games were created with and the events, mod commands and frame starts of the games the
- * thread creates in a {@link Recording} and lets the recording's decider decide. Without recording it creates no plugin, so the other tests run without one.
+ * ({@link #record}): the plugin keeps the scenarios, map archives and replay sections its games were created with and the events, mod commands
+ * and frame starts of the games the thread creates in a {@link Recording}, lets the recording's decider decide, sets the recording's replay
+ * section in its game and allows a save as the recording says. Without recording it creates no plugin, so the other tests run without one.
  */
 public final class RecordingSimulationPluginSource implements ScrSimulationExtension {
     /**
@@ -32,6 +36,8 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
      */
     public static final class Recording {
         private final @NotNull List<@Nullable ChkFile> scenarios;
+        private final @NotNull List<@Nullable MpqArchive> mapArchives;
+        private final @NotNull List<byte @Nullable []> replaySections;
         private final @NotNull List<SimulationEvent> events;
         private final @NotNull List<Player> modCommandPlayers;
         private final @NotNull List<byte[]> modCommandData;
@@ -39,19 +45,27 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
 
         private @Nullable ToIntFunction<Game> frameProbe;
         private @Nullable Consumer<SimulationDecision> decider;
+        private @Nullable String replaySectionTag;
+        private byte @Nullable [] writtenReplaySection;
+        private boolean saveAllowed;
 
         /**
-         * Creates a {@link Recording} instance without a frame probe or a decider.
+         * Creates a {@link Recording} instance without a frame probe, a decider or a replay section tag, whose plugins allow a save.
          */
         public Recording() {
             this.scenarios         = new ArrayList<>();
+            this.mapArchives       = new ArrayList<>();
+            this.replaySections    = new ArrayList<>();
             this.events            = new ArrayList<>();
             this.modCommandPlayers = new ArrayList<>();
             this.modCommandData    = new ArrayList<>();
             this.frameValues       = new ArrayList<>();
 
-            this.frameProbe = null;
-            this.decider    = null;
+            this.frameProbe           = null;
+            this.decider              = null;
+            this.replaySectionTag     = null;
+            this.writtenReplaySection = null;
+            this.saveAllowed          = true;
         }
 
         /**
@@ -59,6 +73,21 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
          */
         public @NotNull List<@Nullable ChkFile> getScenarios() {
             return this.scenarios;
+        }
+
+        /**
+         * @return the map archives of the games' setups when their plugins were created, in creation order
+         */
+        public @NotNull List<@Nullable MpqArchive> getMapArchives() {
+            return this.mapArchives;
+        }
+
+        /**
+         * @return the replay sections of the replay section tag ({@link #setReplaySectionTag}) the games' setups offered when their plugins were
+         * created, in creation order; none without a tag
+         */
+        public @NotNull List<byte @Nullable []> getReplaySections() {
+            return this.replaySections;
         }
 
         /**
@@ -125,6 +154,27 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
         public void setDecider(@Nullable Consumer<SimulationDecision> decider) {
             this.decider = decider;
         }
+
+        /**
+         * Sets the replay section the plugins read from their game's setup when they are created and the data they then set as their game's
+         * replay section of the tag.
+         *
+         * @param tag  the section tag, or {@code null} to read and set none
+         * @param data the data each plugin sets, or {@code null} to set none
+         */
+        public void setReplaySection(@Nullable String tag, byte @Nullable [] data) {
+            this.replaySectionTag     = tag;
+            this.writtenReplaySection = data;
+        }
+
+        /**
+         * Sets whether the plugins allow a save.
+         *
+         * @param saveAllowed whether a save is allowed
+         */
+        public void setSaveAllowed(boolean saveAllowed) {
+            this.saveAllowed = saveAllowed;
+        }
     }
 
     /**
@@ -158,7 +208,24 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
             return null;
         }
 
+        String tag = recording.replaySectionTag;
+
         recording.scenarios.add(game.getSetup().getScenario());
+        recording.mapArchives.add(game.getSetup().getMapArchive());
+
+        if (tag != null) {
+            try {
+                recording.replaySections.add(game.getSetup().readReplaySection(tag));
+            } catch (IOException exception) {
+                throw Exceptions.newUncheckedIOException(exception);
+            }
+
+            byte[] written = recording.writtenReplaySection;
+
+            if (written != null) {
+                game.setReplaySection(tag, written);
+            }
+        }
 
         return new ScrSimulationPlugin() {
             @Override
@@ -188,6 +255,11 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
             public void onModCommand(@NotNull Player player, byte @NotNull [] data) {
                 recording.modCommandPlayers.add(player);
                 recording.modCommandData.add(data);
+            }
+
+            @Override
+            public boolean allowsSave() {
+                return recording.saveAllowed;
             }
         };
     }

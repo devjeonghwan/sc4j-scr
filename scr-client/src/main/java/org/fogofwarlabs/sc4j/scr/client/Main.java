@@ -697,9 +697,10 @@ public final class Main {
             return started;
         }
 
-        byte[] scenario = MpqArchive.open(mapPath).readFile(ChkFile.ARCHIVE_ENTRY);
-        MeleeGameSetup setup = lobby.createGameSetup(scenario, request.getSpeed(), request.isExpansion());
+        MpqArchive mapArchive = MpqArchive.open(mapPath);
+        MeleeGameSetup setup = lobby.createGameSetup(mapArchive.readFile(ChkFile.ARCHIVE_ENTRY), request.getSpeed(), request.isExpansion());
 
+        setup.setMapArchive(mapArchive);
         setup.setClassicLimits((lanClient.getGameFlags() & CreateGameScreen.ORIGINAL_LIMITS_FLAG) != 0);
         LOGGER.info("LAN GAME SETUP: local player " + providerSession.getLocalIdentifier() + ", seed 0x" + Integer.toHexString(lobby.getSeed()) +
                     ", speed " + request.getSpeed() + ", options " + HexFormat.of().formatHex(providerSession.getGameData()));

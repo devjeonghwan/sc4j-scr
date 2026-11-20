@@ -8,6 +8,7 @@ import org.fogofwarlabs.sc4j.base.text.TerminatedStringUtils;
 import org.fogofwarlabs.sc4j.engine.controller.ControllerSource;
 import org.fogofwarlabs.sc4j.engine.lockstep.*;
 import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
+import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.function.IntSupplier;
 
 /**
@@ -447,6 +449,12 @@ public final class LiveGame {
         this.replay.setPlayerNames(this.readNameBytes());
         this.replay.setSpeedOverrideIndex(setup.getSpeedOverrideIndex());
         this.replay.setCustomColors(PlayerColorRows.encodeCustomColors(setup.getResolvedCustomColors()));
+
+        MpqArchive mapArchive = setup.getMapArchive();
+
+        if (mapArchive != null) {
+            this.replay.setMapArchive(mapArchive);
+        }
 
         this.localOutcome = 0;
 
@@ -1091,13 +1099,15 @@ public final class LiveGame {
 
     /**
      * Queues a Save Game command for the first player, retaining the time and the name bytes cut to the command's name
-     * buffer.
+     * buffer. Nothing is queued while the started game cannot be saved ({@link Game#isSaveAllowed()}).
      *
      * @param time the issuing machine's time DWORD
      * @param name the name bytes without terminator: the file name without extension
      */
     public void requestSaveGame(int time, byte @NotNull [] name) {
-        if (this.isLocalPlayerFirst()) {
+        Game running = this.game;
+
+        if (this.isLocalPlayerFirst() && (running == null || running.isSaveAllowed())) {
             this.outgoingTurn.queue(encodeSavedGameCommand(ReplayCommandIds.SAVE_GAME, time, name));
         }
     }
@@ -1687,11 +1697,13 @@ public final class LiveGame {
     /**
      * Writes the played game as a SC:R replay with chat records merged in frame order. The commands and chat lines are copied
      * under the lock their appends take, so the replay can be written from another thread while the game runs. A game with a speed override
-     * ({@link MeleeGameSetup#getSpeedOverrideIndex}) keeps it in the replay's {@code XSPD} section, which its playback takes.
+     * ({@link MeleeGameSetup#getSpeedOverrideIndex}) keeps it in the replay's {@code XSPD} section, which its playback takes. The replay sections
+     * of the started game ({@link Game#setReplaySection}) follow as mod sections ({@link ReplayWriter#addModSection}).
      *
      * @param frames      the number of completed frames
      * @param unixSeconds the save time for the {@code GCFG} block
      * @return the replay file bytes
+     * @throws IllegalStateException if the sections may take more than a replay file holds
      */
     public byte @NotNull [] writeReplay(long frames, long unixSeconds) {
         byte[][] names = this.readNameBytes();
@@ -1713,11 +1725,21 @@ public final class LiveGame {
             recorded.addAll(this.chatRecords.subList(chat, this.chatRecords.size()));
         }
 
-        return new ReplayWriter(this.buildHeader(frames, false), ReplayWriter.encodeCommands(recorded), this.setup.getMapData(),
-                                ReplayWriter.encodeNames(names), new byte[ReplayWriter.SKIN_SIZE], this.getLimits(), ReplayWriter.CURRENT_FIX_FLAGS,
-                                PlayerColorRows.encodeCustomColors(this.setup.getResolvedCustomColors()),
-                                ReplayWriter.encodeVersionBlock(GameRulesVersion.CURRENT_BUILD, unixSeconds),
-                                this.setup.getSpeedOverrideIndex()).write();
+        ReplayWriter writer = new ReplayWriter(this.buildHeader(frames, false), ReplayWriter.encodeCommands(recorded), this.setup.getMapData(),
+                                               ReplayWriter.encodeNames(names), new byte[ReplayWriter.SKIN_SIZE], this.getLimits(),
+                                               ReplayWriter.CURRENT_FIX_FLAGS,
+                                               PlayerColorRows.encodeCustomColors(this.setup.getResolvedCustomColors()),
+                                               ReplayWriter.encodeVersionBlock(GameRulesVersion.CURRENT_BUILD, unixSeconds),
+                                               this.setup.getSpeedOverrideIndex());
+        Game running = this.game;
+
+        if (running != null) {
+            for (Map.Entry<String, byte[]> section : running.getReplaySections().entrySet()) {
+                writer.addModSection(section.getKey(), section.getValue());
+            }
+        }
+
+        return writer.write();
     }
 
     /**
