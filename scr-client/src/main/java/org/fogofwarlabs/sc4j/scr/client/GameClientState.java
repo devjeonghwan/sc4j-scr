@@ -578,12 +578,28 @@ final class GameClientState implements InputListener {
     }
 
     /**
-     * Submits live-game text and sends discarded network text through chat.
+     * Submits live-game text and sends discarded network text through chat, unless one of the game's plugins consumes the line
+     * ({@link ScrGamePlugin#onChatInput}).
      *
      * @param session the active session
      * @param line    the submitted text
      */
     private void submitGameText(@NotNull ClientSession session, @NotNull String line) {
+        boolean consumed = false;
+
+        for (ScrGamePlugin plugin : session.getGame().getPlugins()) {
+            if (plugin.onChatInput(line)) {
+                consumed = true;
+                break;
+            }
+        }
+
+        this.main.applyLocalViewWrite();
+
+        if (consumed) {
+            return;
+        }
+
         int mode = this.chatPrompt.getLastMode();
         int result = session.submitChat(line);
 

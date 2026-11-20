@@ -16,12 +16,13 @@ import org.jetbrains.annotations.Nullable;
  * state, so the state hash, saves, replays and network games are the same with or without it. Its methods run on the thread that runs and draws
  * the game.
  * <p>
- * A plugin turns local input into simulation input only through mod commands: it sees the local keyboard and mouse ({@link #onKeyInput},
- * {@link #onMouseInput}) and queues mod commands of the local player through the game's submitter ({@link InterfaceLink#getModCommandSubmitter()}),
- * which a live session supplies after the plugin is created; the game's simulation plugins receive them at the same frame on every peer. It reads
- * the local camera and centers the local view through the game's local view ({@link InterfaceLink#getLocalView()}): the screen position of the
- * last frame ({@link LocalView#getScreenX()}, {@link LocalView#getScreenY()}) and the centering of the network game's Center View trigger action
- * ({@link LocalView#centerScreen}), which the client applies after the input method or the frame that called it.
+ * A plugin turns local input into simulation input only through mod commands: it sees the local keyboard, mouse and chat lines
+ * ({@link #onKeyInput}, {@link #onMouseInput}, {@link #onChatInput}) and queues mod commands of the local player through the game's submitter
+ * ({@link InterfaceLink#getModCommandSubmitter()}), which a live session supplies after the plugin is created; the game's simulation plugins
+ * receive them at the same frame on every peer. It reads the local camera and centers the local view through the game's local view
+ * ({@link InterfaceLink#getLocalView()}): the screen position of the last frame ({@link LocalView#getScreenX()}, {@link LocalView#getScreenY()})
+ * and the centering of the network game's Center View trigger action ({@link LocalView#centerScreen}), which the client applies after the input
+ * method or the frame that called it.
  */
 public interface ScrGamePlugin {
     /**
@@ -60,6 +61,18 @@ public interface ScrGamePlugin {
      * @return {@code true} if the plugin consumed the press, which then reaches neither the later plugins nor the game, {@code false} otherwise
      */
     default boolean onMouseInput(@NotNull ScrMouseInput input) {
+        return false;
+    }
+
+    /**
+     * Called when the local player submits a chat line in a running live game, before the game's own handling of the line: the cheat codes, then
+     * the chat to the chosen recipients. The plugins see a line in extension order until one consumes it. The client does not deliver the empty
+     * lines nor the lines of its own commands ({@code /} lines).
+     *
+     * @param text the typed line
+     * @return {@code true} if the plugin consumed the line, which then reaches neither the later plugins nor the game, {@code false} otherwise
+     */
+    default boolean onChatInput(@NotNull String text) {
         return false;
     }
 
