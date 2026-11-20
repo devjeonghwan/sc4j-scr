@@ -48,6 +48,7 @@ import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.frame.*;
 import org.fogofwarlabs.sc4j.scr.game.map.MapSpriteEffectLoader;
 import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
+import org.fogofwarlabs.sc4j.scr.game.map.MapTileChanges;
 import org.fogofwarlabs.sc4j.scr.game.map.MapUnitLoader;
 import org.fogofwarlabs.sc4j.scr.game.map.ScrTerrainGrid;
 import org.fogofwarlabs.sc4j.scr.game.map.StartingUnitLoader;
@@ -263,6 +264,7 @@ public final class Game implements GameSystem, StateHashContributor {
     private @Nullable GameData gameData;
     private final @NotNull GameMap map;
     private final @NotNull ScrTerrainGrid terrain;
+    private final @NotNull MapTileChanges mapTileChanges;
     private @Nullable MapModel mapModel;
     private final @NotNull LcgRandom random;
     private final @NotNull RuntimeRandom runtimeRandom;
@@ -466,6 +468,7 @@ public final class Game implements GameSystem, StateHashContributor {
         this.gameData       = gameData;
         this.map            = map;
         this.terrain        = new ScrTerrainGrid(this);
+        this.mapTileChanges = new MapTileChanges(this);
         this.mapModel       = null;
         this.random         = setup.getRandom();
         this.runtimeRandom  = setup.getRuntimeRandom();
@@ -828,6 +831,13 @@ public final class Game implements GameSystem, StateHashContributor {
      */
     public @NotNull ScrTerrainGrid getTerrain() {
         return this.terrain;
+    }
+
+    /**
+     * @return the tile changes of the map, which the frame's trigger step applies, the same instance for the whole game
+     */
+    public @NotNull MapTileChanges getMapTileChanges() {
+        return this.mapTileChanges;
     }
 
     /**
