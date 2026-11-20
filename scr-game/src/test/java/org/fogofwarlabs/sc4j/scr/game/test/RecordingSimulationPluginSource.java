@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.scr.game.test;
 
+import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationExtension;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.SimulationDecision;
@@ -17,8 +18,8 @@ import java.util.function.ToIntFunction;
 
 /**
  * A simulation extension of the tests, named by the service file of the tests, that creates a plugin only while a thread records with it
- * ({@link #record}): the plugin keeps the events, mod commands and frame starts of the games the thread creates in a {@link Recording} and lets
- * the recording's decider decide. Without recording it creates no plugin, so the other tests run without one.
+ * ({@link #record}): the plugin keeps the scenarios its games were created with and the events, mod commands and frame starts of the games the
+ * thread creates in a {@link Recording} and lets the recording's decider decide. Without recording it creates no plugin, so the other tests run without one.
  */
 public final class RecordingSimulationPluginSource implements ScrSimulationExtension {
     /**
@@ -30,6 +31,7 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
      * What the plugins of a recording heard.
      */
     public static final class Recording {
+        private final @NotNull List<@Nullable ChkFile> scenarios;
         private final @NotNull List<SimulationEvent> events;
         private final @NotNull List<Player> modCommandPlayers;
         private final @NotNull List<byte[]> modCommandData;
@@ -42,6 +44,7 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
          * Creates a {@link Recording} instance without a frame probe or a decider.
          */
         public Recording() {
+            this.scenarios         = new ArrayList<>();
             this.events            = new ArrayList<>();
             this.modCommandPlayers = new ArrayList<>();
             this.modCommandData    = new ArrayList<>();
@@ -49,6 +52,13 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
 
             this.frameProbe = null;
             this.decider    = null;
+        }
+
+        /**
+         * @return the scenarios of the games' setups when their plugins were created, in creation order
+         */
+        public @NotNull List<@Nullable ChkFile> getScenarios() {
+            return this.scenarios;
         }
 
         /**
@@ -147,6 +157,8 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
         if (recording == null) {
             return null;
         }
+
+        recording.scenarios.add(game.getSetup().getScenario());
 
         return new ScrSimulationPlugin() {
             @Override

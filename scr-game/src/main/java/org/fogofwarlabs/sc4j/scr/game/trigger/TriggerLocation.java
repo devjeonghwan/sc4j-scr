@@ -113,7 +113,16 @@ public final class TriggerLocation {
     }
 
 
-    void setBounds(int left, int top, int right, int bottom) {
+    /**
+     * Sets the four bound DWORDs as given, without masking or clamping. Loading the {@code MRGN} section and Move Location
+     * ({@link TriggerLocations#moveLocation}) write the bounds here.
+     *
+     * @param left   the left bound DWORD
+     * @param top    the top bound DWORD
+     * @param right  the right bound DWORD
+     * @param bottom the bottom bound DWORD
+     */
+    public void setBounds(int left, int top, int right, int bottom) {
         this.left   = left;
         this.top    = top;
         this.right  = right;

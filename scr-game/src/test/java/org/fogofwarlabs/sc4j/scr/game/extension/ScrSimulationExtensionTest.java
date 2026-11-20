@@ -14,10 +14,14 @@ import org.fogofwarlabs.sc4j.scr.game.NetworkReplayScenario;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.*;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.replay.GameSourceFile;
+import org.fogofwarlabs.sc4j.scr.game.replay.ReplayLoaderUtils;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
+import org.fogofwarlabs.sc4j.scr.game.save.SaveGameFile;
+import org.fogofwarlabs.sc4j.scr.game.save.SaveGameSession;
 import org.fogofwarlabs.sc4j.scr.game.session.LiveGame;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.state.GameData;
 import org.fogofwarlabs.sc4j.scr.game.test.*;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TriggerContext;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
@@ -26,11 +30,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Checks the simulation plugins of a running game: the frame start runs before the triggers, a death by weapon damage names its killer and
+ * Checks the simulation plugins of a running game: plugin creation sees the scenario of live, replayed and saved games, the frame start runs
+ * before the triggers, a death by weapon damage names its killer and
  * weapon, a weapon damage decision and an order decision change what the routines do, and a mod command reaches the plugins and is kept in the
  * written replay.
  */
@@ -53,6 +59,15 @@ final class ScrSimulationExtensionTest {
      */
     private static final int LETHAL_DAMAGE = 1000 << 8;
     private static final byte @NotNull [] MOD_COMMAND_DATA = {0x53, 0x43, 0x34, 0x4A};
+
+    private static @NotNull Game createLiveGame(@NotNull GameData gameData, @NotNull LiveGame live, @NotNull ChkFile scenario) throws IOException {
+        ReplayRuntime runtime = ReplayRuntime.createLiveGame(live.getReplay(), scenario, gameData,
+                                                             live.getLocalPlayer(),
+                                                             RunningGameScenario.VIEWPORT_WIDTH, RunningGameScenario.VIEWPORT_HEIGHT,
+                                                             RunningGameScenario.INSTRUCTION_LIMIT);
+
+        return runtime.getGame();
+    }
 
     private static @NotNull Unit createUnit(@NotNull ReplayRuntime runtime, int unitType, int offset, int owner) {
         Unit[] created = new Unit[1];
@@ -79,6 +94,45 @@ final class ScrSimulationExtensionTest {
         return deaths.getFirst();
     }
 
+
+    @Test
+    void plugin_creation_sees_the_scenario_of_live_replayed_and_saved_games(@NotNull InstallationTestResources resources) throws Throwable {
+        GameData gameData = resources.getGameData();
+        byte[] mapData = MpqArchive.open(GameTestResources.getPath(GameTestResources.MAP_EUD_COMPUTER)).readFile(ChkFile.ARCHIVE_ENTRY);
+        LiveGame live = new LiveGame(MeleeGameSetup.createUseMapSettings(mapData, HUMAN_NAME, ScrRaceIds.TERRAN, 0, GameSpeed.FASTEST), SEED);
+        ReplayFile replay = ReplayFile.parse(GameTestResources.readAllBytes(GameTestResources.REPLAY_ZVZ_COMPUTER_SHORT));
+        byte[] saveData = GameTestResources.readAllBytes(GameTestResources.SAVE_SINGLE_PLAYER_WITH_COMPUTER);
+        LiveGame saved = SaveGameSession.read(SaveGameFile.parse(saveData)).createLiveGame();
+        byte[] replayMapData = replay.getMapData();
+
+        Assertions.assertNotNull(replayMapData);
+
+        ChkFile replayScenario = ChkFile.parseTolerant(replayMapData);
+        ChkFile liveScenario = ChkFile.parseTolerant(mapData);
+        ChkFile inspectionScenario = ChkFile.parseTolerant(replayMapData);
+        ChkFile savedScenario = ChkFile.parseTolerant(saved.getSetup().getMapData());
+        ChkFile[] expected = {replayScenario, liveScenario, inspectionScenario, savedScenario};
+        RecordingSimulationPluginSource.Recording recording = new RecordingSimulationPluginSource.Recording();
+        Game[] games = new Game[expected.length];
+
+        RecordingSimulationPluginSource.record(recording, () -> {
+            ReplayRuntime replayed = new ReplayRuntime(replay, replayScenario, gameData,
+                                                       RunningGameScenario.VIEWPORT_WIDTH, RunningGameScenario.VIEWPORT_HEIGHT,
+                                                       RunningGameScenario.INSTRUCTION_LIMIT);
+
+            games[0] = replayed.getGame();
+            games[1] = createLiveGame(gameData, live, liveScenario);
+            games[2] = ReplayLoaderUtils.createReplayInspectionState(replay, inspectionScenario, gameData);
+            games[3] = createLiveGame(gameData, saved, savedScenario);
+        });
+
+        Assertions.assertEquals(expected.length, recording.getScenarios().size());
+
+        for (int index = 0; index < expected.length; index++) {
+            Assertions.assertSame(expected[index], recording.getScenarios().get(index), "the scenario at plugin creation");
+            Assertions.assertSame(expected[index], games[index].getSetup().getScenario(), "the scenario of the setup");
+        }
+    }
 
     @Test
     void frame_start_runs_before_the_triggers_of_each_frame(@NotNull InstallationTestResources resources) throws Throwable {

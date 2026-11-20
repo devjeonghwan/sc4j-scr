@@ -2,12 +2,14 @@ package org.fogofwarlabs.sc4j.scr.game.state;
 
 import org.fogofwarlabs.sc4j.engine.game.EngineLimits;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.game.combat.ScrCombatSystem;
 import org.fogofwarlabs.sc4j.scr.game.movement.ScrCollisionSystem;
 import org.fogofwarlabs.sc4j.scr.game.movement.ScrMovementSystem;
 import org.fogofwarlabs.sc4j.scr.game.path.ScrPathfindingSystem;
 import org.fogofwarlabs.sc4j.scr.game.player.ScrEconomySystem;
 import org.fogofwarlabs.sc4j.scr.game.production.ScrProductionSystem;
+import org.fogofwarlabs.sc4j.scr.game.test.RecordingSimulationPluginSource;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.scr.game.unit.finder.ScrSpatialIndex;
 import org.fogofwarlabs.sc4j.scr.game.visibility.ScrVisibilitySystem;
@@ -17,7 +19,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests the SC:R game as the game system of an engine game: the adopted random generator, the frame clock, the frame
- * sequence, the pool sizes, the views of the SC:R systems under the engine system keys and the state hash.
+ * sequence, the pool sizes, the scenario of the setup, the views of the SC:R systems under the engine system keys and the
+ * state hash.
  */
 final class GameTest {
     private static final int FRAME = 5;
@@ -64,6 +67,24 @@ final class GameTest {
         Assertions.assertEquals(BULLETS, engineLimits.getProjectiles());
         Assertions.assertEquals(UNITS, game.getUnitSystem().requireUnitPool().getCapacity());
         Assertions.assertEquals(0, game.getEngineGame().getUnits().getCapacity());
+    }
+
+    @Test
+    void create_should_offer_the_setup_scenario_when_the_simulation_plugins_are_created() throws Throwable {
+        ChkFile scenario = ChkFile.parseTolerant(new byte[0]);
+        RecordingSimulationPluginSource.Recording recording = new RecordingSimulationPluginSource.Recording();
+        Game[] games = new Game[2];
+
+        RecordingSimulationPluginSource.record(recording, () -> {
+            games[0] = Game.create(new GameSetup.Builder(null, createMap(), new LcgRandom(1)).setScenario(scenario).build());
+            games[1] = Game.create(null, createMap(), new LcgRandom(1));
+        });
+
+        Assertions.assertSame(scenario, games[0].getSetup().getScenario());
+        Assertions.assertNull(games[1].getSetup().getScenario());
+        Assertions.assertEquals(2, recording.getScenarios().size());
+        Assertions.assertSame(scenario, recording.getScenarios().get(0));
+        Assertions.assertNull(recording.getScenarios().get(1));
     }
 
     @Test

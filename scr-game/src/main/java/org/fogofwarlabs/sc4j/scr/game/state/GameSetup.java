@@ -5,6 +5,7 @@ import org.fogofwarlabs.sc4j.engine.game.*;
 import org.fogofwarlabs.sc4j.scr.content.ScrNativeIds;
 import org.fogofwarlabs.sc4j.scr.core.GameSettings;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
+import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.game.path.PathPool;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
@@ -14,9 +15,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Holds the explicit inputs a game is created from: the game data, the map, the random generator in its initial state,
- * the C runtime generator in its initial state, the setup seed, the game options, the rules version, the cheat option,
- * the pool limits and the players.
+ * Holds the explicit inputs a game is created from: the game data, the map, the scenario the map was built from, the
+ * random generator in its initial state, the C runtime generator in its initial state, the setup seed, the game options,
+ * the rules version, the cheat option, the pool limits and the players.
  * <p>
  * {@link Game#create(GameSetup)} creates the engine game of the setup ({@link #createEngineSetup()}), whose SC:R game
  * system applies the rules version, the cheat option, the limits (creating the object pools) and the players. The setup
@@ -79,6 +80,7 @@ public final class GameSetup {
     public static final class Builder {
         private final @Nullable GameData gameData;
         private final @NotNull GameMap map;
+        private @Nullable ChkFile scenario;
         private final @NotNull LcgRandom random;
         private @NotNull RuntimeRandom runtimeRandom;
         private int seed;
@@ -91,8 +93,8 @@ public final class GameSetup {
         private final @Nullable Player @NotNull [] players;
 
         /**
-         * Creates a {@link Builder} instance with the given inputs and a C runtime generator that nothing has seeded
-         * ({@link RuntimeRandom#DEFAULT_SEED}).
+         * Creates a {@link Builder} instance with the given inputs, no scenario and a C runtime generator that nothing has
+         * seeded ({@link RuntimeRandom#DEFAULT_SEED}).
          *
          * @param gameData the game data tables, or {@code null} for a world built without game data
          * @param map      the map
@@ -101,6 +103,7 @@ public final class GameSetup {
         public Builder(@Nullable GameData gameData, @NotNull GameMap map, @NotNull LcgRandom random) {
             this.gameData      = gameData;
             this.map           = map;
+            this.scenario      = null;
             this.random        = random;
             this.runtimeRandom = new RuntimeRandom(RuntimeRandom.DEFAULT_SEED);
             this.seed          = 0;
@@ -111,6 +114,18 @@ public final class GameSetup {
 
             this.limits  = null;
             this.players = new Player[PlayerTable.PLAYER_SLOTS];
+        }
+
+        /**
+         * Sets the scenario the map was built from.
+         *
+         * @param scenario the parsed scenario ({@code .chk}), which the game shares
+         * @return this instance for chaining
+         */
+        public @NotNull Builder setScenario(@NotNull ChkFile scenario) {
+            this.scenario = scenario;
+
+            return this;
         }
 
         /**
@@ -215,8 +230,8 @@ public final class GameSetup {
     }
 
     /**
-     * Creates a {@link GameSetup} instance with only the data, the map and the random generator: an unseeded C runtime
-     * generator, no options, a new game's rules version, cheats disabled, no pools and no players.
+     * Creates a {@link GameSetup} instance with only the data, the map and the random generator: no scenario, an unseeded C
+     * runtime generator, no options, a new game's rules version, cheats disabled, no pools and no players.
      *
      * @param gameData the game data tables, or {@code null} for a world built without game data
      * @param map      the map
@@ -255,6 +270,7 @@ public final class GameSetup {
 
     private final @Nullable GameData gameData;
     private final @NotNull GameMap map;
+    private final @Nullable ChkFile scenario;
     private final @NotNull LcgRandom random;
     private final @NotNull RuntimeRandom runtimeRandom;
     private final int seed;
@@ -274,6 +290,7 @@ public final class GameSetup {
     private GameSetup(@NotNull Builder builder) {
         this.gameData      = builder.gameData;
         this.map           = builder.map;
+        this.scenario      = builder.scenario;
         this.random        = builder.random;
         this.runtimeRandom = builder.runtimeRandom;
         this.seed          = builder.seed;
@@ -298,6 +315,14 @@ public final class GameSetup {
      */
     public @NotNull GameMap getMap() {
         return this.map;
+    }
+
+    /**
+     * @return the scenario ({@code .chk}) the map was built from (for a saved game, the scenario built from the save), or
+     * {@code null} for a setup without one (previews and synthetic test worlds)
+     */
+    public @Nullable ChkFile getScenario() {
+        return this.scenario;
     }
 
     /**

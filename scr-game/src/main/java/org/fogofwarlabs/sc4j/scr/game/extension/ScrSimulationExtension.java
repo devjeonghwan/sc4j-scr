@@ -1,6 +1,7 @@
 package org.fogofwarlabs.sc4j.scr.game.extension;
 
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
+import org.fogofwarlabs.sc4j.scr.game.state.GameSetup;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,6 +20,11 @@ public interface ScrSimulationExtension {
     /**
      * Creates the extension's simulation plugin of a game, once, when the game's SC:R system attaches; the plugin lives as long as the game, so
      * every new game, live, replay or loaded save, starts with a new plugin.
+     * <p>
+     * At this point the game offers its creation inputs ({@link Game#getSetup()}): the game data, the map, the players, the game options and the
+     * scenario the map was built from ({@link GameSetup#getScenario()}; for a loaded save, the scenario built from the save; {@code null} for a
+     * game without one), so an extension can return {@code null} for maps it does not handle. The map objects and units are not created, the
+     * trigger locations are not loaded and the map model is not set yet.
      *
      * @param game the game, attached and not yet initialized
      * @return the created plugin, or {@code null} if the game needs none
