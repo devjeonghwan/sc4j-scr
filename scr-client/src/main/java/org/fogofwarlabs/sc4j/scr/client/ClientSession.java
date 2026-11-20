@@ -1226,7 +1226,9 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Returns a map string of the game's scenario (its {@code STR } or {@code STRx} section), as trigger text and sound events reference it.
+     * Returns a map string of the game's scenario as trigger text and sound events reference it: through the live string section of the
+     * presentation's game ({@link MessageLines#getMapString}), which includes its registered strings, or else the scenario's {@code STR } or
+     * {@code STRx} section.
      *
      * @param index the one-based string index ({@code 0} is no string)
      * @return the decoded string, or an empty string for {@code 0} or an index outside the table
@@ -1234,6 +1236,12 @@ public final class ClientSession implements AutoCloseable {
     public @NotNull String getMapString(int index) {
         if (index <= 0) {
             return "";
+        }
+
+        String resolved = this.presentation.getInterfaceLink().getMessageLines().getMapString(index);
+
+        if (resolved != null) {
+            return resolved;
         }
 
         List<String> strings = this.mapFile.getStrings();

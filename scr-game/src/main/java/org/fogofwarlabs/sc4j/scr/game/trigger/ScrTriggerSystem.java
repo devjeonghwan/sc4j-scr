@@ -226,26 +226,32 @@ public final class ScrTriggerSystem implements TriggerSystem {
             throw Exceptions.newUnsupportedOperationException("Trigger evaluation requires retained player records.");
         }
 
-        for (int player = context.getNextActivePlayer(TriggerContext.WALK_START); player < PlayerTable.PLAYABLE_PLAYER_SLOTS;
-             player = context.getNextActivePlayer(player)) {
-            context.currentPlayer            = player;
-            context.currentPlayerInitialized = true;
+        context.passRunning = true;
 
-            boolean hasRecords;
+        try {
+            for (int player = context.getNextActivePlayer(TriggerContext.WALK_START); player < PlayerTable.PLAYABLE_PLAYER_SLOTS;
+                 player = context.getNextActivePlayer(player)) {
+                context.currentPlayer            = player;
+                context.currentPlayerInitialized = true;
 
-            if (context.extendedDeathsMode != 0) {
-                ClassicTriggerMirror mirror = ClassicTriggerWalkUtils.getMirror(context);
+                boolean hasRecords;
 
-                hasRecords = mirror == null ? context.playerRecords[player].length != 0 : !mirror.isEmpty(player);
-            } else {
-                hasRecords = context.playerRecords[player].length != 0;
+                if (context.extendedDeathsMode != 0) {
+                    ClassicTriggerMirror mirror = ClassicTriggerWalkUtils.getMirror(context);
+
+                    hasRecords = mirror == null ? context.playerRecords[player].length != 0 : !mirror.isEmpty(player);
+                } else {
+                    hasRecords = context.playerRecords[player].length != 0;
+                }
+
+                if (hasRecords) {
+                    evaluatePlayer(context, player);
+
+                    evaluatedRecords = true;
+                }
             }
-
-            if (hasRecords) {
-                evaluatePlayer(context, player);
-
-                evaluatedRecords = true;
-            }
+        } finally {
+            context.passRunning = false;
         }
 
         context.currentPlayer            = PlayerTable.PLAYABLE_PLAYER_SLOTS;

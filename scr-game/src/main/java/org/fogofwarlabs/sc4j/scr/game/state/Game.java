@@ -47,6 +47,7 @@ import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugins;
 import org.fogofwarlabs.sc4j.scr.game.frame.*;
 import org.fogofwarlabs.sc4j.scr.game.map.MapSpriteEffectLoader;
+import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
 import org.fogofwarlabs.sc4j.scr.game.map.MapUnitLoader;
 import org.fogofwarlabs.sc4j.scr.game.map.ScrTerrainGrid;
 import org.fogofwarlabs.sc4j.scr.game.map.StartingUnitLoader;
@@ -1554,12 +1555,14 @@ public final class Game implements GameSystem, StateHashContributor {
     }
 
     /**
-     * Sets the trigger scheduling context.
+     * Sets the trigger scheduling context and binds it to this world ({@link TriggerContext#setWorld}).
      *
      * @param triggerContext the trigger scheduling and record state
      */
     public void setTriggerContext(@NotNull TriggerContext triggerContext) {
         this.triggerContext = triggerContext;
+
+        triggerContext.setWorld(this);
     }
 
     /**
@@ -2652,6 +2655,12 @@ public final class Game implements GameSystem, StateHashContributor {
 
         if (this.triggerContext != null) {
             hash = mix(hash, this.triggerContext.computeStateHash(0));
+        }
+
+        MapStringSection mapStrings = this.interfaceLink.getMessageLines().getMapStringSection();
+
+        if (mapStrings != null && mapStrings.getRegisteredStringCount() != 0) {
+            hash = mix(hash, mapStrings.computeRegisteredStringHash(0));
         }
 
         hash = mix(hash, this.executionScope == null ? 0 : 1);

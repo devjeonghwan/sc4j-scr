@@ -16,6 +16,7 @@ import org.fogofwarlabs.sc4j.scr.game.ai.ComputerUnitRecord;
 import org.fogofwarlabs.sc4j.scr.game.ai.ComputerUnits;
 import org.fogofwarlabs.sc4j.scr.game.creep.CreepField;
 import org.fogofwarlabs.sc4j.scr.game.map.PreplacedUnitLoaderUtils;
+import org.fogofwarlabs.sc4j.scr.game.order.UnitOrderEligibility;
 import org.fogofwarlabs.sc4j.scr.game.player.*;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
@@ -38,9 +39,9 @@ public final class TriggerUnitActions {
     private static final int POSITION_CENTER_DIVISOR = 2;
 
     /**
-     * The location index of a Kill Unit or Remove Unit action without a location.
+     * The location index of a Kill Unit or Remove Unit action without a location ({@link #removeUnits}).
      */
-    static final int NO_LOCATION = 0xFF;
+    public static final int NO_LOCATION = 0xFF;
 
     /**
      * The size of one {@code UPRP} unit property record.
@@ -156,15 +157,15 @@ public final class TriggerUnitActions {
      *
      * @param context  the trigger context
      * @param player   the player whose units are killed or removed
-     * @param unitType the unit operand
-     * @param location the location index, or {@link #NO_LOCATION}
-     * @param limit    the number of units to kill or remove
+     * @param unitType the unit type or unit group (its low WORD is used)
+     * @param location the zero-based location index, or {@link #NO_LOCATION}
+     * @param limit    the number of units to kill or remove ({@code 999999} for all units)
      * @param remove   whether the units are removed instead of killed
      * @throws NullPointerException          if the world was built without game data
      * @throws UnsupportedOperationException if a location action has no unit rectangle query or the unit pool is not initialized
      * @throws IllegalStateException         if the terrain miniature flags cannot be loaded
      */
-    void removeUnits(@NotNull TriggerContext context, int player, int unitType, int location, int limit, boolean remove) {
+    public void removeUnits(@NotNull TriggerContext context, int player, int unitType, int location, int limit, boolean remove) {
         ScrUnitTypeView units = this.game.requireGameData().getUnitTypes();
 
         if (location == NO_LOCATION) {
@@ -371,14 +372,49 @@ public final class TriggerUnitActions {
             return;
         }
 
-        boolean invincible = (unit.getStatus() & UnitStatusFlags.INVINCIBLE) != 0;
-
         switch (modifier & BYTE_MASK) {
-            case TriggerModifiers.SET -> unit.setStatus(unit.getStatus() | UnitStatusFlags.INVINCIBLE);
-            case TriggerModifiers.CLEAR -> unit.setStatus(unit.getStatus() & ~UnitStatusFlags.INVINCIBLE);
-            case TriggerModifiers.TOGGLE -> unit.setStatus(invincible ? unit.getStatus() & ~UnitStatusFlags.INVINCIBLE : unit.getStatus() | UnitStatusFlags.INVINCIBLE);
+            case TriggerModifiers.SET -> this.setInvincible(unit, true);
+            case TriggerModifiers.CLEAR -> this.setInvincible(unit, false);
+            case TriggerModifiers.TOGGLE -> this.setInvincible(unit, (unit.getStatus() & UnitStatusFlags.INVINCIBLE) == 0);
             default -> {
             }
+        }
+    }
+
+    /**
+     * Sets or clears the invincible status of one unit, as Set Invincibility does for each unit it selects.
+     *
+     * @param unit       the unit
+     * @param invincible {@code true} to make the unit invincible, {@code false} to make it vulnerable
+     */
+    public void setInvincible(@NotNull Unit unit, boolean invincible) {
+        unit.setStatus(invincible ? unit.getStatus() | UnitStatusFlags.INVINCIBLE : unit.getStatus() & ~UnitStatusFlags.INVINCIBLE);
+    }
+
+    /**
+     * Disables a doodad as Set Doodad State does with the disable state: a unit that is not disabled yet receives the DisableDoodad order
+     * through the empty-queue order path.
+     *
+     * @param unit             the doodad unit
+     * @param instructionLimit the iscript budget
+     */
+    public void disableDoodad(@NotNull Unit unit, int instructionLimit) {
+        if (!UnitOrderEligibility.isDisabled(unit)) {
+            this.game.getOrders().issueUntargeted(unit, ScrOrderIds.DISABLE_DOODAD, instructionLimit);
+        }
+    }
+
+    /**
+     * Enables a doodad as Set Doodad State does with the enable state: a disabled unit loses its disabled status and receives the
+     * EnableDoodad order through the empty-queue order path.
+     *
+     * @param unit             the doodad unit
+     * @param instructionLimit the iscript budget
+     */
+    public void enableDoodad(@NotNull Unit unit, int instructionLimit) {
+        if (UnitOrderEligibility.isDisabled(unit)) {
+            unit.setStatus(unit.getStatus() & ~UnitStatusFlags.DISABLED);
+            this.game.getOrders().issueUntargeted(unit, ScrOrderIds.ENABLE_DOODAD, instructionLimit);
         }
     }
 
@@ -774,14 +810,14 @@ public final class TriggerUnitActions {
      * Applies Modify Unit Resource Amount to one resource container: the resource WORD is stored and mineral fields
      * refresh their depletion animation.
      *
-     * @param units            the unit type table
      * @param unit             the unit
-     * @param amount           the resource amount
+     * @param amount           the resource amount (its low WORD is used)
      * @param instructionLimit the iscript budget
      * @return {@code true} if the unit is a resource container, {@code false} otherwise
+     * @throws NullPointerException if the world was built without game data
      */
-    boolean modifyResources(@NotNull ScrUnitTypeView units, @NotNull Unit unit, int amount, int instructionLimit) {
-        if ((units.getFlags(unit.getUnitId()) & UnitTypeFlags.RESOURCE_CONTAINER) == 0) {
+    public boolean modifyResources(@NotNull Unit unit, int amount, int instructionLimit) {
+        if ((this.game.requireGameData().getUnitTypes().getFlags(unit.getUnitId()) & UnitTypeFlags.RESOURCE_CONTAINER) == 0) {
             return false;
         }
 
@@ -795,14 +831,14 @@ public final class TriggerUnitActions {
      * are added while the requirement test accepts another one (represented by {@link UnitHangar#canBuildFighter}); each
      * is constructed at the parent, completed, linked to its parent and hidden in the inside hangar list.
      *
-     * @param context the trigger context
-     * @param unit    the unit
-     * @param count   the number of subordinates to add
+     * @param unit             the unit
+     * @param count            the number of subordinates to add
+     * @param instructionLimit the iscript budget
      * @return {@code true} if at least one creation attempt was made, {@code false} otherwise
      * @throws UnsupportedOperationException if the accounting, the creation context or the owner is missing, or the unit pool is not initialized
      * @throws IllegalStateException         if the unit has no sprite
      */
-    boolean modifyHangar(@NotNull TriggerContext context, @NotNull Unit unit, int count) {
+    public boolean modifyHangar(@NotNull Unit unit, int count, int instructionLimit) {
         int type = unit.getUnitId();
 
         if (!this.game.requireGameData().getUnitTypes().hasHangar(type)) {
@@ -832,11 +868,11 @@ public final class TriggerUnitActions {
                                                                         sprite.getX(), sprite.getY(),
                                                                         unit.getOwnerIndex(),
                                                                         this.game.getUnitSystem().requireUnitPool().getCreationTag(unit.getIndex()),
-                                                                        context.instructionLimit);
+                                                                        instructionLimit);
 
             if (fighter != null) {
-                this.game.getUnitCompletion().initializeBeforePlacement(creation, fighter, context.instructionLimit);
-                this.game.getUnitCompletion().completeAfterPlacement(creation, fighter, owner.getType(), context.instructionLimit);
+                this.game.getUnitCompletion().initializeBeforePlacement(creation, fighter, instructionLimit);
+                this.game.getUnitCompletion().completeAfterPlacement(creation, fighter, owner.getType(), instructionLimit);
                 fighter.setHangarParent(unit);
                 this.game.getUnitHangar().storeInside(unit, fighter);
             }
