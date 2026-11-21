@@ -488,6 +488,7 @@ public final class ClientSession implements AutoCloseable {
         if (isMapArchive(mapPath)) {
             session.mapArchive       = mapPath.toAbsolutePath().normalize();
             session.mapCompatibility = setup.isMapCompatibility();
+            session.openedMapArchive = setup.getMapArchive();
         }
 
         return session;
@@ -743,6 +744,7 @@ public final class ClientSession implements AutoCloseable {
 
         session.mapArchive       = mapPath.toAbsolutePath().normalize();
         session.mapCompatibility = setup.isMapCompatibility();
+        session.openedMapArchive = setup.getMapArchive();
 
         return session;
     }
@@ -914,7 +916,8 @@ public final class ClientSession implements AutoCloseable {
     private boolean mapCompatibility;
     private @Nullable String campaignDirectory;
     /**
-     * The opened map archive of {@link #mapArchive}, read once by the first map file read ({@link #readMapFile}), or {@code null} before it.
+     * The opened map archive of {@link #mapArchive}: the archive a live game's setup opened ({@link MeleeGameSetup#getMapArchive()}), else read
+     * once by the first map file read ({@link #readMapFile}), or {@code null} before it.
      */
     private @Nullable MpqArchive openedMapArchive;
     /**
@@ -1223,7 +1226,9 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Returns a map string of the game's scenario (its {@code STR } or {@code STRx} section), as trigger text and sound events reference it.
+     * Returns a map string of the game's scenario as trigger text and sound events reference it: through the live string section of the
+     * presentation's game ({@link MessageLines#getMapString}), which includes its registered strings, or else the scenario's {@code STR } or
+     * {@code STRx} section.
      *
      * @param index the one-based string index ({@code 0} is no string)
      * @return the decoded string, or an empty string for {@code 0} or an index outside the table
@@ -1231,6 +1236,12 @@ public final class ClientSession implements AutoCloseable {
     public @NotNull String getMapString(int index) {
         if (index <= 0) {
             return "";
+        }
+
+        String resolved = this.presentation.getInterfaceLink().getMessageLines().getMapString(index);
+
+        if (resolved != null) {
+            return resolved;
         }
 
         List<String> strings = this.mapFile.getStrings();
@@ -2060,14 +2071,15 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Checks whether a live game with a save folder and no extended SetDeaths mode may show Save Game. The local player must be first.
+     * Checks whether a live game with a save folder and no extended SetDeaths mode may show Save Game. The local player must be first, and the
+     * game's simulation plugins must allow a save ({@link Game#isSaveAllowed()}).
      *
      * @return {@code true} if Save Game is shown, {@code false} otherwise
      */
     public boolean isSaveGameShown() {
         LiveGame game = this.liveGame;
 
-        if (game == null || this.saveDirectory == null || !game.isLocalPlayerFirst()) {
+        if (game == null || this.saveDirectory == null || !game.isLocalPlayerFirst() || !this.state.isSaveAllowed()) {
             return false;
         }
 
@@ -2226,7 +2238,12 @@ public final class ClientSession implements AutoCloseable {
                                                       ? this.liveGame.getSetup().getMapPath()
                                                       : this.mapArchive;
 
-            if (sourcePath != null) {
+            MpqArchive setupArchive = this.liveGame == null ? null : this.liveGame.getSetup().getMapArchive();
+
+            // A live game's setup already holds the map file it opened; the source file shares its content.
+            if (setupArchive != null && sourcePath != null) {
+                this.runtime.setSourceFile(GameSourceFile.create(sourcePath, setupArchive.getArchiveData()));
+            } else if (sourcePath != null) {
                 this.runtime.setSourceFile(GameSourceFile.read(sourcePath));
             }
 

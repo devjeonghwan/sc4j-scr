@@ -8,7 +8,11 @@ import org.fogofwarlabs.sc4j.base.text.TerminatedStringUtils;
 import org.fogofwarlabs.sc4j.engine.controller.ControllerSource;
 import org.fogofwarlabs.sc4j.engine.lockstep.*;
 import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
+import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrPauseRequester;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
@@ -32,10 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HexFormat;
-import java.util.List;
+import java.util.*;
 import java.util.function.IntSupplier;
 
 /**
@@ -44,7 +45,7 @@ import java.util.function.IntSupplier;
  * Live play, the saved replay and playback use the common replay runtime and one command path. A single-player
  * command queued at the current frame executes and is recorded in the following frame.
  */
-public final class LiveGame {
+public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester {
     /**
      * The frame count stored in the running header; the saved header receives the real count.
      */
@@ -446,6 +447,12 @@ public final class LiveGame {
         this.replay.setPlayerNames(this.readNameBytes());
         this.replay.setSpeedOverrideIndex(setup.getSpeedOverrideIndex());
         this.replay.setCustomColors(PlayerColorRows.encodeCustomColors(setup.getResolvedCustomColors()));
+
+        MpqArchive mapArchive = setup.getMapArchive();
+
+        if (mapArchive != null) {
+            this.replay.setMapArchive(mapArchive);
+        }
 
         this.localOutcome = 0;
 
@@ -874,8 +881,29 @@ public final class LiveGame {
     }
 
     /**
+     * Queues a mod command of the local player into the outgoing turn ({@link ReplayCommandIds#MOD_COMMAND}): when it runs, the game's
+     * simulation plugins receive the data ({@link ScrSimulationPlugin#onModCommand}). The turn holds a limited number of bytes, so a command is
+     * refused while the commands queued for the turn leave no room for it; it can be submitted again for a later turn.
+     *
+     * @param data the command data, at most {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes; the submitter keeps a copy
+     * @return {@code true} if queued, {@code false} if the outgoing turn has no room for it
+     * @throws IllegalArgumentException if the data is longer than {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} bytes
+     */
+    @Override
+    public boolean submitModCommand(byte @NotNull [] data) {
+        byte[] payload = ReplayCommandCodecs.encode(ReplayCommandCodecs.MOD_COMMAND, new ReplayModCommand(data.clone()));
+
+        if (!this.outgoingTurn.hasRoom(1 + payload.length)) {
+            return false;
+        }
+
+        return this.submit(ReplayCommandIds.MOD_COMMAND, payload);
+    }
+
+    /**
      * Supplies the game's player slots that resolve the issuers of its commands, outgoing turn buffer, provider turn limits,
-     * timing, lobby state and initial pause counts; a single-player game also starts its Sync records from this game.
+     * timing, lobby state and initial pause counts, this game as the game's mod command submitter unless the local player observes, and this
+     * game as the game's pause requester; a single-player game also starts its Sync records from this game.
      *
      * @param game   the game's state
      * @param timing the game's speed configuration, whose turn-wait budget schedules the turn exchanges
@@ -896,6 +924,8 @@ public final class LiveGame {
         game.setPlayerSlots(this.playerSlots);
         game.getInterfaceLink().setOutgoingTurn(this.outgoingTurn);
         game.getInterfaceLink().setSessionTurnLimits(latencyTurns, MAXIMUM_TURN_BYTES);
+        game.getInterfaceLink().setModCommandSubmitter(this.isLocalObserver() ? null : this);
+        game.getInterfaceLink().setPauseRequester(this);
         game.getGameContext().setContextLobbyColors(this.setup.getResolvedLobbyColors());
 
         int[] lobbyTypes = this.setup.getLobbyTypes();
@@ -1053,8 +1083,11 @@ public final class LiveGame {
     }
 
     /**
-     * Queues a Pause command while the game is running; the command executes in the turn and is not recorded.
+     * Queues a Pause command while the game is running.
+     * <p>
+     * The command executes in the turn and is not recorded.
      */
+    @Override
     public void requestPause() {
         if (!this.isPaused()) {
             this.outgoingTurn.queue(new byte[]{(byte) ReplayCommandIds.PAUSE});
@@ -1064,6 +1097,7 @@ public final class LiveGame {
     /**
      * Queues a Resume command while the game is paused.
      */
+    @Override
     public void requestResume() {
         if (this.isPaused()) {
             this.outgoingTurn.queue(new byte[]{(byte) ReplayCommandIds.RESUME});
@@ -1072,13 +1106,15 @@ public final class LiveGame {
 
     /**
      * Queues a Save Game command for the first player, retaining the time and the name bytes cut to the command's name
-     * buffer.
+     * buffer. Nothing is queued while the started game cannot be saved ({@link Game#isSaveAllowed()}).
      *
      * @param time the issuing machine's time DWORD
      * @param name the name bytes without terminator: the file name without extension
      */
     public void requestSaveGame(int time, byte @NotNull [] name) {
-        if (this.isLocalPlayerFirst()) {
+        Game running = this.game;
+
+        if (this.isLocalPlayerFirst() && (running == null || running.isSaveAllowed())) {
             this.outgoingTurn.queue(encodeSavedGameCommand(ReplayCommandIds.SAVE_GAME, time, name));
         }
     }
@@ -1668,11 +1704,13 @@ public final class LiveGame {
     /**
      * Writes the played game as a SC:R replay with chat records merged in frame order. The commands and chat lines are copied
      * under the lock their appends take, so the replay can be written from another thread while the game runs. A game with a speed override
-     * ({@link MeleeGameSetup#getSpeedOverrideIndex}) keeps it in the replay's {@code XSPD} section, which its playback takes.
+     * ({@link MeleeGameSetup#getSpeedOverrideIndex}) keeps it in the replay's {@code XSPD} section, which its playback takes. The replay sections
+     * of the started game ({@link Game#setReplaySection}) follow as mod sections ({@link ReplayWriter#addModSection}).
      *
      * @param frames      the number of completed frames
      * @param unixSeconds the save time for the {@code GCFG} block
      * @return the replay file bytes
+     * @throws IllegalStateException if the sections may take more than a replay file holds
      */
     public byte @NotNull [] writeReplay(long frames, long unixSeconds) {
         byte[][] names = this.readNameBytes();
@@ -1694,11 +1732,21 @@ public final class LiveGame {
             recorded.addAll(this.chatRecords.subList(chat, this.chatRecords.size()));
         }
 
-        return new ReplayWriter(this.buildHeader(frames, false), ReplayWriter.encodeCommands(recorded), this.setup.getMapData(),
-                                ReplayWriter.encodeNames(names), new byte[ReplayWriter.SKIN_SIZE], this.getLimits(), ReplayWriter.CURRENT_FIX_FLAGS,
-                                PlayerColorRows.encodeCustomColors(this.setup.getResolvedCustomColors()),
-                                ReplayWriter.encodeVersionBlock(GameRulesVersion.CURRENT_BUILD, unixSeconds),
-                                this.setup.getSpeedOverrideIndex()).write();
+        ReplayWriter writer = new ReplayWriter(this.buildHeader(frames, false), ReplayWriter.encodeCommands(recorded), this.setup.getMapData(),
+                                               ReplayWriter.encodeNames(names), new byte[ReplayWriter.SKIN_SIZE], this.getLimits(),
+                                               ReplayWriter.CURRENT_FIX_FLAGS,
+                                               PlayerColorRows.encodeCustomColors(this.setup.getResolvedCustomColors()),
+                                               ReplayWriter.encodeVersionBlock(GameRulesVersion.CURRENT_BUILD, unixSeconds),
+                                               this.setup.getSpeedOverrideIndex());
+        Game running = this.game;
+
+        if (running != null) {
+            for (Map.Entry<String, byte[]> section : running.getReplaySections().entrySet()) {
+                writer.addModSection(section.getKey(), section.getValue());
+            }
+        }
+
+        return writer.write();
     }
 
     /**
