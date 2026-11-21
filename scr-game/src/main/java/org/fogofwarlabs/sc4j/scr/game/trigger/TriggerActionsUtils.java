@@ -408,11 +408,9 @@ final class TriggerActionsUtils {
     private static boolean executePauseGame(@NotNull TriggerContext context, @NotNull RunningTrigger record, TriggerDefinition.@NotNull Action action) {
         if (canChangePauseState(context, record, action.getType() == TriggerActionIds.PAUSE_GAME)) {
             if (action.getType() == TriggerActionIds.PAUSE_GAME) {
-                context.phaseGate                 = 1;
                 record.executionFlags |= TriggerFlags.EXECUTION_PAUSED_GAME;
-                context.triggersEnabledWhileGated = 1;
 
-                context.events.add(TriggerEvents.GAME_PAUSE, 1, 0, 0);
+                pauseGame(context);
             } else {
                 resumeGame(context, record);
             }
@@ -1317,7 +1315,7 @@ final class TriggerActionsUtils {
      * @return {@code true} if the handler would pause or resume the game loop, {@code false} otherwise
      */
     private static boolean canChangePauseState(@NotNull TriggerContext context, @NotNull RunningTrigger record, boolean pause) {
-        if ((context.multiplayerSession & BYTE_MASK) != 0 || (context.triggersEnabledWhileGated != 0) == pause) {
+        if (!canChangePauseState(context, pause)) {
             return false;
         }
 
@@ -1331,11 +1329,66 @@ final class TriggerActionsUtils {
     }
 
     /**
+     * Applies the checks of Pause Game (or Unpause Game) that do not read a trigger record: a multiplayer session and a game already paused (not
+     * paused) by Pause Game make the action do nothing.
+     *
+     * @param context the trigger context
+     * @param pause   {@code true} for Pause Game, {@code false} for Unpause Game
+     * @return {@code true} if the action would pause or resume the game loop, {@code false} otherwise
+     */
+    private static boolean canChangePauseState(@NotNull TriggerContext context, boolean pause) {
+        return (context.multiplayerSession & BYTE_MASK) == 0 && (context.triggersEnabledWhileGated != 0) != pause;
+    }
+
+    /**
+     * Applies a plugin's request of Pause Game or Unpause Game without a trigger record ({@link TriggerContext#requestPauseGame()},
+     * {@link TriggerContext#requestUnpauseGame()}) and forgets it: the action's rule without the owner and record checks
+     * ({@link #canChangePauseState(TriggerContext, boolean)}), then its pausing or resuming half.
+     *
+     * @param context the trigger context
+     */
+    static void applyPauseRequest(@NotNull TriggerContext context) {
+        int request = context.pauseRequest;
+
+        context.pauseRequest = TriggerContext.NO_PAUSE_REQUEST;
+
+        if (request == TriggerContext.NO_PAUSE_REQUEST || !canChangePauseState(context, request == TriggerContext.PAUSE_REQUEST)) {
+            return;
+        }
+
+        if (request == TriggerContext.PAUSE_REQUEST) {
+            pauseGame(context);
+        } else {
+            resumeGame(context);
+        }
+    }
+
+    /**
+     * Applies the pausing half of Pause Game: the game-paused state and the trigger pause set, so that the triggers keep running while no frame
+     * runs, and the game pause event is raised; menus and screen state are presentation.
+     */
+    private static void pauseGame(@NotNull TriggerContext context) {
+        context.phaseGate                 = 1;
+        context.triggersEnabledWhileGated = 1;
+
+        context.events.add(TriggerEvents.GAME_PAUSE, 1, 0, 0);
+    }
+
+    /**
      * Applies the resuming half of Unpause Game: the current record loses {@link TriggerFlags#EXECUTION_PAUSED_GAME}, the
      * trigger pause and the game-paused state clear; the camera recentering and menu restore are presentation.
      */
     private static void resumeGame(@NotNull TriggerContext context, @NotNull RunningTrigger record) {
         record.executionFlags &= ~TriggerFlags.EXECUTION_PAUSED_GAME;
+
+        resumeGame(context);
+    }
+
+    /**
+     * Applies the resuming half of Unpause Game without a trigger record: the trigger pause and the game-paused state clear and the game pause
+     * event is raised.
+     */
+    private static void resumeGame(@NotNull TriggerContext context) {
         context.triggersEnabledWhileGated = 0;
         context.phaseGate                 = 0;
 

@@ -11,6 +11,7 @@ import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
 import org.fogofwarlabs.sc4j.scr.data.format.mpq.MpqArchive;
 import org.fogofwarlabs.sc4j.scr.data.format.replay.*;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrPauseRequester;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrSimulationPlugin;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerColorRows;
@@ -48,7 +49,7 @@ import java.util.function.IntSupplier;
  * Live play, the saved replay and playback use the common replay runtime and one command path. A single-player
  * command queued at the current frame executes and is recorded in the following frame.
  */
-public final class LiveGame implements ScrModCommandSubmitter {
+public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester {
     /**
      * The frame count stored in the running header; the saved header receives the real count.
      */
@@ -905,8 +906,8 @@ public final class LiveGame implements ScrModCommandSubmitter {
 
     /**
      * Supplies the game's player slots that resolve the issuers of its commands, outgoing turn buffer, provider turn limits,
-     * timing, lobby state and initial pause counts, and this game as the game's mod command submitter unless the local player observes; a
-     * single-player game also starts its Sync records from this game.
+     * timing, lobby state and initial pause counts, this game as the game's mod command submitter unless the local player observes, and this
+     * game as the game's pause requester; a single-player game also starts its Sync records from this game.
      *
      * @param game   the game's state
      * @param timing the game's speed configuration, whose turn-wait budget schedules the turn exchanges
@@ -928,6 +929,7 @@ public final class LiveGame implements ScrModCommandSubmitter {
         game.getInterfaceLink().setOutgoingTurn(this.outgoingTurn);
         game.getInterfaceLink().setSessionTurnLimits(latencyTurns, MAXIMUM_TURN_BYTES);
         game.getInterfaceLink().setModCommandSubmitter(this.isLocalObserver() ? null : this);
+        game.getInterfaceLink().setPauseRequester(this);
         game.getGameContext().setContextLobbyColors(this.setup.getResolvedLobbyColors());
 
         int[] lobbyTypes = this.setup.getLobbyTypes();
@@ -1085,8 +1087,11 @@ public final class LiveGame implements ScrModCommandSubmitter {
     }
 
     /**
-     * Queues a Pause command while the game is running; the command executes in the turn and is not recorded.
+     * Queues a Pause command while the game is running.
+     * <p>
+     * The command executes in the turn and is not recorded.
      */
+    @Override
     public void requestPause() {
         if (!this.isPaused()) {
             this.outgoingTurn.queue(new byte[]{(byte) ReplayCommandIds.PAUSE});
@@ -1096,6 +1101,7 @@ public final class LiveGame implements ScrModCommandSubmitter {
     /**
      * Queues a Resume command while the game is paused.
      */
+    @Override
     public void requestResume() {
         if (this.isPaused()) {
             this.outgoingTurn.queue(new byte[]{(byte) ReplayCommandIds.RESUME});

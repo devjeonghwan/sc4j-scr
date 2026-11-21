@@ -3,6 +3,7 @@ package org.fogofwarlabs.sc4j.scr.game.presentation;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.scr.game.ability.TransportCargo;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrModCommandSubmitter;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrPauseRequester;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplaySession;
 import org.fogofwarlabs.sc4j.scr.game.session.OutgoingTurnBuffer;
 import org.fogofwarlabs.sc4j.scr.game.trigger.eud.region.LocalInterfaceState;
@@ -15,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Connects one game to the local interface: the presentation events the simulation raises for the client (sounds, under-attack alerts, command
  * errors, notifications, message lines) and the local inputs it reads (key states, interface state, view, the local selection, the outgoing turn
- * buffer and turn limits of the session), and the mod command submitter of a live session's local player.
+ * buffer and turn limits of the session), and the mod command submitter and the pause requester of a live session's local player.
  * <p>
  * None of this is simulation state; the state hash does not cover it.
  */
@@ -59,6 +60,10 @@ public final class InterfaceLink {
      * The mod command submitter of the live session's local player, or {@code null} when no session supplies it.
      */
     private @Nullable ScrModCommandSubmitter modCommandSubmitter;
+    /**
+     * The pause requester of the live session's local player, or {@code null} when no session supplies it.
+     */
+    private @Nullable ScrPauseRequester pauseRequester;
 
     /**
      * Creates an {@link InterfaceLink} instance without a local interface or session.
@@ -83,6 +88,7 @@ public final class InterfaceLink {
         this.maximumTurnBytes = UNSUPPLIED;
 
         this.modCommandSubmitter = null;
+        this.pauseRequester      = null;
     }
 
     /**
@@ -219,6 +225,14 @@ public final class InterfaceLink {
     }
 
     /**
+     * @return the requester of the local player's menu pause and resume, which a live session supplies when it starts; {@code null} in a replay
+     * and before the session starts
+     */
+    public @Nullable ScrPauseRequester getPauseRequester() {
+        return this.pauseRequester;
+    }
+
+    /**
      * Sets the local interface's selection that the simulation reports to (live play only; a replay records the resulting commands).
      *
      * @param localSelection the local selection, or {@code null} for a new {@link HeadlessLocalSelection}
@@ -254,6 +268,15 @@ public final class InterfaceLink {
      */
     public void setModCommandSubmitter(@Nullable ScrModCommandSubmitter modCommandSubmitter) {
         this.modCommandSubmitter = modCommandSubmitter;
+    }
+
+    /**
+     * Sets the requester of the local player's menu pause and resume, which the live session owns.
+     *
+     * @param pauseRequester the requester, or {@code null} when the local player requests none
+     */
+    public void setPauseRequester(@Nullable ScrPauseRequester pauseRequester) {
+        this.pauseRequester = pauseRequester;
     }
 
 

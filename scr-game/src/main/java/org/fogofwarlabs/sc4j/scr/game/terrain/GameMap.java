@@ -622,6 +622,23 @@ public final class GameMap implements SightGrid {
     }
 
     /**
+     * Replaces the visible and explored bytes of one tile, as an EUD write of the tile's low WORD does; the terrain bits remain unchanged. The
+     * visible bits last until the game updates the sight again; the explored bits stay.
+     *
+     * @param tileX the horizontal coordinate in tiles
+     * @param tileY the vertical coordinate in tiles
+     * @param bits  the low WORD: bit {@code p} for a player {@code p} that does not see the tile, bit {@code 8 + p} for one that has not explored
+     *              it
+     * @throws IllegalStateException     if expanded terrain flags are unavailable
+     * @throws IndexOutOfBoundsException if the coordinates are outside the map
+     */
+    public void setTileVisibility(int tileX, int tileY, int bits) {
+        int flags = this.getTileFlags(tileX, tileY);
+
+        this.tileFlags[tileY * this.width + tileX] = flags & ~MapTileFlags.NOT_VISIBLE_OR_EXPLORED | bits & MapTileFlags.NOT_VISIBLE_OR_EXPLORED;
+    }
+
+    /**
      * Clears the given per-player visibility bits of every tile, as the reveal cheat does with the masks {@code 0xFFFF} (visible and explored) and
      * {@code 0xFF} (visible).
      *

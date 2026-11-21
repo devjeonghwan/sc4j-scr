@@ -121,6 +121,9 @@ public final class ScrTriggerSystem implements TriggerSystem {
      * {@link TriggerContext#consumeOutcomeDisplay()}), and the local player then receives the presentation output of Play WAV, which
      * is skipped while replaying. The presentation queue {@link TriggerContext#getEvents()} is cleared first. Earlier timer, action
      * and player mutations remain if an owner fails; evaluation does not roll them back.
+     * <p>
+     * A plugin's request of Pause Game or Unpause Game ({@link TriggerContext#requestPauseGame()}) runs after the clocks of the step and before
+     * its triggers; a step that the Pause command keeps from running drops it.
      *
      * @param context           the initialized trigger state
      * @param frameDuration     the duration of the frame in milliseconds
@@ -145,6 +148,8 @@ public final class ScrTriggerSystem implements TriggerSystem {
         context.triggersEnabledWhileGated = enabledWhileGated & BYTE_MASK;
 
         if (phaseGate != 0 && (enabledWhileGated & BYTE_MASK) == 0) {
+            context.pauseRequest = TriggerContext.NO_PAUSE_REQUEST;
+
             return;
         }
 
@@ -208,6 +213,9 @@ public final class ScrTriggerSystem implements TriggerSystem {
                 context.clockCountdown = TriggerContext.CLOCK_COUNTDOWN_RELOAD;
             }
         }
+
+        // A plugin's Pause Game or Unpause Game runs where the actions of the triggers run, after the clocks of this frame.
+        TriggerActionsUtils.applyPauseRequest(context);
 
         int previous = context.cycleCountdown;
 

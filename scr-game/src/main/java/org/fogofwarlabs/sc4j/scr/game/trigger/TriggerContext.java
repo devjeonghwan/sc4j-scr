@@ -123,6 +123,18 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
      */
     static final int VICTORY_COUNTDOWN_RELOAD = 45;
     /**
+     * The pause request of the next trigger step while no plugin requested a change.
+     */
+    static final int NO_PAUSE_REQUEST = 0;
+    /**
+     * The pause request of the next trigger step after a plugin requested Pause Game ({@link #requestPauseGame()}).
+     */
+    static final int PAUSE_REQUEST = 1;
+    /**
+     * The pause request of the next trigger step after a plugin requested Unpause Game ({@link #requestUnpauseGame()}).
+     */
+    static final int UNPAUSE_REQUEST = 2;
+    /**
      * The largest countdown, {@code 99} hours, {@code 59} minutes and {@code 59} seconds.
      */
     static final int COUNTDOWN_MAXIMUM = 359999;
@@ -586,6 +598,10 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     boolean currentRecordInitialized;
     int phaseGate;
     int triggersEnabledWhileGated;
+    /**
+     * The Pause Game or Unpause Game a plugin requested for the next trigger step; outside the hash, as the trigger step takes it.
+     */
+    int pauseRequest;
     boolean replayObservation;
     int instructionLimit;
 
@@ -706,6 +722,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
         this.currentRecordInitialized      = false;
         this.phaseGate                     = 0;
         this.triggersEnabledWhileGated     = 0;
+        this.pauseRequest                  = NO_PAUSE_REQUEST;
         this.replayObservation             = false;
         this.instructionLimit              = 0;
 
@@ -1949,6 +1966,25 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
         this.phaseGate = 0;
 
         return true;
+    }
+
+    /**
+     * Requests Pause Game for the next trigger step, as a plugin does without a trigger record. The step runs the action's rule before its
+     * triggers, after it advanced its clocks with the frame's paused state ({@link ScrTriggerSystem#update}): nothing in a multiplayer session or
+     * while Pause Game already paused the game; otherwise the game is paused, the triggers keep running and the game pause event is raised, until
+     * Unpause Game. A request replaces an earlier one of the same step; a step that the Pause command keeps from running drops it.
+     */
+    public void requestPauseGame() {
+        this.pauseRequest = PAUSE_REQUEST;
+    }
+
+    /**
+     * Requests Unpause Game for the next trigger step, as a plugin does without a trigger record. The step runs the action's rule before its
+     * triggers ({@link ScrTriggerSystem#update}): nothing in a multiplayer session or while Pause Game did not pause the game; otherwise the trigger
+     * pause and the game-paused DWORD clear and the game pause event is raised. A request replaces an earlier one of the same step.
+     */
+    public void requestUnpauseGame() {
+        this.pauseRequest = UNPAUSE_REQUEST;
     }
 
     /**

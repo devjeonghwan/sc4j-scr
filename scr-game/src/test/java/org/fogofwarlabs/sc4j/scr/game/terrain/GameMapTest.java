@@ -193,6 +193,19 @@ final class GameMapTest {
     }
 
     @Test
+    void set_tile_visibility_should_replace_only_the_low_word_of_one_tile() {
+        GameMap map = new GameMap(2, 2, 0, new int[4], new int[]{0x10000, 0x40000, 0x2001FFFF, 0x04010000});
+
+        map.setTileVisibility(0, 1, 0x12345);
+
+        Assertions.assertEquals(0x20012345, map.getTileFlags(0, 1));
+        Assertions.assertEquals(0x10000, map.getTileFlags(0, 0));
+        Assertions.assertEquals(0x04010000, map.getTileFlags(1, 1));
+        Assertions.assertThrows(IndexOutOfBoundsException.class, () -> map.setTileVisibility(2, 0, 0));
+        Assertions.assertThrows(IllegalStateException.class, () -> new GameMap(2, 2, 0, new int[4]).setTileVisibility(0, 0, 0));
+    }
+
+    @Test
     void game_map_rejects_terrain_buffers_with_mismatched_extents() {
         Assertions.assertThrows(IllegalArgumentException.class, () -> new GameMap(2, 2, 0, new int[4], new int[3]));
         Assertions.assertThrows(IllegalArgumentException.class, () -> new GameMap(2, 2, 0, new int[3], new int[4]));
