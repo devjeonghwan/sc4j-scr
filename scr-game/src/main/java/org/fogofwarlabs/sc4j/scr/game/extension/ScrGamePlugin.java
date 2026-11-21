@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.scr.game.extension;
 
+import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
 import org.fogofwarlabs.sc4j.scr.data.format.terrain.TerrainTileset;
 import org.fogofwarlabs.sc4j.scr.data.resource.ScrImageAnimation;
@@ -22,7 +23,8 @@ import org.jetbrains.annotations.Nullable;
  * receive them at the same frame on every peer. It reads the local camera and centers the local view through the game's local view
  * ({@link InterfaceLink#getLocalView()}): the screen position of the last frame ({@link LocalView#getScreenX()}, {@link LocalView#getScreenY()})
  * and the centering of the network game's Center View trigger action ({@link LocalView#centerScreen}), which the client applies after the input
- * method or the frame that called it.
+ * method or the frame that called it. It reads the game screen the client last drew, its size, scale, graphics and font measure, through the
+ * game's local display ({@link InterfaceLink#getLocalDisplay()}).
  */
 public interface ScrGamePlugin {
     /**
@@ -183,6 +185,42 @@ public interface ScrGamePlugin {
      * @return the placement, or {@code null} for the installed console
      */
     default @Nullable ScrConsolePlacement findConsolePlacement() {
+        return null;
+    }
+
+    /**
+     * Finds the picture the console draws instead of its installed art: fitted to the interface height and centered in the interface width,
+     * whole, over the art's place; the console is hit where the picture is not transparent. The same picture is returned while the art is
+     * unchanged.
+     *
+     * @return the picture, or {@code null} for the installed art
+     */
+    default @Nullable Picture findConsoleArt() {
+        return null;
+    }
+
+    /**
+     * Finds the picture the console draws for a resource icon instead of its installed icon and of the frame of {@link #findResourceIcons}: fitted
+     * into the installed icon's box. The same picture is returned while the icon is unchanged.
+     *
+     * @param icon the resource icon frame: {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran
+     *             and Protoss
+     * @return the picture, or {@code null} for the other icons
+     */
+    default @Nullable Picture findResourceIconPicture(int icon) {
+        return null;
+    }
+
+    /**
+     * Finds the shapes, texts and pictures the plugin draws over the game in the frame being drawn. The client draws the list of every plugin, in
+     * extension order, at the real resolution: the {@link ScrDrawList.Space#WORLD} commands above the units and below the console, the
+     * {@link ScrDrawList.Space#MINIMAP} commands above the minimap, and the {@link ScrDrawList.Space#SCREEN} commands above the console, below
+     * the game menus. The client reads the list while it draws and keeps nothing of it but the uploaded pictures, so the plugin may refill the
+     * same list for the next frame.
+     *
+     * @return the list, or {@code null} for none
+     */
+    default @Nullable ScrDrawList findDrawList() {
         return null;
     }
 }

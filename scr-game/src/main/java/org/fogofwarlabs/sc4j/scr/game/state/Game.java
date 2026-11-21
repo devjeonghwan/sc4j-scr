@@ -58,6 +58,7 @@ import org.fogofwarlabs.sc4j.scr.game.order.*;
 import org.fogofwarlabs.sc4j.scr.game.path.*;
 import org.fogofwarlabs.sc4j.scr.game.player.*;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceLink;
+import org.fogofwarlabs.sc4j.scr.game.presentation.StatTextOverrides;
 import org.fogofwarlabs.sc4j.scr.game.presentation.UnitSounds;
 import org.fogofwarlabs.sc4j.scr.game.production.*;
 import org.fogofwarlabs.sc4j.scr.game.replay.ReplayFrameRunner;
@@ -127,6 +128,10 @@ public final class Game implements GameSystem, StateHashContributor {
      * The cheat option byte that permits cheats.
      */
     private static final int CHEATS_PERMITTED = 1;
+    /**
+     * The one-based {@code stat_txt} identifier of the name of unit type {@code 0}; the names of the other types follow.
+     */
+    private static final int FIRST_UNIT_NAME_STRING = 1;
 
     /**
      * The definition of SC:R games without game data, as {@link #register} sets it up; games with game data use the
@@ -2468,7 +2473,8 @@ public final class Game implements GameSystem, StateHashContributor {
      * (unsigned) has an empty name, a type whose map string index ({@code units.dat} {@code Unit Map String}, set by the map's
      * {@code UNIS}/{@code UNIx} settings of a type without its use-default byte) is nonzero is named by that map string, and every other type by
      * its default name. The status panel name (which names a building in progress by its build type), the unit button text and the
-     * placement-failure messages {@code errCANTPLACE_sdd} use it.
+     * placement-failure messages {@code errCANTPLACE_sdd} use it. A type whose {@code stat_txt} name a plugin overrides
+     * ({@link StatTextOverrides}) has its default name, which is the overridden one.
      *
      * @param unitType the unit type
      * @return the map's name, the registered name of an added type, empty for any other type id from {@link ScrUnitIds#NONE} on or a missing
@@ -2487,7 +2493,7 @@ public final class Game implements GameSystem, StateHashContributor {
 
         int stringIndex = gameData.getUnitTypes().getMapStringIndex(unitType);
 
-        if (stringIndex == 0) {
+        if (stringIndex == 0 || this.interfaceLink.getStatTextOverrides().find(unitType + FIRST_UNIT_NAME_STRING) != null) {
             return null;
         }
 

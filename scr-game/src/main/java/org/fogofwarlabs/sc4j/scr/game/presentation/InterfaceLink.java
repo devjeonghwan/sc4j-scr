@@ -34,10 +34,12 @@ public final class InterfaceLink {
     private final @NotNull CommandErrorEvents commandErrorEvents;
     private final @NotNull NotificationEvents notificationEvents;
     private final @NotNull MessageLines messageLines;
+    private final @NotNull StatTextOverrides statTextOverrides;
 
     private final @NotNull LocalKeyStates localKeyStates;
     private final @NotNull LocalInterfaceState localInterface;
     private final @NotNull LocalView localView;
+    private final @NotNull LocalDisplay localDisplay;
     private @NotNull LocalSelection localSelection;
 
     /**
@@ -66,10 +68,12 @@ public final class InterfaceLink {
         this.commandErrorEvents = new CommandErrorEvents();
         this.notificationEvents = new NotificationEvents();
         this.messageLines       = new MessageLines();
+        this.statTextOverrides  = new StatTextOverrides();
 
         this.localKeyStates = new LocalKeyStates();
         this.localInterface = new LocalInterfaceState();
         this.localView      = new LocalView();
+        this.localDisplay   = new LocalDisplay();
         this.localSelection = new HeadlessLocalSelection();
 
         this.outgoingTurn     = null;
@@ -117,6 +121,13 @@ public final class InterfaceLink {
     }
 
     /**
+     * @return the {@code stat_txt} strings shown instead of those of the game's table
+     */
+    public @NotNull StatTextOverrides getStatTextOverrides() {
+        return this.statTextOverrides;
+    }
+
+    /**
      * @return the local key states, a local input that EUD-mode maps can read
      */
     public @NotNull LocalKeyStates getLocalKeyStates() {
@@ -135,6 +146,13 @@ public final class InterfaceLink {
      */
     public @NotNull LocalView getLocalView() {
         return this.localView;
+    }
+
+    /**
+     * @return the game screen of the local machine as the client last drew it, a local input of the interface
+     */
+    public @NotNull LocalDisplay getLocalDisplay() {
+        return this.localDisplay;
     }
 
     /**

@@ -8,11 +8,13 @@ import org.fogofwarlabs.sc4j.engine.client.hud.MinimapPings;
 import org.fogofwarlabs.sc4j.engine.client.render.Texture;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogDefinition;
+import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteFrame;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
 import org.fogofwarlabs.sc4j.scr.client.ChatPrompt;
 import org.fogofwarlabs.sc4j.scr.client.cursor.GameCursor;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
+import org.fogofwarlabs.sc4j.scr.client.ui.PictureTextureCache;
 import org.fogofwarlabs.sc4j.scr.client.ui.PlayerColorUtils;
 import org.fogofwarlabs.sc4j.scr.client.ui.WebImageUtils;
 import org.fogofwarlabs.sc4j.scr.client.ui.command.ButtonDefinition;
@@ -114,6 +116,22 @@ public final class ConsoleView implements AutoCloseable {
      * The index of the map pixels per minimap pixel in the result of {@link #getMinimapGeometry}.
      */
     public static final int MINIMAP_PIXEL_SCALE_INDEX = 6;
+    /**
+     * The index of the minimap bitmap's left screen column in the result of {@link #placeMinimap}.
+     */
+    public static final int MINIMAP_SCREEN_LEFT_INDEX = 0;
+    /**
+     * The index of the minimap bitmap's top screen row in the result of {@link #placeMinimap}.
+     */
+    public static final int MINIMAP_SCREEN_TOP_INDEX = 1;
+    /**
+     * The index of the screen pixels per map pixel in the result of {@link #placeMinimap}.
+     */
+    public static final int MINIMAP_SCREEN_SCALE_INDEX = 2;
+    /**
+     * The number of values {@link #placeMinimap} fills.
+     */
+    public static final int MINIMAP_PLACEMENT_VALUES = 3;
 
     /**
      * The console dialogs a placement moves, in the order of {@link ConsoleLayout#createPlacedLayout}.
@@ -418,6 +436,10 @@ public final class ConsoleView implements AutoCloseable {
     private static final int QUEUE_TRUE_TYPE_SHIFT_Y = -3;
 
     private static final int WHITE_RGBA = 0xFFFFFFFF;
+    /**
+     * The shift of the alpha byte of a packed {@code 0xAARRGGBB} picture colour.
+     */
+    private static final int ART_ALPHA_SHIFT = 24;
     /**
      * Minimap timer {@code 1}: the full refresh every {@code 1000} ms, every {@code 2000} ms in a multiplayer game (byte), where each
      * network turn also refreshes it.
@@ -813,6 +835,13 @@ public final class ConsoleView implements AutoCloseable {
     private final int @NotNull [] resourceIconPalette;
     private @Nullable Texture @NotNull [] resourceIconTextures;
     /**
+     * The game view whose plugins give the pictures of the console art and the resource icons, the art the last draw showed and the textures of
+     * those pictures.
+     */
+    private @Nullable ScrGameView pictureView;
+    private @Nullable Picture shownArt;
+    private final @NotNull PictureTextureCache pictureTextures;
+    /**
      * The renderer's layer textures: terrain with creep, fog (one texel per tile) and dots.
      */
     private int minimapTerrainTexture;
@@ -1023,6 +1052,9 @@ public final class ConsoleView implements AutoCloseable {
         this.resourceIcons         = null;
         this.resourceIconPalette   = new int[RESOURCE_ICON_COLORS];
         this.resourceIconTextures  = new Texture[0];
+        this.pictureView           = null;
+        this.shownArt              = null;
+        this.pictureTextures       = new PictureTextureCache();
         this.minimapTerrainTexture = 0;
         this.minimapFogTexture     = 0;
         this.minimapDotTexture     = 0;
@@ -1294,6 +1326,78 @@ public final class ConsoleView implements AutoCloseable {
         }
 
         this.painter.drawTexture(texture, positionX + frame.getX(), positionY + frame.getY(), frame.getWidth(), frame.getHeight(), WHITE_RGBA);
+    }
+
+    /**
+     * Finds the picture a plugin draws for a resource icon ({@link ScrGameView#findResourceIconPicture}).
+     *
+     * @param icon the resource icon frame
+     * @return the picture, or {@code null} for the frame of {@link #findResourceIcon} or the installed icon
+     */
+    private @Nullable Picture findResourceIconPicture(int icon) {
+        ScrGameView view = this.pictureView;
+
+        return view == null ? null : view.findResourceIconPicture(icon);
+    }
+
+    /**
+     * Draws the picture a plugin draws for a resource icon stretched into the installed icon's box, uploading its texture on first use.
+     *
+     * @param picture the picture
+     * @param left    the interface left of the box
+     * @param top     the interface top of the box
+     * @param width   the interface width of the box
+     * @param height  the interface height of the box
+     */
+    private void drawResourceIconPicture(@NotNull Picture picture, float left, float top, float width, float height) {
+        this.painter.drawTexture(this.pictureTextures.findTexture(this.renderer, picture), left, top, width, height, WHITE_RGBA);
+    }
+
+    /**
+     * Draws the picture a plugin draws instead of the console art ({@link ScrGameView#findConsoleArt}): fitted to the interface height and
+     * centered in the interface width, and remembers it for the hit test ({@link #isConsoleHit}).
+     *
+     * @param console the console layout
+     * @param art     the picture
+     */
+    private void drawReplacedArt(@NotNull ConsoleLayout console, @NotNull Picture art) {
+        float scale = console.getScale();
+
+        this.shownArt = art;
+        this.renderer.drawTexture(this.pictureTextures.findTexture(this.renderer, art),
+                                  console.toScreenX(getArtLeft(console, art)), console.toScreenY(0),
+                                  getArtWidth(art) * scale, ConsoleLayout.INTERFACE_HEIGHT * scale,
+                                  WHITE_RGBA);
+    }
+
+    /**
+     * @return the interface width of a replaced console art fitted to the interface height
+     */
+    private static float getArtWidth(@NotNull Picture art) {
+        return (float) art.getWidth() * ConsoleLayout.INTERFACE_HEIGHT / art.getHeight();
+    }
+
+    /**
+     * @return the interface column of the left edge of a replaced console art centered in the interface width
+     */
+    private static float getArtLeft(@NotNull ConsoleLayout console, @NotNull Picture art) {
+        return (console.getInterfaceWidth() - getArtWidth(art)) / 2;
+    }
+
+    /**
+     * Tests whether an interface point is on a replaced console art: inside it and not transparent there.
+     *
+     * @return {@code true} if the art's pixel at the point has a nonzero alpha, {@code false} otherwise
+     */
+    private static boolean isArtHit(@NotNull ConsoleLayout console, @NotNull Picture art, float interfaceX, float interfaceY) {
+        int column = (int) Math.floor((interfaceX - getArtLeft(console, art)) * art.getHeight() / ConsoleLayout.INTERFACE_HEIGHT);
+        int row = (int) Math.floor(interfaceY * art.getHeight() / ConsoleLayout.INTERFACE_HEIGHT);
+
+        if (column < 0 || row < 0 || column >= art.getWidth() || row >= art.getHeight()) {
+            return false;
+        }
+
+        return art.getColor().getValue(row * art.getWidth() + column) >>> ART_ALPHA_SHIFT != 0;
     }
 
     /**
@@ -1574,6 +1678,12 @@ public final class ConsoleView implements AutoCloseable {
 
         if (console == null || art == null || this.layoutReplay) {
             return false;
+        }
+
+        Picture replacedArt = this.shownArt;
+
+        if (replacedArt != null) {
+            return isArtHit(console, replacedArt, console.toInterfaceX(screenX), console.toInterfaceY(screenY));
         }
 
         ScrConsolePlacement shownPlacement = this.placement;
@@ -2058,6 +2168,9 @@ public final class ConsoleView implements AutoCloseable {
         // The interface loop pumps the client's timer list once; in game this is the console's frame.
         this.timers.pump((int) UiClockUtils.getHostTimeMilliseconds());
 
+        this.pictureView = model.getView();
+        this.shownArt    = null;
+
         // Text path, shared with the renderer's developer text.
         this.fonts.setViewport(getAssetSet(this.hdScale), width, height);
 
@@ -2147,8 +2260,11 @@ public final class ConsoleView implements AutoCloseable {
 
         float scale = console.getScale();
         ScrConsolePlacement shownPlacement = this.placement;
+        Picture replacedArt = model.getView().findConsoleArt();
 
-        if (shownPlacement != null && shownPlacement.isMasked()) {
+        if (replacedArt != null) {
+            this.drawReplacedArt(console, replacedArt);
+        } else if (shownPlacement != null && shownPlacement.isMasked()) {
             this.drawMaskedArt(console, loaded, race, shownPlacement);
         } else if (this.hdScale == 0) {
             this.renderer.drawTexture(this.consoleTexture,
@@ -2359,7 +2475,8 @@ public final class ConsoleView implements AutoCloseable {
             DialogLayout.Control control = resources.getControl(counter.getControlIdentifier());
             int icon = counter.getIcon();
             InterfaceAssets.ScaledImage image = this.getSheetImage(loaded, RESOURCE_SHEET, icon);
-            SpriteFrame replaced = this.findResourceIcon(icon);
+            Picture picture = this.findResourceIconPicture(icon);
+            SpriteFrame replaced = picture == null ? this.findResourceIcon(icon) : null;
             int iconWidth = replaced == null ? image.getInterfaceWidth() : replaced.getX() + replaced.getWidth();
             int textWidth = (int) Math.ceil(font.measure(counter.getText(), true)) + RESOURCE_TEXT_CLIP_PIXEL;
             // The slot edges are integers, so the placed item edges are integers too.
@@ -2370,7 +2487,9 @@ public final class ConsoleView implements AutoCloseable {
 
             this.painter.begin(viewport, loaded);
 
-            if (replaced == null) {
+            if (picture != null) {
+                this.drawResourceIconPicture(picture, iconX, iconY, iconWidth, image.getInterfaceHeight());
+            } else if (replaced == null) {
                 this.painter.drawImageFrame(this.painter.getSheetFrame(RESOURCE_SHEET, icon),
                                             iconX, iconY,
                                             iconWidth, image.getInterfaceHeight(),
@@ -2518,9 +2637,16 @@ public final class ConsoleView implements AutoCloseable {
                                      int frame) throws IOException {
         InterfaceAssets.ScaledImage image = this.getSheetImage(loaded, RESOURCE_SHEET, frame);
         int y = control.getY() + (control.getHeight() - image.getInterfaceHeight() + 1) / 2;
+        Picture picture = this.findResourceIconPicture(frame);
         SpriteFrame replaced = this.findResourceIcon(frame);
 
         this.painter.begin(transform, loaded);
+
+        if (picture != null) {
+            this.drawResourceIconPicture(picture, control.getX(), y, image.getInterfaceWidth(), image.getInterfaceHeight());
+
+            return;
+        }
 
         if (replaced != null) {
             this.drawResourceIcon(frame, replaced, control.getX(), y);
@@ -4641,6 +4767,31 @@ public final class ConsoleView implements AutoCloseable {
     }
 
     /**
+     * Places map positions on the minimap bitmap as it was last drawn: a map pixel {@code (x, y)} is drawn at the screen position
+     * {@code (left + x * scale, top + y * scale)}.
+     *
+     * @param placement receives the screen left ({@link #MINIMAP_SCREEN_LEFT_INDEX}), the screen top ({@link #MINIMAP_SCREEN_TOP_INDEX}) and the
+     *                  screen pixels per map pixel ({@link #MINIMAP_SCREEN_SCALE_INDEX}), {@link #MINIMAP_PLACEMENT_VALUES} values
+     * @return {@code true} if the console shows a minimap, {@code false} otherwise, the placement then unchanged
+     */
+    public boolean placeMinimap(float @NotNull [] placement) {
+        ConsoleLayout console = this.layout;
+        MinimapImage image = this.minimapImage;
+
+        if (console == null || image == null || !this.isConsoleDialogShown(console.getMinimap())) {
+            return false;
+        }
+
+        DialogLayout.Control area = console.getMinimap().getControl(MINIMAP_AREA_CONTROL);
+
+        placement[MINIMAP_SCREEN_LEFT_INDEX]  = console.toScreenX(getMinimapLeft(area, image));
+        placement[MINIMAP_SCREEN_TOP_INDEX]   = console.toScreenY(getMinimapTop(area, image));
+        placement[MINIMAP_SCREEN_SCALE_INDEX] = console.getScale() * (1 << image.getZoom()) / image.getDivisor() / TerrainTileset.TILE_SIZE;
+
+        return true;
+    }
+
+    /**
      * Returns the screen rectangle of the minimap bitmap as the window's pointer clip, for the drag confinement.
      *
      * @return the clip in screen pixels, or {@code null} without a console or minimap
@@ -5420,6 +5571,7 @@ public final class ConsoleView implements AutoCloseable {
         IgnoreException.execute(
                 this::releaseMinimapTextures,
                 this::releaseConsoleArt,
+                this.pictureTextures::close,
                 this.gameCursor::release,
                 this.painter::release,
                 this.images::releaseAll

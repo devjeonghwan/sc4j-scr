@@ -11,8 +11,8 @@ import java.util.Map;
  * How a plugin places the console of a classic screen: the top-left corners of console dialogs and of their controls moved in the classic screen,
  * the dialogs and controls not shown, the mask of the pixels where the console and its dialogs are shown, and the pictures the dialogs show over it
  * ({@link #getSurfaces()}). A dialog or control that is neither moved nor hidden keeps its place in its dialog; a control is named by its
- * identifier in the dialog's definition. Without a mask the whole console is shown. The change count grows with every move, every hidden dialog or
- * control and every mask change.
+ * identifier in the dialog's definition. Without a mask the whole console is shown. The change count grows with every move, every hidden or
+ * restored dialog, every hidden control and every mask change.
  */
 public final class ScrConsolePlacement {
     /**
@@ -159,6 +159,23 @@ public final class ScrConsolePlacement {
         }
 
         this.hidden[index] = true;
+        this.changeCount++;
+    }
+
+    /**
+     * Restores a dialog to its installed place: neither moved nor hidden.
+     *
+     * @param dialog the dialog
+     */
+    public void restoreDialog(@NotNull Dialog dialog) {
+        int index = dialog.ordinal();
+
+        if (!this.moved[index] && !this.hidden[index]) {
+            return;
+        }
+
+        this.moved[index]  = false;
+        this.hidden[index] = false;
         this.changeCount++;
     }
 

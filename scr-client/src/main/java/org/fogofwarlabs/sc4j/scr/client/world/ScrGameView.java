@@ -8,6 +8,7 @@ import org.fogofwarlabs.sc4j.engine.content.faction.Faction;
 import org.fogofwarlabs.sc4j.engine.content.type.OrderType;
 import org.fogofwarlabs.sc4j.engine.content.type.UnitType;
 import org.fogofwarlabs.sc4j.engine.player.Player;
+import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
 import org.fogofwarlabs.sc4j.engine.terrain.TerrainGrid;
 import org.fogofwarlabs.sc4j.scr.content.ScrResources;
@@ -21,6 +22,7 @@ import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
 import org.fogofwarlabs.sc4j.scr.game.combat.ScrShieldLayer;
 import org.fogofwarlabs.sc4j.scr.game.combat.UnitTargeting;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrScreenOverlay;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameFrame;
@@ -28,6 +30,7 @@ import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.path.PathPool;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.ImageScriptPreview;
+import org.fogofwarlabs.sc4j.scr.game.presentation.StatTextOverrides;
 import org.fogofwarlabs.sc4j.scr.game.production.PlacementEvaluator;
 import org.fogofwarlabs.sc4j.scr.game.production.ScrRequirementSystem;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
@@ -666,6 +669,69 @@ public final class ScrGameView implements GameView {
         }
 
         return null;
+    }
+
+    /**
+     * Finds the text a plugin shows for a {@code stat_txt} string ({@link StatTextOverrides}).
+     *
+     * @param identifier the one-based string identifier
+     * @return the text, or {@code null} if no plugin overrides the string
+     */
+    public @Nullable String findStatTextOverride(int identifier) {
+        return this.game.getInterfaceLink().getStatTextOverrides().find(identifier);
+    }
+
+    /**
+     * Finds the picture the console draws instead of its installed art: the first picture a plugin of the game gives
+     * ({@link ScrGamePlugin#findConsoleArt}).
+     *
+     * @return the picture, or {@code null} for the installed art
+     */
+    public @Nullable Picture findConsoleArt() {
+        for (ScrGamePlugin plugin : this.game.getPlugins()) {
+            Picture art = plugin.findConsoleArt();
+
+            if (art != null) {
+                return art;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Finds the picture the console draws for a resource icon: the first picture a plugin of the game gives
+     * ({@link ScrGamePlugin#findResourceIconPicture}).
+     *
+     * @param icon the resource icon frame
+     * @return the picture, or {@code null} for the icon of {@link #findResourceIcons} or the installed icon
+     */
+    public @Nullable Picture findResourceIconPicture(int icon) {
+        for (ScrGamePlugin plugin : this.game.getPlugins()) {
+            Picture picture = plugin.findResourceIconPicture(icon);
+
+            if (picture != null) {
+                return picture;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Hands the commands of one space of every plugin's draw list ({@link ScrGamePlugin#findDrawList}) to a painter, in extension order.
+     *
+     * @param space   the space
+     * @param painter the painter
+     */
+    public void paintDrawLists(ScrDrawList.@NotNull Space space, ScrDrawList.@NotNull Painter painter) {
+        for (ScrGamePlugin plugin : this.game.getPlugins()) {
+            ScrDrawList list = plugin.findDrawList();
+
+            if (list != null) {
+                list.paint(space, painter);
+            }
+        }
     }
 
     /**

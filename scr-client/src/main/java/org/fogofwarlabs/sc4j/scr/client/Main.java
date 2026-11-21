@@ -62,6 +62,7 @@ import org.fogofwarlabs.sc4j.scr.content.ScrRaceIds;
 import org.fogofwarlabs.sc4j.scr.content.ScrUnitIds;
 import org.fogofwarlabs.sc4j.scr.core.FileNameUtils;
 import org.fogofwarlabs.sc4j.scr.core.GameSettings;
+import org.fogofwarlabs.sc4j.scr.data.format.casc.AssetResolver;
 import org.fogofwarlabs.sc4j.scr.data.format.casc.GameLocaleUtils;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkFile;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkUnit;
@@ -73,6 +74,7 @@ import org.fogofwarlabs.sc4j.scr.data.resource.ScrResourceProvider;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrScreenOverlay;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
@@ -1141,6 +1143,12 @@ public final class Main {
     private final @NotNull ScreenOverlayTexture screenOverlay;
     private final @NotNull ScreenOverlayTexture consoleSurfaces;
     private final int @NotNull [] screenOverlayCycled;
+    /**
+     * The painter of the plugins' draw lists ({@link #preparePluginPainter}), made with the interface renderer, and the minimap placement of
+     * this frame.
+     */
+    private @Nullable PluginDrawPainter pluginPainter;
+    private final float @NotNull [] minimapPlacement;
 
     private int seekSequenceIndex;
 
@@ -1427,6 +1435,8 @@ public final class Main {
         this.screenOverlay       = new ScreenOverlayTexture(PaletteAnimation.COLOR_COUNT);
         this.consoleSurfaces     = new ScreenOverlayTexture(PaletteAnimation.COLOR_COUNT);
         this.screenOverlayCycled = new int[PaletteAnimation.COLOR_COUNT];
+        this.pluginPainter       = null;
+        this.minimapPlacement    = new float[ConsoleView.MINIMAP_PLACEMENT_VALUES];
 
         this.seekSequenceIndex = -1;
 
@@ -4390,6 +4400,12 @@ public final class Main {
             this.consoleView.close();
         }
 
+        if (this.pluginPainter != null) {
+            this.pluginPainter.close();
+        }
+
+        this.pluginPainter = null;
+
         this.consoleView    = null;
         this.consoleModel   = null;
         this.worldInterface = null;
@@ -4631,8 +4647,16 @@ public final class Main {
             this.requireWorldInterface().expireMarkers(this.requireSession().getView().getCurrentFrame(), WorldInterface.MARKER_LIFETIME);
 
             ClientCamera camera = this.requireSession().getCamera();
+            ScrGameView gameView = this.requireSession().getView();
+            boolean plugins = gameView.hasPlugins();
+            PluginDrawPainter pluginPainter = plugins ? this.preparePluginPainter() : null;
 
             this.beginConsoleTarget();
+
+            if (pluginPainter != null) {
+                pluginPainter.setSpace(camera.worldToScreenX(0), camera.worldToScreenY(0), camera.getZoom(), camera.getZoom());
+                gameView.paintDrawLists(ScrDrawList.Space.WORLD, pluginPainter);
+            }
 
             if (this.debugView) {
                 this.debugOverlay.draw(this.requireSession().getView(), this.getInterfaceRenderer(), new DebugOverlay.View() {
@@ -4686,8 +4710,6 @@ public final class Main {
             this.consoleView.setShowTimer(this.options.getInterfaceSettings().isGameTimer());
             this.updateApmDisplay(perspective == CommandCard.Perspective.NATIVE_REPLAY);
 
-            ScrGameView gameView = this.requireSession().getView();
-            boolean plugins = gameView.hasPlugins();
             ScrConsolePlacement placement = plugins ? gameView.findConsolePlacement() : null;
 
             if (plugins) {
@@ -4706,6 +4728,17 @@ public final class Main {
                 if (placement != null) {
                     this.drawScreenOverlay(placement.getSurfaces(), this.consoleSurfaces);
                 }
+
+                if (pluginPainter != null && this.consoleView.placeMinimap(this.minimapPlacement)) {
+                    this.drawMinimapLists(gameView, pluginPainter);
+                }
+            }
+
+            if (pluginPainter != null) {
+                float scale = this.gameViewport.getScale();
+
+                pluginPainter.setSpace(this.gameViewport.toScreenX(0), this.gameViewport.toScreenY(0), scale, scale);
+                gameView.paintDrawLists(ScrDrawList.Space.SCREEN, pluginPainter);
             }
 
             if (this.debugView) {
@@ -4718,6 +4751,80 @@ public final class Main {
             this.getInterfaceRenderer().end();
         } catch (IOException | RuntimeException exception) {
             this.setAssetWarning("Console: " + exception);
+        }
+    }
+
+    /**
+     * Prepares the painter of the plugins' draw lists for this frame, made again when the interface renderer changed, and supplies the game screen
+     * of the frame to the game's local display: the interface size, the real pixels per interface unit (those of the SD interface layer while one
+     * is drawn), the graphics and the font measure.
+     *
+     * @return the painter, or {@code null} without an interface renderer
+     */
+    private @Nullable PluginDrawPainter preparePluginPainter() {
+        InterfaceRenderer interfaceRenderer = this.getInterfaceRenderer();
+
+        if (interfaceRenderer == null || this.clientContext == null) {
+            return null;
+        }
+
+        PluginDrawPainter painter = this.pluginPainter;
+
+        if (painter == null || !painter.isFor(interfaceRenderer)) {
+            if (painter != null) {
+                painter.close();
+            }
+
+            painter            = new PluginDrawPainter(interfaceRenderer, this.clientContext.getGameFonts());
+            this.pluginPainter = painter;
+        }
+
+        LocalDisplay display = this.requireSession().getPresentation().getInterfaceLink().getLocalDisplay();
+        float pixels = this.sdInterfaceFramebuffer != 0 ? (float) this.sdInterfaceHeight / Math.max(1, this.framebufferHeight) : 1;
+        float scale = this.gameViewport.getScale() * pixels;
+        HdRenderAssets.Quality quality = this.worldSkin.getQuality();
+
+        if (scale > 0) {
+            display.setScreen(this.gameViewport.getInterfaceWidth(), GameViewport.INTERFACE_HEIGHT, scale,
+                              quality == null
+                              ? AssetResolver.AssetSet.SD
+                              : quality == HdRenderAssets.Quality.HD2 ? AssetResolver.AssetSet.HD2 : AssetResolver.AssetSet.HD);
+        }
+
+        display.setTextMeasure(painter);
+
+        return painter;
+    }
+
+    /**
+     * Draws the minimap commands of the plugins' draw lists on the minimap placed in {@link #minimapPlacement}, limited to the minimap bitmap,
+     * then limits the drawing to the game screen again.
+     *
+     * @param gameView the game view
+     * @param painter  the painter
+     */
+    private void drawMinimapLists(@NotNull ScrGameView gameView, @NotNull PluginDrawPainter painter) {
+        InterfaceRenderer interfaceRenderer = this.getInterfaceRenderer();
+
+        if (interfaceRenderer == null) {
+            return;
+        }
+
+        float left = this.minimapPlacement[ConsoleView.MINIMAP_SCREEN_LEFT_INDEX];
+        float top = this.minimapPlacement[ConsoleView.MINIMAP_SCREEN_TOP_INDEX];
+        float scale = this.minimapPlacement[ConsoleView.MINIMAP_SCREEN_SCALE_INDEX];
+        int clipLeft = (int) Math.floor(left);
+        int clipTop = (int) Math.floor(top);
+        int clipRight = (int) Math.ceil(left + gameView.getMap().getWidth() * TerrainTileset.TILE_SIZE * scale);
+        int clipBottom = (int) Math.ceil(top + gameView.getMap().getHeight() * TerrainTileset.TILE_SIZE * scale);
+
+        interfaceRenderer.setClip(clipLeft, clipTop, clipRight - clipLeft, clipBottom - clipTop);
+        painter.setSpace(left, top, scale, this.gameViewport.getScale());
+
+        try {
+            gameView.paintDrawLists(ScrDrawList.Space.MINIMAP, painter);
+        } finally {
+            interfaceRenderer.setClip(Math.round(this.gameViewport.getGameLeft()), 0, Math.round(this.gameViewport.getGameWidth()), this.viewHeight);
         }
     }
 
