@@ -23,7 +23,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Checks that the Beacon.Link room list's search row starts under its title as the local network game list's list does, and that a double

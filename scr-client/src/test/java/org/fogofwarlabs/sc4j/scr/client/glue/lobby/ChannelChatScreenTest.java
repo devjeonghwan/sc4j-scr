@@ -2,7 +2,10 @@ package org.fogofwarlabs.sc4j.scr.client.glue.lobby;
 
 import org.fogofwarlabs.sc4j.engine.client.input.Key;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.LinkFailure;
-import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.*;
+import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.PlayerPresence;
+import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.PlayerStatus;
+import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.RecordingCommunitySession;
+import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.Whisper;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChannelChat;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueNavigator;
