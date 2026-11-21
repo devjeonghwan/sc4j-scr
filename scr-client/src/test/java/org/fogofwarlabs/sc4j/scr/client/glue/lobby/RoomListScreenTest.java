@@ -35,8 +35,8 @@ import java.util.*;
  * with the channel chat under them (more lines than it shows), SD at 640x480 in English (also with the filter settings open, and with the
  * password popup a private room's join opens) and HD at 1920x1080 in Korean; the game creation over a map folder of three maps and a
  * sub-folder with one recently hosted map, its create page with a private game and its map browser, in both; and the local network's game
- * creation over the same folder with a lower turn rate chosen on its turn rate slider, in both; and that the room list's search row starts
- * under its title as the local network game list's list does, that a full room list keeps whole rows above the
+ * creation over the same folder with the lowest fixed turn rate chosen on its turn rate slider, in both; and that the room list's search
+ * row starts under its title as the local network game list's list does, that a full room list keeps whole rows above the
  * panel art's frame, that the filter's check box and its label stand on one line, and that a double press on a room while the list slides
  * away starts no join.
  * <p>
@@ -83,9 +83,9 @@ final class RoomListScreenTest {
     private static final float PRIVATE_X = 285;
     private static final float PRIVATE_Y = 126;
     /**
-     * A point of the local network's turn rate slider in dialog pixels, on the track left of the thumb, which starts at the highest rate.
+     * A point on the local network's turn rate slider's track in dialog pixels, right of the thumb, which starts at the dynamic turn rate.
      */
-    private static final float LAN_TURN_RATE_X = 200;
+    private static final float LAN_TURN_RATE_X = 280;
     private static final float LAN_TURN_RATE_Y = 318;
     /**
      * The room list's Join button's center in dialog pixels (the dialog's Ok).
@@ -163,12 +163,12 @@ final class RoomListScreenTest {
             Map.entry(KOREAN_FILTER_FRAME, "730584fc8b038f1468a89a264e64dd5043eeb9de5986053c738aa6f4ffdb6db1"),
             Map.entry(ENGLISH_PASSWORD_FRAME, "41c89793481840f882e2dad8bf7d1040cf7290ab6ab0f1debd25dd60ef8fc52d"),
             Map.entry(KOREAN_PASSWORD_FRAME, "f8543f4b6eb5e964948e29027042f9f27092deddd26f3bb149793f2c6e8bb245"),
-            Map.entry(ENGLISH_CREATE_FRAME, "1540b80aa81f214217c8eedd26c39b204c4d7640418c29abf89043a8af3b3181"),
-            Map.entry(KOREAN_CREATE_FRAME, "f60d46492ea99dd457a47f3fd734bb32bde2c208877b22dd8d5f21e10a9619f5"),
+            Map.entry(ENGLISH_CREATE_FRAME, "4c0e64820c745120c060fb87003a1e71cbc6078022b1dc479888c7b343a899ad"),
+            Map.entry(KOREAN_CREATE_FRAME, "a467cd0634c93094a8e3dcfac32c360e191c38ba5e57bc07189e598aa2811d89"),
             Map.entry(ENGLISH_MAPS_FRAME, "241457698af22b4c271d9670703ecb4f156a3a817f7c3bf19bb7b30eec0bb4d4"),
             Map.entry(KOREAN_MAPS_FRAME, "407d4c490a3f384a1c00c0f4fc9de240ae789f2a082cb378159be1c71a32565b"),
-            Map.entry(ENGLISH_LAN_CREATE_FRAME, "205640c89e068d4be8cfd99116269b83709d9e9a00ead7609d064db8c465d0b1"),
-            Map.entry(KOREAN_LAN_CREATE_FRAME, "05d3a842c93d2753c6e46c26bc08e8c19dd089a6b41faeaed6bef1c7acf8bcef")
+            Map.entry(ENGLISH_LAN_CREATE_FRAME, "fadc267498454261891800d377b08d1fefae6f2ba38688ec7d367449dd40f9c9"),
+            Map.entry(KOREAN_LAN_CREATE_FRAME, "b1c9d4ecd922292bed7ecfb6fe5169bd9d9a3abc9a0646c4446515dc54f91aa3")
     );
 
     private static @NotNull PlayerPresence createPlayer(int key, @NotNull String name, @NotNull PlayerStatus status) {
