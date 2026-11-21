@@ -757,6 +757,17 @@ public final class WorldInterface implements WorldOverlayState, LocalSelection {
     }
 
     /**
+     * Shows units that a game change selected for the local player as the local selection, as an own selection shows them before its command
+     * runs ({@link ConsoleModel#showPendingSelection}): the health bars and selection circles move to them, nothing is sent and no sound plays.
+     *
+     * @param units the selected units in slot order, at most {@link LocalSelection#CAPACITY}
+     */
+    @Override
+    public void showSelection(@NotNull Unit @NotNull [] units) {
+        this.console.showPendingSelection(units);
+    }
+
+    /**
      * Returns the neutral target cursor while targeting is active, otherwise the arrow.
      *
      * @return the cursor over the minimap

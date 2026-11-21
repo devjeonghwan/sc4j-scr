@@ -77,6 +77,16 @@ public interface ScrGamePlugin {
     }
 
     /**
+     * Called on the local machine after each game frame the client plays, live or replayed, at every playback speed and for a single step of a
+     * paused replay; not for the frames a replay seek runs. The local view and interface state are those the client supplied for the frame, and
+     * the client applies a camera move of the plugin ({@link LocalView#moveScreen}) before it draws the frame.
+     *
+     * @param frame the number of the frame that ran, the game's current frame
+     */
+    default void onFramePlayed(int frame) {
+    }
+
+    /**
      * Finds the graphics a sprite image draws instead of its installed GRP: indexed frames that the image's frame index selects, decoded when drawn.
      * Selection circles, health bars and the selection tests keep the installed graphics.
      *

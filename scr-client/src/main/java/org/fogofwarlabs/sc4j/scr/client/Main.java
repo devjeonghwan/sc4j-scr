@@ -73,6 +73,7 @@ import org.fogofwarlabs.sc4j.scr.data.resource.ScrResourceProvider;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrScreenOverlay;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameSpeed;
 import org.fogofwarlabs.sc4j.scr.game.map.MapStringSection;
@@ -91,6 +92,7 @@ import org.fogofwarlabs.sc4j.scr.game.session.setup.GameTemplate;
 import org.fogofwarlabs.sc4j.scr.game.session.setup.MeleeGameSetup;
 import org.fogofwarlabs.sc4j.scr.game.sprite.SpriteImage;
 import org.fogofwarlabs.sc4j.scr.game.sprite.script.load.ScrIscriptImporter;
+import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.state.GameEnd;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.scr.game.trigger.TransmissionPortraitTimer;
@@ -3138,6 +3140,10 @@ public final class Main {
 
             boolean stepped = this.requireSession().stepFrame(audible);
 
+            if (stepped) {
+                this.notifyFramePlayed();
+            }
+
             this.applyLocalViewWrite();
             // Trigger presentation (text, transmissions, pings, WAV) follows the trigger local player in replays too.
             this.drainTriggerEvents();
@@ -5045,8 +5051,9 @@ public final class Main {
             public void step() {
                 Main.this.playing = false;
 
-                if (Main.this.session != null) {
-                    Main.this.requireSession().stepFrame();
+                if (Main.this.session != null && Main.this.requireSession().stepFrame()) {
+                    Main.this.notifyFramePlayed();
+                    Main.this.applyLocalViewWrite();
                 }
             }
 
@@ -7392,6 +7399,18 @@ public final class Main {
         }
 
         return true;
+    }
+
+    /**
+     * Tells the game's plugins that the client played a frame ({@link ScrGamePlugin#onFramePlayed}).
+     */
+    private void notifyFramePlayed() {
+        Game game = this.requireSession().getGame();
+        int frame = game.getCurrentFrame();
+
+        for (ScrGamePlugin plugin : game.getPlugins()) {
+            plugin.onFramePlayed(frame);
+        }
     }
 
     /**
