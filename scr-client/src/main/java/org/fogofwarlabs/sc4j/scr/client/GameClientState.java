@@ -926,7 +926,7 @@ final class GameClientState implements InputListener {
                          minimap[ConsoleView.MINIMAP_PIXEL_SCALE_INDEX];
             int pointY = Math.clamp(minimap[ConsoleView.MINIMAP_LOCAL_Y_INDEX], 0, minimap[ConsoleView.MINIMAP_HEIGHT_INDEX] - 1) *
                          minimap[ConsoleView.MINIMAP_PIXEL_SCALE_INDEX];
-            boolean targeting = this.main.consoleModel != null && this.main.consoleModel.getMode().getUnitTargetOrder() >= 0;
+            boolean targeting = this.main.consoleModel != null && this.main.consoleModel.getMode().isTargeting();
             boolean placing = this.main.worldInterface != null && this.main.worldInterface.getPlacementType() >= 0;
             boolean alternateHeld = KeyModifier.ALT.isIn(modifiers);
 

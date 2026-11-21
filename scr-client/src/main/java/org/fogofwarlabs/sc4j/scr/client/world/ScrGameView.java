@@ -21,6 +21,7 @@ import org.fogofwarlabs.sc4j.scr.game.ability.TransportCargo;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
 import org.fogofwarlabs.sc4j.scr.game.combat.ScrShieldLayer;
 import org.fogofwarlabs.sc4j.scr.game.combat.UnitTargeting;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrButtonInput;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
@@ -31,6 +32,7 @@ import org.fogofwarlabs.sc4j.scr.game.order.UnitSelection;
 import org.fogofwarlabs.sc4j.scr.game.path.PathPool;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.ImageScriptPreview;
+import org.fogofwarlabs.sc4j.scr.game.presentation.ScrButtonStates;
 import org.fogofwarlabs.sc4j.scr.game.presentation.StatTextOverrides;
 import org.fogofwarlabs.sc4j.scr.game.production.PlacementEvaluator;
 import org.fogofwarlabs.sc4j.scr.game.production.ScrRequirementSystem;
@@ -680,6 +682,29 @@ public final class ScrGameView implements GameView {
      */
     public @Nullable String findStatTextOverride(int identifier) {
         return this.game.getInterfaceLink().getStatTextOverrides().find(identifier);
+    }
+
+    /**
+     * @return the local command card state the game plugins set: the script button states and the requested button set
+     */
+    public @NotNull ScrButtonStates getButtonStates() {
+        return this.game.getInterfaceLink().getButtonStates();
+    }
+
+    /**
+     * Hands a command card button input to the game's plugins in extension order until one consumes it ({@link ScrGamePlugin#onButtonInput}).
+     *
+     * @param input the button input
+     * @return {@code true} if a plugin consumed the input, {@code false} otherwise
+     */
+    public boolean deliverButtonInput(@NotNull ScrButtonInput input) {
+        for (ScrGamePlugin plugin : this.game.getPlugins()) {
+            if (plugin.onButtonInput(input)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

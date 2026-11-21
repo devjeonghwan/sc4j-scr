@@ -35,6 +35,7 @@ public final class InterfaceLink {
     private final @NotNull NotificationEvents notificationEvents;
     private final @NotNull MessageLines messageLines;
     private final @NotNull StatTextOverrides statTextOverrides;
+    private final @NotNull ScrButtonStates buttonStates;
 
     private final @NotNull LocalKeyStates localKeyStates;
     private final @NotNull LocalInterfaceState localInterface;
@@ -69,6 +70,7 @@ public final class InterfaceLink {
         this.notificationEvents = new NotificationEvents();
         this.messageLines       = new MessageLines();
         this.statTextOverrides  = new StatTextOverrides();
+        this.buttonStates       = new ScrButtonStates();
 
         this.localKeyStates = new LocalKeyStates();
         this.localInterface = new LocalInterfaceState();
@@ -125,6 +127,13 @@ public final class InterfaceLink {
      */
     public @NotNull StatTextOverrides getStatTextOverrides() {
         return this.statTextOverrides;
+    }
+
+    /**
+     * @return the local command card state a game plugin sets: the script button states and the requested button set
+     */
+    public @NotNull ScrButtonStates getButtonStates() {
+        return this.buttonStates;
     }
 
     /**

@@ -1912,7 +1912,7 @@ public final class Main {
             return LOCATION_PROMPT_KEY;
         }
 
-        if (this.consoleModel != null && this.consoleModel.getMode().getUnitTargetOrder() >= 0) {
+        if (this.consoleModel != null && this.consoleModel.getMode().isTargeting()) {
             return TARGET_PROMPT_KEY;
         }
 
@@ -7207,7 +7207,7 @@ public final class Main {
     void pressEscape() {
         boolean targetingOrPlacing = this.worldInterface != null &&
                                      (this.worldInterface.getPlacementType() >= 0 ||
-                                      this.consoleModel != null && this.consoleModel.getMode().getUnitTargetOrder() >= 0);
+                                      this.consoleModel != null && this.consoleModel.getMode().isTargeting());
 
         if (targetingOrPlacing) {
             this.worldInterface.cancelMode();
@@ -7500,7 +7500,7 @@ public final class Main {
 
         if (activated >= 0) {
             boolean releasedQueued = press.isReleasedQueued();
-            CommandInput.Result commandResult = this.worldInterface.getCommandInput().pressSlot(activated, releasedQueued);
+            CommandInput.Result commandResult = this.worldInterface.getCommandInput().pressSlot(activated, releasedQueued, true);
 
             LOGGER.debug("UI HOTKEY RELEASE: slot " + activated + " " + commandResult);
         }
@@ -7638,7 +7638,7 @@ public final class Main {
 
         if (released >= 0) {
             boolean releasedQueued = press.isReleasedQueued();
-            CommandInput.Result commandResult = this.worldInterface.getCommandInput().pressSlot(released, releasedQueued);
+            CommandInput.Result commandResult = this.worldInterface.getCommandInput().pressSlot(released, releasedQueued, true);
 
             LOGGER.debug("UI HOTKEY RELEASE: slot " + released + " " + commandResult);
         }

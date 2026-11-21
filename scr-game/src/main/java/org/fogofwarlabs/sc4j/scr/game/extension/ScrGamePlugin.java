@@ -17,8 +17,9 @@ import org.jetbrains.annotations.Nullable;
  * state, so the state hash, saves, replays and network games are the same with or without it. Its methods run on the thread that runs and draws
  * the game.
  * <p>
- * A plugin turns local input into simulation input only through mod commands: it sees the local keyboard, mouse and chat lines
- * ({@link #onKeyInput}, {@link #onMouseInput}, {@link #onChatInput}) and queues mod commands of the local player through the game's submitter
+ * A plugin turns local input into simulation input only through mod commands: it sees the local keyboard, mouse, chat lines and command card
+ * buttons ({@link #onKeyInput}, {@link #onMouseInput}, {@link #onChatInput}, {@link #onButtonInput}) and queues mod commands of the local player
+ * through the game's submitter
  * ({@link InterfaceLink#getModCommandSubmitter()}), which a live session supplies after the plugin is created; the game's simulation plugins
  * receive them at the same frame on every peer. It reads the local camera and centers the local view through the game's local view
  * ({@link InterfaceLink#getLocalView()}): the screen position of the last frame ({@link LocalView#getScreenX()}, {@link LocalView#getScreenY()})
@@ -75,6 +76,22 @@ public interface ScrGamePlugin {
      * @return {@code true} if the plugin consumed the line, which then reaches neither the later plugins nor the game, {@code false} otherwise
      */
     default boolean onChatInput(@NotNull String text) {
+        return false;
+    }
+
+    /**
+     * Called when the local player presses an enabled command card button in a running live game, by a mouse click or a hotkey, before the
+     * button's action runs; and when the local player targets a map point or unit with a script target button, instead of an order. The plugins
+     * see an input in extension order until one consumes it.
+     * <p>
+     * A consumed press runs no action: no command, no targeting or placement mode, no card change. A consumed target leaves the targeting mode
+     * waiting for another target, as a refused target of an order does. A press of a script button runs nothing itself, and the targeting mode
+     * of a script target button ends at a target that no plugin consumed.
+     *
+     * @param input the button input
+     * @return {@code true} if the plugin consumed the input, which then reaches neither the later plugins nor the game, {@code false} otherwise
+     */
+    default boolean onButtonInput(@NotNull ScrButtonInput input) {
         return false;
     }
 

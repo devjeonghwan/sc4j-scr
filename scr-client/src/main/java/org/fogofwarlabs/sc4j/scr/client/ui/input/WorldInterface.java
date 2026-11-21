@@ -773,7 +773,7 @@ public final class WorldInterface implements WorldOverlayState, LocalSelection {
      * @return the cursor over the minimap
      */
     public @NotNull Cursor getMinimapCursor() {
-        return this.console.getMode().getUnitTargetOrder() >= 0 ? Cursor.TARGET_NEUTRAL : Cursor.ARROW;
+        return this.console.getMode().isTargeting() ? Cursor.TARGET_NEUTRAL : Cursor.ARROW;
     }
 
 
@@ -1933,7 +1933,7 @@ public final class WorldInterface implements WorldOverlayState, LocalSelection {
             return Cursor.DRAG;
         }
 
-        boolean targeting = this.console.getMode().getUnitTargetOrder() >= 0;
+        boolean targeting = this.console.getMode().isTargeting();
 
         if (this.scrollDirection >= 0 && !targeting) {
             return Cursor.SCROLL;
