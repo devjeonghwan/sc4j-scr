@@ -144,8 +144,7 @@ public final class ComputerTerrain {
     }
 
     /**
-     * @return the terrain regions the game started with ({@link PathSystem#getStartTerrainContours}), which
-     *         the regional records index
+     * @return the terrain regions the game started with ({@link PathSystem#getStartTerrainContours}), which the regional records index
      * @throws UnsupportedOperationException if the terrain regions are not initialized
      */
     @NotNull TerrainRegions getRegions() {

@@ -651,7 +651,7 @@ final class TriggerRoutineTest {
             Assertions.assertEquals(0, carrier[0].getStatus() & UnitStatusFlags.INVINCIBLE);
 
             RunningGameScenario.runInCommandDispatch(runtime, () -> game.getTriggerUnitActions().modifyHangar(carrier[0], HANGAR_STEP,
-                                                                                                             RunningGameScenario.INSTRUCTION_LIMIT));
+                                                                                                              RunningGameScenario.INSTRUCTION_LIMIT));
 
             Assertions.assertEquals(HANGAR_STEP, carrier[0].getHangarCount(false));
 

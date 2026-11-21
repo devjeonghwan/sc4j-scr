@@ -270,7 +270,7 @@ final class ReplayWriterTest {
         byte[] small = {2, 0x11, 0x22};
         List<ReplayCommand> commands = new ArrayList<>();
 
-        largest[0] = (byte) ReplayModCommand.MAXIMUM_DATA_LENGTH;
+        largest[0]                  = (byte) ReplayModCommand.MAXIMUM_DATA_LENGTH;
         largest[largest.length - 1] = 0x33;
 
         commands.add(new ReplayCommand(FIRST_COMMAND_FRAME, 0, ReplayCommandIds.MOD_COMMAND, small));

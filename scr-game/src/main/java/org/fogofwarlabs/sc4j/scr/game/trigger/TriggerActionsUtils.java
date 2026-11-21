@@ -19,7 +19,6 @@ import org.fogofwarlabs.sc4j.scr.game.sprite.SelectionImages;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
-import org.fogofwarlabs.sc4j.scr.game.unit.UnitQueries;
 import org.fogofwarlabs.sc4j.scr.game.unit.finder.UnitSpatialIndex;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

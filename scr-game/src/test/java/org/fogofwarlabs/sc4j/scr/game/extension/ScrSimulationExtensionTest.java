@@ -81,17 +81,17 @@ final class ScrSimulationExtensionTest {
         Unit[] created = new Unit[1];
 
         RunningGameScenario.runInCommandDispatch(runtime, () -> created[0] = RunningGameScenario.createUnit(runtime.getGame(),
-                                                                                                          unitType,
-                                                                                                          POSITION_X + offset, POSITION_Y,
-                                                                                                          owner));
+                                                                                                            unitType,
+                                                                                                            POSITION_X + offset, POSITION_Y,
+                                                                                                            owner));
 
         return created[0];
     }
 
     private static void hit(@NotNull ReplayRuntime runtime, @NotNull Unit source, @NotNull Unit target) {
         RunningGameScenario.runInCommandDispatch(runtime, () -> runtime.getGame().getUnitDamage().dealWeaponHit(ScrWeaponIds.GAUSS_RIFLE,
-                                                                                                               source, target,
-                                                                                                               RunningGameScenario.INSTRUCTION_LIMIT));
+                                                                                                                source, target,
+                                                                                                                RunningGameScenario.INSTRUCTION_LIMIT));
     }
 
     private static @NotNull UnitDiedEvent findDeath(RecordingSimulationPluginSource.@NotNull Recording recording, @NotNull Unit unit) {
@@ -442,7 +442,7 @@ final class ScrSimulationExtensionTest {
         Path map = GameTestResources.getPath(GameTestResources.MAP_EUD_COMPUTER);
         LiveGame live = new LiveGame(MeleeGameSetup.loadUseMapSettings(map, HUMAN_NAME, "terran", 0, GameSpeed.FASTEST), SEED);
         SaveGameDescription description = new SaveGameDescription(SaveGameDescription.CLIENT_VERSION, false, SAVED_GAME_NAME, List.of(HUMAN_NAME),
-                                                                   SaveGameDescription.CUSTOM_GAME_TYPE, "", "", 0);
+                                                                  SaveGameDescription.CUSTOM_GAME_TYPE, "", "", 0);
         RecordingSimulationPluginSource.Recording recording = new RecordingSimulationPluginSource.Recording();
 
         recording.setSaveAllowed(false);

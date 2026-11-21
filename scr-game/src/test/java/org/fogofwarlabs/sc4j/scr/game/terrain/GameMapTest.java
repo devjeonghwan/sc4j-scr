@@ -397,7 +397,7 @@ final class GameMapTest {
         int previous = MapTileFlags.WALKABLE | MapTileFlags.MIDDLE;
         int replacement = MapTileFlags.UNWALKABLE | MapTileFlags.UNBUILDABLE | MapTileFlags.HIGH;
         GameMap map = new GameMap(3, 1, 0, new int[]{0x21, 0x22, 0x23}, new int[]{previous | MapTileFlags.OCCUPIED | 0x0102, previous | 0x00FF,
-                                                                                   previous | MapTileFlags.OCCUPIED});
+                                                                                  previous | MapTileFlags.OCCUPIED});
 
         map.initializeOverlayTiles();
         map.retainTerrainUnderCreep(1);

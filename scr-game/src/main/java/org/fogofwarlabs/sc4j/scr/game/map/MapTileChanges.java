@@ -13,11 +13,7 @@ import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
 import org.fogofwarlabs.sc4j.scr.game.terrain.MapTileFlags;
 import org.fogofwarlabs.sc4j.scr.game.terrain.TerrainContours;
-import org.fogofwarlabs.sc4j.scr.game.unit.Unit;
-import org.fogofwarlabs.sc4j.scr.game.unit.UnitPool;
-import org.fogofwarlabs.sc4j.scr.game.unit.UnitQueries;
-import org.fogofwarlabs.sc4j.scr.game.unit.UnitRelocation;
-import org.fogofwarlabs.sc4j.scr.game.unit.UnitStatusFlags;
+import org.fogofwarlabs.sc4j.scr.game.unit.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

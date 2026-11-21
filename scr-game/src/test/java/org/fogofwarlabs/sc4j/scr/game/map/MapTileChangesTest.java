@@ -7,11 +7,7 @@ import org.fogofwarlabs.sc4j.scr.game.replay.ReplayRuntime;
 import org.fogofwarlabs.sc4j.scr.game.sprite.Sprite;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
 import org.fogofwarlabs.sc4j.scr.game.state.GameData;
-import org.fogofwarlabs.sc4j.scr.game.terrain.GameMap;
-import org.fogofwarlabs.sc4j.scr.game.terrain.MapTileFlags;
-import org.fogofwarlabs.sc4j.scr.game.terrain.TerrainContours;
-import org.fogofwarlabs.sc4j.scr.game.terrain.TerrainRegionLookupUtils;
-import org.fogofwarlabs.sc4j.scr.game.terrain.TerrainRegions;
+import org.fogofwarlabs.sc4j.scr.game.terrain.*;
 import org.fogofwarlabs.sc4j.scr.game.test.GameResourcesExtension;
 import org.fogofwarlabs.sc4j.scr.game.test.InstallationTestResources;
 import org.fogofwarlabs.sc4j.scr.game.test.RunningGameScenario;
@@ -66,9 +62,9 @@ final class MapTileChangesTest {
         Unit[] created = new Unit[1];
 
         RunningGameScenario.runInCommandDispatch(runtime, () -> created[0] = RunningGameScenario.createUnit(runtime.getGame(),
-                                                                                                          ScrUnitIds.TERRAN_MARINE,
-                                                                                                          POSITION_X, POSITION_Y,
-                                                                                                          RunningGameScenario.HUMAN));
+                                                                                                            ScrUnitIds.TERRAN_MARINE,
+                                                                                                            POSITION_X, POSITION_Y,
+                                                                                                            RunningGameScenario.HUMAN));
 
         return created[0];
     }

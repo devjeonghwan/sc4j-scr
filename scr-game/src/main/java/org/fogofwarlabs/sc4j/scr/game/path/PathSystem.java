@@ -46,8 +46,7 @@ public final class PathSystem {
     }
 
     /**
-     * @return the terrain contours the game started with, which the computer players' regional records index, or {@code null} before
-     *         initialization
+     * @return the terrain contours the game started with, which the computer players' regional records index, or {@code null} before initialization
      */
     public @Nullable TerrainContours getStartTerrainContours() {
         return this.startTerrainContours;

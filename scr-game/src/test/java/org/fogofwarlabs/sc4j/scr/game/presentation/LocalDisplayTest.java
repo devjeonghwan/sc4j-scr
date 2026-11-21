@@ -40,6 +40,6 @@ final class LocalDisplayTest {
         Assertions.assertEquals(MEASURED_WIDTH, display.measureText("text", ScrDrawList.Font.LARGE));
         Assertions.assertThrows(IllegalArgumentException.class, () -> display.setScreen(0, LocalDisplay.CLASSIC_HEIGHT, 1, AssetResolver.AssetSet.SD));
         Assertions.assertThrows(IllegalArgumentException.class, () -> display.setScreen(WIDE_WIDTH, LocalDisplay.CLASSIC_HEIGHT, 0,
-                                                                                          AssetResolver.AssetSet.SD));
+                                                                                        AssetResolver.AssetSet.SD));
     }
 }
