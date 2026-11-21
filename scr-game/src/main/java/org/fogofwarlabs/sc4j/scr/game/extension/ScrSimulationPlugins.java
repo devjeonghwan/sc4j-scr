@@ -1,8 +1,8 @@
 package org.fogofwarlabs.sc4j.scr.game.extension;
 
-import org.fogofwarlabs.sc4j.engine.entity.Projectile;
 import org.fogofwarlabs.sc4j.scr.content.ScrOrderIds;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
+import org.fogofwarlabs.sc4j.scr.game.combat.ProjectilePhase;
 import org.fogofwarlabs.sc4j.scr.game.extension.simulation.*;
 import org.fogofwarlabs.sc4j.scr.game.player.Player;
 import org.fogofwarlabs.sc4j.scr.game.state.Game;
@@ -294,7 +294,7 @@ public final class ScrSimulationPlugins {
      * @param targetX    the target X coordinate
      * @param targetY    the target Y coordinate
      */
-    public void reportBulletCreated(@NotNull Projectile bullet,
+    public void reportBulletCreated(ProjectilePhase.@NotNull Bullet bullet,
                                     int weapon,
                                     int ownerIndex,
                                     @NotNull Unit source, @Nullable Unit target,
@@ -314,7 +314,7 @@ public final class ScrSimulationPlugins {
      * @param targetY    the target Y coordinate
      * @param missed     whether the bullet missed its target unit
      */
-    public void reportBulletHit(@NotNull Projectile bullet,
+    public void reportBulletHit(ProjectilePhase.@NotNull Bullet bullet,
                                 int weapon,
                                 int ownerIndex,
                                 @Nullable Unit source, @Nullable Unit target,

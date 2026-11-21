@@ -11,7 +11,7 @@ import java.util.Objects;
  * and a button set the local command card shows next, as the Change Buttons action shows one.
  * <p>
  * The states are the values of the native button conditions: {@link #ENABLED}, {@link #HIDDEN} and {@link #DISABLED}. Every state starts
- * {@link #DISABLED}. The state differs from peer to peer and is no simulation state.
+ * {@link #HIDDEN}, the native zero value. The state differs from peer to peer and is no simulation state.
  */
 public final class ScrButtonStates {
     /**
@@ -40,14 +40,14 @@ public final class ScrButtonStates {
     private int requestedSet;
 
     /**
-     * Creates a {@link ScrButtonStates} instance with every state {@link #DISABLED} and no requested set.
+     * Creates a {@link ScrButtonStates} instance with every state {@link #HIDDEN} and no requested set.
      */
     public ScrButtonStates() {
         this.states = new int[COUNT];
 
         this.requestedSet = NO_REQUEST;
 
-        Arrays.fill(this.states, DISABLED);
+        Arrays.fill(this.states, HIDDEN);
     }
 
     /**
@@ -100,10 +100,10 @@ public final class ScrButtonStates {
     }
 
     /**
-     * Sets every state back to {@link #DISABLED} and forgets the requested set.
+     * Sets every state back to {@link #HIDDEN} and forgets the requested set.
      */
     public void clear() {
-        Arrays.fill(this.states, DISABLED);
+        Arrays.fill(this.states, HIDDEN);
 
         this.requestedSet = NO_REQUEST;
     }

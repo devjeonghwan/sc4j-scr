@@ -496,8 +496,9 @@ final class CommandInputTest {
     }
 
     /**
-     * Puts a script button first in the shown set's table, so that it takes position 1 unless its state hides it: its state starts disabled
-     * and its texts replace the strings; a press sends nothing, and a target button enters a targeting mode whose click sends nothing either.
+     * Puts a script button first in the shown set's table, so that it takes position 1 unless its state hides it: its state starts hidden, a
+     * disabled one shows its texts in place of the strings; a press sends nothing, and a target button enters a targeting mode whose click
+     * sends nothing either.
      */
     @Test
     void script_buttons_read_the_local_state_and_send_no_command() throws IOException {
@@ -521,11 +522,16 @@ final class CommandInputTest {
             installScriptButton(host, set, ButtonAction.SCRIPT);
             model.update(FIRST_PLAYER, CommandCard.Perspective.PLAYER, REPLAY_PAUSED, GAME_SPEED_SETTING, REPLAY_SPEED);
 
+            Assertions.assertSame(first.getAction(), card.getButton(SCRIPT_SLOT).getAction(), "a script state starts hidden");
+
+            states.setState(SCRIPT_VALUE, ScrButtonStates.DISABLED);
+            model.update(FIRST_PLAYER, CommandCard.Perspective.PLAYER, REPLAY_PAUSED, GAME_SPEED_SETTING, REPLAY_SPEED);
+
             ButtonDefinition script = card.getButton(SCRIPT_SLOT);
 
             Assertions.assertNotNull(script);
             Assertions.assertEquals(ButtonCondition.SCRIPT, script.getCondition());
-            Assertions.assertEquals(CommandCard.DISABLED, card.getState(SCRIPT_SLOT), "a script state starts disabled");
+            Assertions.assertEquals(CommandCard.DISABLED, card.getState(SCRIPT_SLOT));
             Assertions.assertEquals(0, card.getDisabledString(SCRIPT_SLOT));
             Assertions.assertEquals(SCRIPT_DISABLED_TEXT,
                                     ButtonTooltip.build(new ScrGameView(game), text, profile, script, true, card.getDisabledString(SCRIPT_SLOT),

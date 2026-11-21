@@ -1,6 +1,6 @@
 package org.fogofwarlabs.sc4j.scr.game.extension.simulation;
 
-import org.fogofwarlabs.sc4j.engine.entity.Projectile;
+import org.fogofwarlabs.sc4j.scr.game.combat.ProjectilePhase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -8,7 +8,8 @@ import org.jetbrains.annotations.Nullable;
  * A bullet hits, before its damage or effect applies.
  */
 public final class BulletHitEvent extends SimulationEvent {
-    private final @NotNull Projectile bullet;
+    private final ProjectilePhase.@NotNull Bullet bullet;
+    private final long bulletGeneration;
     private final int weapon;
     private final int ownerIndex;
     private final @Nullable SimulationUnit source;
@@ -20,7 +21,7 @@ public final class BulletHitEvent extends SimulationEvent {
     /**
      * Creates a {@link BulletHitEvent} instance.
      *
-     * @param bullet     the bullet, an entry of the bullet table that a later bullet may take
+     * @param bullet     the bullet, an entry of the bullet table that a later bullet may take; its generation is kept
      * @param weapon     the weapons.dat entry
      * @param ownerIndex the owning player slot
      * @param source     the unit that fired, or {@code null} if it is gone
@@ -29,28 +30,36 @@ public final class BulletHitEvent extends SimulationEvent {
      * @param targetY    the target Y coordinate
      * @param missed     whether the bullet missed its target unit
      */
-    public BulletHitEvent(@NotNull Projectile bullet,
+    public BulletHitEvent(ProjectilePhase.@NotNull Bullet bullet,
                           int weapon,
                           int ownerIndex,
                           @Nullable SimulationUnit source,
                           @Nullable SimulationUnit target,
                           int targetX, int targetY,
                           boolean missed) {
-        this.bullet     = bullet;
-        this.weapon     = weapon;
-        this.ownerIndex = ownerIndex;
-        this.source     = source;
-        this.target     = target;
-        this.targetX    = targetX;
-        this.targetY    = targetY;
-        this.missed     = missed;
+        this.bullet           = bullet;
+        this.bulletGeneration = bullet.getGeneration();
+        this.weapon           = weapon;
+        this.ownerIndex       = ownerIndex;
+        this.source           = source;
+        this.target           = target;
+        this.targetX          = targetX;
+        this.targetY          = targetY;
+        this.missed           = missed;
     }
 
     /**
      * @return the bullet, an entry of the bullet table that a later bullet may take
      */
-    public @NotNull Projectile getBullet() {
+    public ProjectilePhase.@NotNull Bullet getBullet() {
         return this.bullet;
+    }
+
+    /**
+     * @return the generation of the bullet when the event happened ({@link ProjectilePhase.Bullet#getGeneration()})
+     */
+    public long getBulletGeneration() {
+        return this.bulletGeneration;
     }
 
     /**
