@@ -189,13 +189,16 @@ public interface ScrGamePlugin {
     }
 
     /**
-     * Finds the picture the console draws instead of its installed art: fitted to the interface height and centered in the interface width,
-     * whole, over the art's place; the console is hit where the picture is not transparent. The same picture is returned while the art is
-     * unchanged.
+     * Finds the picture the console draws instead of an installed art file of the shown race console: stretched over the installed file's place
+     * and size. The console is hit where a drawn frame picture ({@link ScrConsoleArt#CONSOLE} with the SD graphics, the three pieces with the HD
+     * and HD2 graphics) is not transparent. A replaced frame picture of the shown graphics is drawn whole even when a placement shows only some
+     * console pixels ({@link ScrConsolePlacement#isMasked}); the placement still limits the dialogs. The same picture is returned while the art
+     * is unchanged.
      *
-     * @return the picture, or {@code null} for the installed art
+     * @param art the art file
+     * @return the picture, or {@code null} for the installed file
      */
-    default @Nullable Picture findConsoleArt() {
+    default @Nullable Picture findConsoleArt(@NotNull ScrConsoleArt art) {
         return null;
     }
 

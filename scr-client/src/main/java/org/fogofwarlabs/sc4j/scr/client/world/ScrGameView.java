@@ -21,6 +21,7 @@ import org.fogofwarlabs.sc4j.scr.game.ability.TransportCargo;
 import org.fogofwarlabs.sc4j.scr.game.ability.UnitSpells;
 import org.fogofwarlabs.sc4j.scr.game.combat.ScrShieldLayer;
 import org.fogofwarlabs.sc4j.scr.game.combat.UnitTargeting;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrGamePlugin;
@@ -682,17 +683,18 @@ public final class ScrGameView implements GameView {
     }
 
     /**
-     * Finds the picture the console draws instead of its installed art: the first picture a plugin of the game gives
+     * Finds the picture the console draws instead of an installed art file: the first picture a plugin of the game gives
      * ({@link ScrGamePlugin#findConsoleArt}).
      *
-     * @return the picture, or {@code null} for the installed art
+     * @param art the art file
+     * @return the picture, or {@code null} for the installed file
      */
-    public @Nullable Picture findConsoleArt() {
+    public @Nullable Picture findConsoleArt(@NotNull ScrConsoleArt art) {
         for (ScrGamePlugin plugin : this.game.getPlugins()) {
-            Picture art = plugin.findConsoleArt();
+            Picture picture = plugin.findConsoleArt(art);
 
-            if (art != null) {
-                return art;
+            if (picture != null) {
+                return picture;
             }
         }
 

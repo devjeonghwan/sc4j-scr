@@ -2,15 +2,13 @@ package org.fogofwarlabs.sc4j.scr.client;
 
 import org.fogofwarlabs.sc4j.engine.client.render.Canvas;
 import org.fogofwarlabs.sc4j.engine.client.render.Texture;
-import org.fogofwarlabs.sc4j.engine.client.text.TextStyle;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.scr.client.ui.PictureTextureCache;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrDrawList;
 import org.fogofwarlabs.sc4j.scr.game.presentation.LocalDisplay;
-import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceCodeColors;
-import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceFont;
 import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceFonts;
 import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceText;
+import org.fogofwarlabs.sc4j.scr.render.ui.InterfaceTransform;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,8 +16,9 @@ import org.jetbrains.annotations.Nullable;
  * Draws the draw lists of the game's plugins ({@link ScrDrawList}) on a canvas in screen coordinates. Before the commands of a space, the client
  * sets the space's mapping ({@link #setSpace}): a space coordinate {@code v} is drawn at {@code origin + v * scale}, and line thicknesses, points
  * and texts are drawn at {@code unitScale} screen pixels per unit. Circles are drawn as polygons of about {@value #CIRCLE_SEGMENT_PIXELS} screen
- * pixels per side. Texts are drawn in the game's interface fonts ({@link InterfaceFonts}, the slot of the font's order) with the game's colour
- * codes; without fonts no text is drawn. Pictures are uploaded once per picture instance.
+ * pixels per side. Texts are drawn by the game's interface text ({@link InterfaceText#drawAligned}) in the game's interface fonts
+ * ({@link InterfaceFonts}, the slot of the font's order) with the game's colour codes; without fonts no text is drawn. Pictures are uploaded once
+ * per picture instance.
  * <p>
  * It also measures texts for the plugins ({@link LocalDisplay.TextMeasure}).
  */
@@ -37,7 +36,72 @@ final class PluginDrawPainter implements ScrDrawList.Painter, LocalDisplay.TextM
     private static final int COLOR_SHIFT = 8;
     private static final int MAXIMUM_ALPHA = 0xFF;
     private static final int WHITE_RGBA = 0xFFFFFF00;
-    private static final char LINE_FEED = '\n';
+
+    /**
+     * Maps the interface units of a text to the screen: a unit is {@code scale} screen pixels from the text's screen position.
+     */
+    private static final class TextTransform implements InterfaceTransform {
+        private float originX;
+        private float originY;
+        private float scale;
+
+        private TextTransform() {
+            this.originX = 0;
+            this.originY = 0;
+            this.scale   = 1;
+        }
+
+        /**
+         * @return the screen pixels per interface unit
+         */
+        @Override
+        public float getScale() {
+            return this.scale;
+        }
+
+        /**
+         * @return the original interface width; a text is placed from its own position
+         */
+        @Override
+        public float getLogicalWidth() {
+            return ORIGINAL_WIDTH;
+        }
+
+        /**
+         * Sets the screen position of the text's interface position {@code 0} and the screen pixels per interface unit.
+         *
+         * @param originX the screen x
+         * @param originY the screen y
+         * @param scale   the screen pixels per interface unit
+         */
+        private void set(float originX, float originY, float scale) {
+            this.originX = originX;
+            this.originY = originY;
+            this.scale   = scale;
+        }
+
+        /**
+         * Converts an interface x to a screen x.
+         *
+         * @param x an interface x
+         * @return the screen x
+         */
+        @Override
+        public float toScreenX(float x) {
+            return this.originX + x * this.scale;
+        }
+
+        /**
+         * Converts an interface y to a screen y.
+         *
+         * @param y an interface y
+         * @return the screen y
+         */
+        @Override
+        public float toScreenY(float y) {
+            return this.originY + y * this.scale;
+        }
+    }
 
     /**
      * Converts a packed {@code 0xAARRGGBB} colour to the canvas's packed {@code 0xRRGGBBAA}.
@@ -49,44 +113,17 @@ final class PluginDrawPainter implements ScrDrawList.Painter, LocalDisplay.TextM
         return color << COLOR_SHIFT | color >>> ALPHA_SHIFT;
     }
 
-    /**
-     * Measures a text in a font: the width of its widest line, the lines broken at line feeds.
-     *
-     * @param font the font
-     * @param text the text
-     * @return the width in interface units
-     */
-    static float measureText(@NotNull InterfaceFont font, @NotNull String text) {
-        float width = 0;
-        int start = 0;
-
-        while (start <= text.length()) {
-            int end = text.indexOf(LINE_FEED, start);
-
-            if (end < 0) {
-                end = text.length();
-            }
-
-            width = Math.max(width, font.measure(text.substring(start, end), true));
-            start = end + 1;
-        }
-
-        return width;
-    }
-
 
     private final @NotNull Canvas canvas;
     private final @Nullable InterfaceFonts fonts;
     private final @NotNull PictureTextureCache textures;
-    private final @NotNull InterfaceCodeColors codeColors;
+    private final @NotNull TextTransform textTransform;
     private final float @NotNull [] corners;
 
     private float originX;
     private float originY;
     private float scale;
     private float unitScale;
-
-    private @Nullable TextStyle textStyle;
 
     /**
      * Creates a {@link PluginDrawPainter} instance that maps the space coordinates one to one.
@@ -95,18 +132,16 @@ final class PluginDrawPainter implements ScrDrawList.Painter, LocalDisplay.TextM
      * @param fonts  the game's interface fonts, or {@code null} to draw no text
      */
     PluginDrawPainter(@NotNull Canvas canvas, @Nullable InterfaceFonts fonts) {
-        this.canvas     = canvas;
-        this.fonts      = fonts;
-        this.textures   = new PictureTextureCache();
-        this.codeColors = new InterfaceCodeColors(InterfaceText.GAME_CODE_COLORS);
-        this.corners    = new float[CORNER_COUNT];
+        this.canvas        = canvas;
+        this.fonts         = fonts;
+        this.textures      = new PictureTextureCache();
+        this.textTransform = new TextTransform();
+        this.corners       = new float[CORNER_COUNT];
 
         this.originX   = 0;
         this.originY   = 0;
         this.scale     = 1;
         this.unitScale = 1;
-
-        this.textStyle = null;
     }
 
     /**
@@ -143,7 +178,7 @@ final class PluginDrawPainter implements ScrDrawList.Painter, LocalDisplay.TextM
     public float measureText(@NotNull String text, ScrDrawList.@NotNull Font font) {
         InterfaceFonts shownFonts = this.fonts;
 
-        return shownFonts == null ? 0 : measureText(shownFonts.getFont(font.ordinal()), text);
+        return shownFonts == null ? 0 : InterfaceText.measureAligned(shownFonts.getFont(font.ordinal()), text, InterfaceText.LEFT);
     }
 
     /**
@@ -274,7 +309,7 @@ final class PluginDrawPainter implements ScrDrawList.Painter, LocalDisplay.TextM
 
     /**
      * Draws a text: its lines, broken at line feeds, from the top at {@code y}, each aligned on {@code x}. Colour codes in the text switch
-     * the colour as in the game's texts.
+     * the colour as in the game's texts, also across lines.
      *
      * @param text  the text
      * @param x     the x the lines align on
@@ -291,49 +326,15 @@ final class PluginDrawPainter implements ScrDrawList.Painter, LocalDisplay.TextM
             return;
         }
 
-        InterfaceFont interfaceFont = shownFonts.getFont(font.ordinal());
-        TextStyle style = this.getTextStyle();
-        float screenX = this.toScreenX(x);
-        float screenY = this.toScreenY(y);
-        int canvasColor = toCanvasColor(color);
-        int start = 0;
+        int format = switch (align) {
+            case LEFT -> InterfaceText.LEFT;
+            case CENTER -> InterfaceText.CENTER;
+            case RIGHT -> InterfaceText.RIGHT;
+        };
 
-        while (start <= text.length()) {
-            int end = text.indexOf(LINE_FEED, start);
-
-            if (end < 0) {
-                end = text.length();
-            }
-
-            String line = text.substring(start, end);
-            float width = interfaceFont.measure(line, true) * this.unitScale;
-            float left = switch (align) {
-                case LEFT -> screenX;
-                case CENTER -> screenX - width / HALF;
-                case RIGHT -> screenX - width;
-            };
-
-            if (!line.isEmpty()) {
-                interfaceFont.draw(this.canvas, line, left, screenY, canvasColor, style);
-            }
-
-            screenY += (interfaceFont.getTextHeight(line) + InterfaceText.LINE_GAP) * this.unitScale;
-            start   = end + 1;
-        }
-    }
-
-    /**
-     * @return the text style of the current unit scale, made again only when the scale changed
-     */
-    private @NotNull TextStyle getTextStyle() {
-        TextStyle style = this.textStyle;
-
-        if (style == null || style.getScale() != this.unitScale) {
-            style          = TextStyle.builder().setColors(this.codeColors).setKerning(true).setScale(this.unitScale).build();
-            this.textStyle = style;
-        }
-
-        return style;
+        this.textTransform.set(this.toScreenX(x), this.toScreenY(y), this.unitScale);
+        InterfaceText.drawAligned(this.canvas, this.textTransform, shownFonts.getFont(font.ordinal()), text, 0, 0, format, toCanvasColor(color),
+                                  InterfaceText.GAME_CODE_COLORS);
     }
 
     /**

@@ -50,6 +50,7 @@ import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogImportUtils;
 import org.fogofwarlabs.sc4j.scr.data.type.ScrUnitTypeView;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.UnitTypeFlags;
+import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsoleArt;
 import org.fogofwarlabs.sc4j.scr.game.extension.ScrConsolePlacement;
 import org.fogofwarlabs.sc4j.scr.game.player.PlayerTable;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceTimers;
@@ -403,6 +404,12 @@ public final class ConsoleView implements AutoCloseable {
      */
     private static final @NotNull String @NotNull [] HD_CONSOLE_PIECES = {"left", "center", "right"};
     /**
+     * The art files of the HD console pieces by {@link ConsoleArt} piece index.
+     */
+    private static final @NotNull ScrConsoleArt @NotNull [] HD_CONSOLE_ARTS = {
+            ScrConsoleArt.CONSOLE_LEFT, ScrConsoleArt.CONSOLE_CENTER, ScrConsoleArt.CONSOLE_RIGHT
+    };
+    /**
      * The chat label of the text-box dialog in single player ({@code ?textbox-1}, "Message:").
      */
     private static final int CHAT_LABEL_CONTROL = 1;
@@ -436,10 +443,6 @@ public final class ConsoleView implements AutoCloseable {
     private static final int QUEUE_TRUE_TYPE_SHIFT_Y = -3;
 
     private static final int WHITE_RGBA = 0xFFFFFFFF;
-    /**
-     * The shift of the alpha byte of a packed {@code 0xAARRGGBB} picture colour.
-     */
-    private static final int ART_ALPHA_SHIFT = 24;
     /**
      * Minimap timer {@code 1}: the full refresh every {@code 1000} ms, every {@code 2000} ms in a multiplayer game (byte), where each
      * network turn also refreshes it.
@@ -835,11 +838,9 @@ public final class ConsoleView implements AutoCloseable {
     private final int @NotNull [] resourceIconPalette;
     private @Nullable Texture @NotNull [] resourceIconTextures;
     /**
-     * The game view whose plugins give the pictures of the console art and the resource icons, the art the last draw showed and the textures of
-     * those pictures.
+     * The game view whose plugins give the pictures of the console art and the resource icons, and the textures of those pictures.
      */
     private @Nullable ScrGameView pictureView;
-    private @Nullable Picture shownArt;
     private final @NotNull PictureTextureCache pictureTextures;
     /**
      * The renderer's layer textures: terrain with creep, fog (one texel per tile) and dots.
@@ -1053,7 +1054,6 @@ public final class ConsoleView implements AutoCloseable {
         this.resourceIconPalette   = new int[RESOURCE_ICON_COLORS];
         this.resourceIconTextures  = new Texture[0];
         this.pictureView           = null;
-        this.shownArt              = null;
         this.pictureTextures       = new PictureTextureCache();
         this.minimapTerrainTexture = 0;
         this.minimapFogTexture     = 0;
@@ -1354,53 +1354,6 @@ public final class ConsoleView implements AutoCloseable {
     }
 
     /**
-     * Draws the picture a plugin draws instead of the console art ({@link ScrGameView#findConsoleArt}): fitted to the interface height and
-     * centered in the interface width, and remembers it for the hit test ({@link #isConsoleHit}).
-     *
-     * @param console the console layout
-     * @param art     the picture
-     */
-    private void drawReplacedArt(@NotNull ConsoleLayout console, @NotNull Picture art) {
-        float scale = console.getScale();
-
-        this.shownArt = art;
-        this.renderer.drawTexture(this.pictureTextures.findTexture(this.renderer, art),
-                                  console.toScreenX(getArtLeft(console, art)), console.toScreenY(0),
-                                  getArtWidth(art) * scale, ConsoleLayout.INTERFACE_HEIGHT * scale,
-                                  WHITE_RGBA);
-    }
-
-    /**
-     * @return the interface width of a replaced console art fitted to the interface height
-     */
-    private static float getArtWidth(@NotNull Picture art) {
-        return (float) art.getWidth() * ConsoleLayout.INTERFACE_HEIGHT / art.getHeight();
-    }
-
-    /**
-     * @return the interface column of the left edge of a replaced console art centered in the interface width
-     */
-    private static float getArtLeft(@NotNull ConsoleLayout console, @NotNull Picture art) {
-        return (console.getInterfaceWidth() - getArtWidth(art)) / 2;
-    }
-
-    /**
-     * Tests whether an interface point is on a replaced console art: inside it and not transparent there.
-     *
-     * @return {@code true} if the art's pixel at the point has a nonzero alpha, {@code false} otherwise
-     */
-    private static boolean isArtHit(@NotNull ConsoleLayout console, @NotNull Picture art, float interfaceX, float interfaceY) {
-        int column = (int) Math.floor((interfaceX - getArtLeft(console, art)) * art.getHeight() / ConsoleLayout.INTERFACE_HEIGHT);
-        int row = (int) Math.floor(interfaceY * art.getHeight() / ConsoleLayout.INTERFACE_HEIGHT);
-
-        if (column < 0 || row < 0 || column >= art.getWidth() || row >= art.getHeight()) {
-            return false;
-        }
-
-        return art.getColor().getValue(row * art.getWidth() + column) >>> ART_ALPHA_SHIFT != 0;
-    }
-
-    /**
      * Releases the uploaded textures of the resource icons a plugin draws.
      */
     private void releaseResourceIcons() {
@@ -1680,15 +1633,9 @@ public final class ConsoleView implements AutoCloseable {
             return false;
         }
 
-        Picture replacedArt = this.shownArt;
-
-        if (replacedArt != null) {
-            return isArtHit(console, replacedArt, console.toInterfaceX(screenX), console.toInterfaceY(screenY));
-        }
-
         ScrConsolePlacement shownPlacement = this.placement;
 
-        if (shownPlacement != null && shownPlacement.isMasked()) {
+        if (shownPlacement != null && shownPlacement.isMasked() && !art.hasPicture()) {
             float column = console.toInterfaceX(screenX) - InterfaceTransform.getCenteredDialogLeft(console.getInterfaceWidth());
 
             return shownPlacement.isShown((int) Math.floor(column), (int) Math.floor(console.toInterfaceY(screenY)));
@@ -2169,7 +2116,6 @@ public final class ConsoleView implements AutoCloseable {
         this.timers.pump((int) UiClockUtils.getHostTimeMilliseconds());
 
         this.pictureView = model.getView();
-        this.shownArt    = null;
 
         // Text path, shared with the renderer's developer text.
         this.fonts.setViewport(getAssetSet(this.hdScale), width, height);
@@ -2258,26 +2204,21 @@ public final class ConsoleView implements AutoCloseable {
 
         console.setViewport(viewport);
 
-        float scale = console.getScale();
         ScrConsolePlacement shownPlacement = this.placement;
-        Picture replacedArt = model.getView().findConsoleArt();
 
-        if (replacedArt != null) {
-            this.drawReplacedArt(console, replacedArt);
-        } else if (shownPlacement != null && shownPlacement.isMasked()) {
+        for (int piece = 0; piece < art.getPieceCount(); piece++) {
+            art.setPicture(piece, model.getView().findConsoleArt(this.hdScale == 0 ? ScrConsoleArt.CONSOLE : HD_CONSOLE_ARTS[piece]));
+        }
+
+        // A replaced piece shows the whole frame; the placement then limits only the dialogs.
+        if (shownPlacement != null && shownPlacement.isMasked() && !art.hasPicture()) {
             this.drawMaskedArt(console, loaded, race, shownPlacement);
         } else if (this.hdScale == 0) {
-            this.renderer.drawTexture(this.consoleTexture,
-                                      console.toScreenX(art.getLeft(ConsoleArt.LEFT_PIECE)), console.toScreenY(art.getTop(ConsoleArt.LEFT_PIECE)),
-                                      art.getWidth(ConsoleArt.LEFT_PIECE) * scale, art.getHeight(ConsoleArt.LEFT_PIECE) * scale,
-                                      WHITE_RGBA);
+            this.drawArtPiece(console, art, ConsoleArt.LEFT_PIECE, this.consoleTexture);
         } else {
             // Side pieces first; the center piece covers their overlapping filler art.
             for (int piece : new int[]{ConsoleArt.LEFT_PIECE, ConsoleArt.RIGHT_PIECE, ConsoleArt.CENTER_PIECE}) {
-                this.renderer.drawTexture(this.pieceTextures[piece],
-                                          console.toScreenX(art.getLeft(piece)), console.toScreenY(art.getTop(piece)),
-                                          art.getWidth(piece) * scale, art.getHeight(piece) * scale,
-                                          WHITE_RGBA);
+                this.drawArtPiece(console, art, piece, this.pieceTextures[piece]);
             }
         }
 
@@ -2366,7 +2307,7 @@ public final class ConsoleView implements AutoCloseable {
             InterfaceImageCache.Sprite image = this.images.getImage(loaded, plate);
             ConsoleType type = ConsoleType.of(this.layoutRace, false);
 
-            this.drawObserverFrame(console, image, kind.getTimePlateLeft(type) + offsetX, kind.getTimePlateTop(type), image.getWidth(), 1);
+            this.drawConsoleImage(console, image, ScrConsoleArt.CONSOLE_TIME, kind.getTimePlateLeft(type) + offsetX, kind.getTimePlateTop(type));
         }
 
         this.drawClockText(console,
@@ -2400,7 +2341,7 @@ public final class ConsoleView implements AutoCloseable {
             InterfaceImageCache.Sprite image = this.images.getImage(loaded, plate);
             ConsoleType type = ConsoleType.of(this.layoutRace, false);
 
-            this.drawObserverFrame(console, image, kind.getApmPlateLeft(type) + offsetX, kind.getApmPlateTop(type), image.getWidth(), 1);
+            this.drawConsoleImage(console, image, ScrConsoleArt.CONSOLE_APM, kind.getApmPlateLeft(type) + offsetX, kind.getApmPlateTop(type));
         }
 
         InterfaceFont font = this.smallFont;
@@ -4274,7 +4215,57 @@ public final class ConsoleView implements AutoCloseable {
         float x = control.getX() + (hd ? this.layoutReplay ? REPLAY_PORTRAIT_SHIFT_X : LIVE_PORTRAIT_SHIFT_X : 0);
         float y = control.getY() + (hd ? this.layoutReplay ? REPLAY_PORTRAIT_SHIFT_Y : LIVE_PORTRAIT_SHIFT_Y : 0);
 
-        this.drawObserverFrame(console, overlay, x, y, overlay.getWidth(), 1);
+        this.drawConsoleImage(console, overlay, ScrConsoleArt.CONOVER, x, y);
+    }
+
+    /**
+     * Draws a console art piece at its place: the picture drawn instead of it, or else its installed texture.
+     *
+     * @param console the console layout
+     * @param art     the console art
+     * @param piece   the piece index
+     * @param texture the installed texture of the piece
+     */
+    private void drawArtPiece(@NotNull ConsoleLayout console, @NotNull ConsoleArt art, int piece, int texture) {
+        float scale = console.getScale();
+        float x = console.toScreenX(art.getLeft(piece));
+        float y = console.toScreenY(art.getTop(piece));
+        float width = art.getWidth(piece) * scale;
+        float height = art.getHeight(piece) * scale;
+        Picture picture = art.findPicture(piece);
+
+        if (picture == null) {
+            this.renderer.drawTexture(texture, x, y, width, height, WHITE_RGBA);
+        } else {
+            this.renderer.drawTexture(this.pictureTextures.findTexture(this.renderer, picture), x, y, width, height, WHITE_RGBA);
+        }
+    }
+
+    /**
+     * Draws a plate or the portrait overlay of the console at an interface position: the picture a plugin draws instead of its art file
+     * ({@link ScrGameView#findConsoleArt}) stretched over the installed image's size, or else the installed image.
+     *
+     * @param console the console layout
+     * @param image   the installed image
+     * @param art     the art file of the image
+     * @param x       the interface left
+     * @param y       the interface top
+     */
+    private void drawConsoleImage(@NotNull ConsoleLayout console, InterfaceImageCache.@NotNull Sprite image, @NotNull ScrConsoleArt art,
+                                  float x, float y) {
+        ScrGameView view = this.pictureView;
+        Picture picture = view == null ? null : view.findConsoleArt(art);
+
+        if (picture == null) {
+            this.drawObserverFrame(console, image, x, y, image.getWidth(), 1);
+
+            return;
+        }
+
+        float scale = console.getScale();
+
+        this.renderer.drawTexture(this.pictureTextures.findTexture(this.renderer, picture), console.toScreenX(x), console.toScreenY(y),
+                                  image.getWidth() * scale, image.getHeight() * scale, WHITE_RGBA);
     }
 
 
