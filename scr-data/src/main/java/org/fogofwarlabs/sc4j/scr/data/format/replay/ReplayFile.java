@@ -796,8 +796,7 @@ public final class ReplayFile {
      * @param reader the reader at the section
      * @param size   the decoded size
      * @return the decoded section
-     * @throws IOException if the chunk count does not fit the size, a chunk is truncated or does not inflate to its raw length, or the checksum
-     *                     does not match
+     * @throws IOException if the chunk count does not fit the size, a chunk is malformed or the checksum does not match
      */
     private static byte @NotNull [] readSizedSection(@NotNull Reader reader, int size) throws IOException {
         long expectedChecksum = reader.readUnsigned32();
@@ -1338,8 +1337,7 @@ public final class ReplayFile {
     }
 
     /**
-     * @return the archive of the map file a live game starts from ({@link #setMapArchive}), or {@code null} for a parsed file or a game started
-     * from scenario bytes without a map archive
+     * @return the archive of the map file a live game starts from ({@link #setMapArchive}), or {@code null} for a parsed file or none
      */
     public @Nullable MpqArchive getMapArchive() {
         return this.mapArchive;

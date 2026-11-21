@@ -4759,10 +4759,10 @@ public final class ConsoleView implements AutoCloseable {
 
     /**
      * Places map positions on the minimap bitmap as it was last drawn: a map pixel {@code (x, y)} is drawn at the screen position
-     * {@code (left + x * scale, top + y * scale)}.
+     * {@code (left + x * scale, top + y * scale)}. The placement receives the screen left ({@link #MINIMAP_SCREEN_LEFT_INDEX}), the screen top
+     * ({@link #MINIMAP_SCREEN_TOP_INDEX}) and the screen pixels per map pixel ({@link #MINIMAP_SCREEN_SCALE_INDEX}).
      *
-     * @param placement receives the screen left ({@link #MINIMAP_SCREEN_LEFT_INDEX}), the screen top ({@link #MINIMAP_SCREEN_TOP_INDEX}) and the
-     *                  screen pixels per map pixel ({@link #MINIMAP_SCREEN_SCALE_INDEX}), {@link #MINIMAP_PLACEMENT_VALUES} values
+     * @param placement the {@link #MINIMAP_PLACEMENT_VALUES} values to fill
      * @return {@code true} if the console shows a minimap, {@code false} otherwise, the placement then unchanged
      */
     public boolean placeMinimap(float @NotNull [] placement) {

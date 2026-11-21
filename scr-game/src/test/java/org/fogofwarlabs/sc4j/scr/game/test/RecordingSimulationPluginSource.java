@@ -83,8 +83,10 @@ public final class RecordingSimulationPluginSource implements ScrSimulationExten
         }
 
         /**
-         * @return the replay sections of the replay section tag ({@link #setReplaySectionTag}) the games' setups offered when their plugins were
-         * created, in creation order; none without a tag
+         * Returns the replay sections of the replay section tag ({@link #setReplaySectionTag}) that the games' setups offered when their plugins
+         * were created.
+         *
+         * @return the replay sections in creation order, none without a tag
          */
         public @NotNull List<byte @Nullable []> getReplaySections() {
             return this.replaySections;

@@ -217,16 +217,18 @@ public final class InterfaceLink {
     }
 
     /**
-     * @return the submitter of the local player's mod commands, which a live session supplies when it starts unless the local player observes;
-     * {@code null} in a replay, while observing and before the session starts
+     * Returns the submitter of the local player's mod commands, which a live session supplies when it starts unless the local player observes.
+     *
+     * @return the submitter, or {@code null} in a replay, while observing and before the session starts
      */
     public @Nullable ScrModCommandSubmitter getModCommandSubmitter() {
         return this.modCommandSubmitter;
     }
 
     /**
-     * @return the requester of the local player's menu pause and resume, which a live session supplies when it starts; {@code null} in a replay
-     * and before the session starts
+     * Returns the requester of the local player's menu pause and resume, which a live session supplies when it starts.
+     *
+     * @return the requester, or {@code null} in a replay and before the session starts
      */
     public @Nullable ScrPauseRequester getPauseRequester() {
         return this.pauseRequester;

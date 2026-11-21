@@ -383,8 +383,7 @@ public final class PathObstacleCollector {
      * @param positionY     the current Y WORD
      * @param directionMask the direction BYTE of the position
      * @throws NullPointerException          if the collector is not initialized or the terrain contours or the unit spatial index are missing
-     * @throws UnsupportedOperationException if a goal append of this search overwrote the saved terrain edge lists, if a moving unit is met without
-     *                                       movement collision controls or if the unit pool is not initialized
+     * @throws UnsupportedOperationException if a goal append overwrote the edge lists, a moving unit lacks collision controls or the unit pool is missing
      * @throws IllegalStateException         if the candidate has no sprite
      */
     public void collectBoundaries(int positionX, int positionY, int directionMask) {

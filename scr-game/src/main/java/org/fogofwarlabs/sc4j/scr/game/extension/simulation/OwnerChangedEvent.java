@@ -11,7 +11,7 @@ public final class OwnerChangedEvent extends SimulationEvent {
     private final int owner;
 
     /**
-     * Creates a {@link OwnerChangedEvent} instance.
+     * Creates an {@link OwnerChangedEvent} instance.
      *
      * @param unit          the unit, with its previous owner
      * @param previousOwner the previous owner's player slot

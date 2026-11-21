@@ -1408,12 +1408,13 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
      * Shows a leaderboard as the leaderboard actions without a location do: the leaderboard calculation is scheduled for the next frame and the
      * type, unit operand, goal and label are stored. The label is a map string, which may be a registered string
      * ({@link MapStringSection#registerString}).
+     * <p>
+     * The type is {@link TriggerActionIds#LEADERBOARD_CONTROL}, {@link TriggerActionIds#LEADERBOARD_RESOURCES},
+     * {@link TriggerActionIds#LEADERBOARD_KILLS}, {@link TriggerActionIds#LEADERBOARD_POINTS} or one of their goal forms. The operand is the unit
+     * type of the control and kills forms, the resource type of the resources forms or the score type of the points forms.
      *
-     * @param type        the leaderboard action type: {@link TriggerActionIds#LEADERBOARD_CONTROL},
-     *                    {@link TriggerActionIds#LEADERBOARD_RESOURCES}, {@link TriggerActionIds#LEADERBOARD_KILLS},
-     *                    {@link TriggerActionIds#LEADERBOARD_POINTS} or one of their goal forms
-     * @param unitType    the unit type of the control and kills forms, the resource type of the resources forms or the score type of the
-     *                    points forms (its low WORD is used)
+     * @param type        the leaderboard action type
+     * @param unitType    the unit, resource or score operand (its low WORD is used)
      * @param goal        the goal of the goal forms
      * @param stringIndex the map string index of the label
      * @throws IllegalArgumentException if the type is not a leaderboard type without a location
@@ -1432,8 +1433,7 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     /**
      * Shows a leaderboard of the units at a location, as Leaderboard Control At Location and its goal form do with a location.
      *
-     * @param type        {@link TriggerActionIds#LEADERBOARD_CONTROL_AT_LOCATION} or
-     *                    {@link TriggerActionIds#LEADERBOARD_GOAL_CONTROL_AT_LOCATION}
+     * @param type        {@link TriggerActionIds#LEADERBOARD_CONTROL_AT_LOCATION} or {@link TriggerActionIds#LEADERBOARD_GOAL_CONTROL_AT_LOCATION}
      * @param location    the zero-based location index
      * @param unitType    the unit type (its low WORD is used)
      * @param goal        the goal of the goal form
@@ -1641,11 +1641,11 @@ public final class TriggerContext implements org.fogofwarlabs.sc4j.engine.trigge
     }
 
     /**
-     * Returns a score of a player as the Score and Highest Score conditions read it.
+     * Returns a score of a player as the Score and Highest Score conditions read it. The score types {@code 0} through {@code 7} are total,
+     * units, buildings, units and buildings, kills, razings, kills and razings and custom; a later type reads {@code 0}.
      *
      * @param player    the player index
-     * @param scoreType the score type: total, units, buildings, units and buildings, kills, razings, kills and razings or custom ({@code 0}
-     *                  through {@code 7}); a later type reads {@code 0}
+     * @param scoreType the score type
      * @return the score
      * @throws UnsupportedOperationException if the evaluation controls are missing
      */

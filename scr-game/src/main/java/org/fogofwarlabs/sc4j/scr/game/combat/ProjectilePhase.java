@@ -790,8 +790,10 @@ public final class ProjectilePhase {
         }
 
         /**
-         * @return the order state: {@code 0} init, {@code 1} move, {@code 2} follow, {@code 3} bounce, {@code 4} damage over time, {@code 5} dying,
-         * {@code 6} hit near the target
+         * Returns the order state: {@code 0} init, {@code 1} move, {@code 2} follow, {@code 3} bounce, {@code 4} damage over time, {@code 5} dying,
+         * {@code 6} hit near the target.
+         *
+         * @return the order state
          */
         public int getState() {
             return this.orderState;

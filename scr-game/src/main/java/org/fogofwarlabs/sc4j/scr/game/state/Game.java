@@ -1720,16 +1720,17 @@ public final class Game implements GameSystem, StateHashContributor {
     }
 
     /**
-     * @return the plugins of the running mod's simulation extensions, created when the game system attached
-     * ({@link ScrSimulationExtensionUtils#createPlugins}), which the simulation routines report to and ask; {@code null} if no extension created one
+     * Returns the plugins of the running mod's simulation extensions, created when the game system attached
+     * ({@link ScrSimulationExtensionUtils#createPlugins}), which the simulation routines report to and ask.
+     *
+     * @return the plugins, or {@code null} if no extension created one
      */
     public @Nullable ScrSimulationPlugins getSimulationPlugins() {
         return this.simulationPlugins;
     }
 
     /**
-     * @return a copy of the replay sections ({@link #setReplaySection}) by tag, in the order their tags were first set; the data arrays are
-     * shared
+     * @return a copy of the replay sections ({@link #setReplaySection}) by tag, in first-set order; the data arrays are shared
      */
     public @NotNull Map<String, byte @NotNull []> getReplaySections() {
         synchronized (this.replaySections) {
@@ -2465,7 +2466,7 @@ public final class Game implements GameSystem, StateHashContributor {
      * {@code UNIS}/{@code UNIx} settings of a type without its use-default byte) is nonzero is named by that map string, and every other type by
      * its default name. The status panel name (which names a building in progress by its build type), the unit button text and the
      * placement-failure messages {@code errCANTPLACE_sdd} use it. A type whose {@code stat_txt} name a plugin overrides
-     * ({@link StatTextOverrides}) has its default name, which is the overridden one.
+     * ({@link StatTextOverrides}) has its default name, the overridden text.
      *
      * @param unitType the unit type
      * @return the map's name, the registered name of an added type, empty for any other type id from {@link ScrUnitIds#NONE} on or a missing

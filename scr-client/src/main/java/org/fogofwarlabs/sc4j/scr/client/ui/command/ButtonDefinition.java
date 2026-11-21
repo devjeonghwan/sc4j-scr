@@ -194,24 +194,24 @@ public final class ButtonDefinition {
     }
 
     /**
-     * @return the enabled button string in the {@code stat_txt} button string format (hotkey, button kind, text; of the default language for a
-     * button a mod adds), or {@code null} if the button uses its enabled {@code stat_txt} string
+     * Returns the enabled button string in the {@code stat_txt} button string format (hotkey, button kind, text), of the default language for a
+     * button a mod adds.
+     *
+     * @return the enabled button string, or {@code null} if the button uses its enabled {@code stat_txt} string
      */
     public @Nullable String getEnabledText() {
         return this.enabledText;
     }
 
     /**
-     * @return the disabled text of an entry of a changed table, or {@code null} if the button uses its disabled {@code stat_txt} string or is a
-     * button a mod adds
+     * @return the disabled text of an entry of a changed table, or {@code null} for the disabled {@code stat_txt} string or a mod's button
      */
     public @Nullable String getDisabledText() {
         return this.disabledText;
     }
 
     /**
-     * @return the index of the entry in its set's changed table, {@link #NO_TABLE_INDEX} for a button of the default table and a button a mod
-     * adds
+     * @return the index of the entry in its set's changed table, {@link #NO_TABLE_INDEX} for a default table button or a mod's button
      */
     public int getTableIndex() {
         return this.tableIndex;

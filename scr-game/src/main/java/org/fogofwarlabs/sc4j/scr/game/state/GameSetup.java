@@ -19,9 +19,9 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 
 /**
- * Holds the explicit inputs a game is created from: the game data, the map, the scenario the map was built from, the
- * archive of the map file, the replay the game runs, the random generator in its initial state, the C runtime generator in its initial state, the setup seed, the game options,
- * the rules version, the cheat option, the pool limits and the players.
+ * Holds the explicit inputs a game is created from: the game data, the map, the scenario the map was built from, the archive of the map file,
+ * the replay the game runs, the random generator in its initial state, the C runtime generator in its initial state, the setup seed, the game
+ * options, the rules version, the cheat option, the pool limits and the players.
  * <p>
  * {@link Game#create(GameSetup)} creates the engine game of the setup ({@link #createEngineSetup()}), whose SC:R game
  * system applies the rules version, the cheat option, the limits (creating the object pools) and the players. The setup
@@ -354,17 +354,19 @@ public final class GameSetup {
     }
 
     /**
-     * @return the scenario ({@code .chk}) the map was built from (for a saved game, the scenario built from the save), or
-     * {@code null} for a setup without one (previews and synthetic test worlds)
+     * Returns the scenario ({@code .chk}) the map was built from; for a saved game, the scenario built from the save.
+     *
+     * @return the scenario, or {@code null} for a setup without one (previews and synthetic test worlds)
      */
     public @Nullable ChkFile getScenario() {
         return this.scenario;
     }
 
     /**
-     * @return the archive of the map file a live game starts from (single player, a network host, or a joiner with the map it received), which
-     * holds the scenario; {@code null} for a replay, a game started from a saved game, a campaign mission, a raw scenario file or a setup
-     * without one. The archive holds the whole file content, shared with the game's start and not copied.
+     * Returns the archive of the map file a live game starts from (single player, a network host, or a joiner with the map it received), which
+     * holds the scenario. The archive holds the whole file content, shared with the game's start and not copied.
+     *
+     * @return the archive, or {@code null} for a replay, a saved game, a campaign mission, a raw scenario file or a setup without one
      */
     public @Nullable MpqArchive getMapArchive() {
         return this.mapArchive;
@@ -372,11 +374,11 @@ public final class GameSetup {
 
     /**
      * Reads a mod section of the replay the game plays back ({@link ReplayFile#readModSection}), which a game of the same mod wrote
-     * ({@link Game#setReplaySection}). Each call decodes the section anew.
+     * ({@link Game#setReplaySection}). Each call decodes the section anew. A live game, whose own recording holds no mod section, and a setup
+     * without a replay read none.
      *
      * @param tag the section tag: four printable ASCII characters other than SC:R's own tags ({@link ReplayFile#isModSectionTag})
-     * @return the section data, or {@code null} if the replay has no section of the tag; always {@code null} for a live game, whose own
-     * recording holds none, and for a setup without a replay
+     * @return the section data, or {@code null} if the replay has no section of the tag
      * @throws IOException              if the section is malformed or fails its checksum
      * @throws IllegalArgumentException if the tag is not a mod section tag
      */

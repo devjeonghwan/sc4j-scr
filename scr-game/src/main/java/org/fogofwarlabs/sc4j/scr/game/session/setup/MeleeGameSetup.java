@@ -893,9 +893,10 @@ public final class MeleeGameSetup {
     }
 
     /**
-     * @return the archive of the map file the game starts from, which holds this setup's scenario: the map a single-player game loaded
-     * ({@link #load}, {@link #loadUseMapSettings}) or the one a network game set ({@link #setMapArchive}); {@code null} for a raw scenario file,
-     * a campaign mission, a saved game or scenario bytes without an archive
+     * Returns the archive of the map file the game starts from, which holds this setup's scenario: the map a single-player game loaded
+     * ({@link #load}, {@link #loadUseMapSettings}) or the one a network game set ({@link #setMapArchive}).
+     *
+     * @return the archive, or {@code null} for a raw scenario file, a campaign mission, a saved game or scenario bytes without an archive
      */
     public @Nullable MpqArchive getMapArchive() {
         return this.mapArchive;

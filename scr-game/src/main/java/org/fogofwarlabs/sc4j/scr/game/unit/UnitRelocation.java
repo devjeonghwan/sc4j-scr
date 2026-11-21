@@ -75,9 +75,8 @@ public final class UnitRelocation {
     }
 
     /**
-     * Moves a ground unit that the terrain under it no longer carries to a free walkable position near it, as {@link #relocate} moves a unit:
-     * detaches it (nothing for a hidden unit), searches the nearest free walkable position in any terrain component
-     * ({@link UnitPositioning#findWalkable}), moves it there, then attaches it. A unit without such a position stays.
+     * Moves a ground unit that the terrain under it no longer carries to the nearest free walkable position in any terrain component
+     * ({@link UnitPositioning#findWalkable}), as {@link #relocate} moves a unit. A unit without such a position stays.
      *
      * @param unit the non-building ground unit
      * @return {@code true} if a free position was found and the unit moved there, {@code false} otherwise

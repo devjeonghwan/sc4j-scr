@@ -460,8 +460,7 @@ public final class UnitSelection {
      * @param units the units in selection order, at most {@link #MAXIMUM_SELECTED}; units of this game's pool
      * @throws IllegalArgumentException      if more than {@link #MAXIMUM_SELECTED} units are given
      * @throws IndexOutOfBoundsException     if the slot is outside the playable player slots
-     * @throws UnsupportedOperationException if the slot's command player is outside the playable player slots, the local slot of a team selection
-     *                                       names no represented player record or every history timestamp is {@code 0xFFFF}
+     * @throws UnsupportedOperationException if the command player is not playable, a team record is missing or every history timestamp is {@code 0xFFFF}
      * @throws NullPointerException          if the world was built without game data
      */
     public void select(@NotNull Game game, int slot, @NotNull Unit @NotNull [] units) {

@@ -273,8 +273,7 @@ public final class PlayerTechnology implements ContextDwordTable, GameContextByt
      * @param playerIndex the original player DWORD, without truncation
      * @param technology  the original technology WORD
      * @param available   whether the technology is available
-     * @throws UnsupportedOperationException if the addressed byte lies past the game context, or outside the technology tables without a game
-     *                                       context
+     * @throws UnsupportedOperationException if the addressed byte lies past the game context, or outside the technology tables without one
      */
     public void setAvailable(int playerIndex, int technology, boolean available) {
         technology &= WORD_MASK;

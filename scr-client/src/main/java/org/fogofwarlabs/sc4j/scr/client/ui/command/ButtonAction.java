@@ -252,8 +252,7 @@ public enum ButtonAction {
      */
     REPLAY_SPEED_UP(0x1403bacb0L, Kind.REPLAY, -1),
     /**
-     * Sends nothing: only the game plugins see the press. SC:R's own action: its address lies below the executable's image base, where no
-     * native function lies.
+     * Sends nothing: only the game plugins see the press. SC:R's own action, whose identifier is no native function address.
      */
     SCRIPT(0x2L, Kind.SCRIPT, -1),
     /**

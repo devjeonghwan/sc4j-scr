@@ -105,7 +105,7 @@ public final class BulletHitEvent extends SimulationEvent {
     }
 
     /**
-     * @return {@code true} the bullet missed its target unit, {@code false} otherwise
+     * @return {@code true} if the bullet missed its target unit, {@code false} otherwise
      */
     public boolean isMissed() {
         return this.missed;

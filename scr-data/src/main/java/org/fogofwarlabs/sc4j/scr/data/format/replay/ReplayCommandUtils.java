@@ -144,12 +144,13 @@ public final class ReplayCommandUtils {
     }
 
     /**
-     * Returns the stored length of a command: the length the replay loader splits the recorded command stream with.
+     * Returns the stored length of a command: the length the replay loader splits the recorded command stream with. A type without a stored
+     * length, a selection whose handle count lies past the bytes and a mod command whose length byte lies past the bytes or names more than
+     * {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} data bytes have none.
      *
      * @param data   the command bytes
      * @param offset the offset of the command's type byte
-     * @return the length, type byte included, or {@code -1} for a type without a stored length, a selection whose handle count lies past the bytes
-     * or a mod command whose length byte lies past the bytes or names more than {@link ReplayModCommand#MAXIMUM_DATA_LENGTH} data bytes
+     * @return the length, type byte included, or {@code -1} for none
      */
     public static int getStoredLength(byte @NotNull [] data, int offset) {
         int typeIdentifier = data[offset] & BYTE_MASK;
@@ -209,8 +210,7 @@ public final class ReplayCommandUtils {
      * Returns the command length of a command type whose length does not depend on its bytes.
      *
      * @param typeIdentifier the command type byte
-     * @return the length, type byte included, or {@code -1} for a type without a dispatcher case, a selection, Save Game, Load Game and the mod
-     * command
+     * @return the length, type byte included, or {@code -1} for an undispatched type, a selection, Save Game, Load Game and the mod command
      */
     public static int getFixedLength(int typeIdentifier) {
         if (!isDispatched(typeIdentifier) || typeIdentifier == ReplayCommandIds.SAVE_GAME || typeIdentifier == ReplayCommandIds.LOAD_GAME ||

@@ -261,7 +261,7 @@ public enum ButtonCondition {
     SINGLE_UNIT_REQUIREMENT(0x1403e5a50L),
     /**
      * The state a game plugin sets for the condition value ({@code ScrButtonStates}), evaluated like the other conditions only for an own
-     * active unit. SC:R's own condition: its address lies below the executable's image base, where no native function lies.
+     * active unit. SC:R's own condition, whose identifier is no native function address.
      */
     SCRIPT(0x1L);
 

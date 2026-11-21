@@ -289,12 +289,12 @@ public final class TriggerUnitActions {
     /**
      * Kills or removes one unit as Kill Unit and Remove Unit do: a powerup a worker carries is released through its carrier instead; a removed
      * unit is hidden before it is killed, except a unit that provides space whose loaded units the caller handled, which its Die order hides.
-     * The unit is not tested for its owner, its type or its state.
+     * The unit is not tested for its owner, its type or its state. The location actions kill or remove the loaded units of a unit that provides
+     * space ({@link TriggerLocations#providesSpace}) first; the actions without a location do not.
      *
      * @param unit          the unit
      * @param remove        {@code true} for Remove Unit, {@code false} for Kill Unit
-     * @param providesSpace {@code true} if the unit provides space ({@link TriggerLocations#providesSpace}) and its loaded units were killed or
-     *                      removed first, as the location actions do; {@code false} as the actions without a location do
+     * @param providesSpace {@code true} if the unit provides space and its loaded units were killed or removed first, {@code false} otherwise
      * @throws NullPointerException          if the world was built without game data
      * @throws UnsupportedOperationException if the order pool is not initialized
      */

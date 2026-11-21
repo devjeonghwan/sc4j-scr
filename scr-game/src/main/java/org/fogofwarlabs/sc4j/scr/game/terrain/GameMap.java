@@ -627,8 +627,7 @@ public final class GameMap implements SightGrid {
      *
      * @param tileX the horizontal coordinate in tiles
      * @param tileY the vertical coordinate in tiles
-     * @param bits  the low WORD: bit {@code p} for a player {@code p} that does not see the tile, bit {@code 8 + p} for one that has not explored
-     *              it
+     * @param bits  the low WORD: bit {@code p} if player {@code p} does not see the tile, bit {@code 8 + p} if it has not explored it
      * @throws IllegalStateException     if expanded terrain flags are unavailable
      * @throws IndexOutOfBoundsException if the coordinates are outside the map
      */

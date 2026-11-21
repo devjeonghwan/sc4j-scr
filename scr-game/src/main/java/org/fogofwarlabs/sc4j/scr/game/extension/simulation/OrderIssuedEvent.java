@@ -18,7 +18,7 @@ public final class OrderIssuedEvent extends SimulationEvent {
     private final boolean queued;
 
     /**
-     * Creates a {@link OrderIssuedEvent} instance.
+     * Creates an {@link OrderIssuedEvent} instance.
      *
      * @param unit           the unit
      * @param orderId        the orders.dat entry
@@ -86,7 +86,7 @@ public final class OrderIssuedEvent extends SimulationEvent {
     }
 
     /**
-     * @return {@code true} the order was requested as a queued order, {@code false} otherwise
+     * @return {@code true} if the order was requested as a queued order, {@code false} otherwise
      */
     public boolean isQueued() {
         return this.queued;

@@ -19,9 +19,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>
  * A plugin turns local input into simulation input only through mod commands: it sees the local keyboard, mouse, chat lines and command card
  * buttons ({@link #onKeyInput}, {@link #onMouseInput}, {@link #onChatInput}, {@link #onButtonInput}) and queues mod commands of the local player
- * through the game's submitter
- * ({@link InterfaceLink#getModCommandSubmitter()}), which a live session supplies after the plugin is created; the game's simulation plugins
- * receive them at the same frame on every peer. It reads the local camera and centers the local view through the game's local view
+ * through the game's submitter ({@link InterfaceLink#getModCommandSubmitter()}), which a live session supplies after the plugin is created; the
+ * game's simulation plugins receive them at the same frame on every peer. It reads the local camera and centers the local view through the game's local view
  * ({@link InterfaceLink#getLocalView()}): the screen position of the last frame ({@link LocalView#getScreenX()}, {@link LocalView#getScreenY()})
  * and the centering of the network game's Center View trigger action ({@link LocalView#centerScreen}), which the client applies after the input
  * method or the frame that called it. It reads the game screen the client last drew, its size, scale, graphics and font measure, through the
@@ -44,6 +43,7 @@ public interface ScrGamePlugin {
      * dialog is open, or the triggers pause the game. It does not deliver the keys that open the chat box (Enter) and the game menu (F10), the
      * presses that run an interface accelerator (the menus and their dialogs, the sound, music and graphics toggles, the chat history), nor the
      * repeats of a held key.
+     * <p>
      * A release is delivered when its press was, also if the chat box opened in between; a release reaches no game key, so its consumption has no
      * effect.
      *
@@ -221,10 +221,10 @@ public interface ScrGamePlugin {
 
     /**
      * Finds the picture the console draws for a resource icon instead of its installed icon and of the frame of {@link #findResourceIcons}: fitted
-     * into the installed icon's box. The same picture is returned while the icon is unchanged.
+     * into the installed icon's box. The same picture is returned while the icon is unchanged. The icon frames are {@code 0} minerals,
+     * {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran and Protoss.
      *
-     * @param icon the resource icon frame: {@code 0} minerals, {@code 1} to {@code 3} gas and {@code 4} to {@code 6} supply of the Zerg, Terran
-     *             and Protoss
+     * @param icon the resource icon frame
      * @return the picture, or {@code null} for the other icons
      */
     default @Nullable Picture findResourceIconPicture(int icon) {
