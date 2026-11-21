@@ -108,8 +108,14 @@ public final class TriggerLocation {
         return this.elevationFlags;
     }
 
-    void setElevationFlags(int elevationFlags) {
-        this.elevationFlags = elevationFlags;
+    /**
+     * Sets the elevation flag WORD, as an EUD write of the location table does: a set bit leaves the units at its elevation out of the
+     * location (bits {@code 0..2} the low, middle and high ground, bits {@code 3..5} the air above them).
+     *
+     * @param elevationFlags the flags, truncated to a WORD
+     */
+    public void setElevationFlags(int elevationFlags) {
+        this.elevationFlags = elevationFlags & WORD_MASK;
     }
 
 
