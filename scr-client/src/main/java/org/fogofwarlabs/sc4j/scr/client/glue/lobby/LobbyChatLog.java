@@ -1,8 +1,8 @@
 package org.fogofwarlabs.sc4j.scr.client.glue.lobby;
 
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
-import org.fogofwarlabs.sc4j.engine.client.dialog.LogSelectionModel;
-import org.fogofwarlabs.sc4j.engine.client.dialog.TextBoundaryUtils;
+import org.fogofwarlabs.sc4j.base.text.LogSelectionModel;
+import org.fogofwarlabs.sc4j.base.text.TextBoundaryUtils;
 import org.fogofwarlabs.sc4j.engine.client.dialog.TextClipboard;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChannelChat;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChatEntry;

@@ -1,5 +1,6 @@
 package org.fogofwarlabs.sc4j.scr.client.ui.dialog;
 
+import org.fogofwarlabs.sc4j.base.text.TextBoundaryUtils;
 import org.fogofwarlabs.sc4j.engine.client.dialog.*;
 import org.fogofwarlabs.sc4j.scr.game.presentation.InterfaceTimers;
 import org.jetbrains.annotations.NotNull;
