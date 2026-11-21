@@ -14,6 +14,7 @@ import org.fogofwarlabs.sc4j.scr.client.ui.console.*;
 import org.fogofwarlabs.sc4j.scr.client.ui.dialog.ScrDialog;
 import org.fogofwarlabs.sc4j.scr.client.ui.dialog.ScrDialogLayer;
 import org.fogofwarlabs.sc4j.scr.client.ui.input.VirtualKeys;
+import org.fogofwarlabs.sc4j.scr.client.ui.input.WorldInterface;
 import org.fogofwarlabs.sc4j.scr.client.ui.menu.AllianceDialog;
 import org.fogofwarlabs.sc4j.scr.client.ui.menu.GameMenu;
 import org.fogofwarlabs.sc4j.scr.client.ui.menu.NetworkWaitDialog;
@@ -767,7 +768,8 @@ final class GameClientState implements InputListener {
     }
 
     /**
-     * Returns the clip of the captured pointer: the minimap bitmap during a minimap drag, the game screen otherwise.
+     * Returns the clip of the captured pointer: the minimap bitmap during a minimap drag, the play view of the game screen while a selection box is
+     * open, the game screen otherwise.
      *
      * @param screenClip the game screen's clip
      * @return the clip in screen pixels
@@ -775,7 +777,11 @@ final class GameClientState implements InputListener {
     @NotNull PointerClip getPointerClip(@NotNull PointerClip screenClip) {
         PointerClip minimapClip = this.minimapDragging && this.main.consoleView != null ? this.main.consoleView.getMinimapClip() : null;
 
-        return minimapClip != null ? minimapClip : screenClip;
+        if (minimapClip != null) {
+            return minimapClip;
+        }
+
+        return this.main.worldInterface != null && this.main.worldInterface.isDragSelecting() ? this.main.gameViewport.getPlayClip() : screenClip;
     }
 
     /**
@@ -825,17 +831,32 @@ final class GameClientState implements InputListener {
             this.updateDialogHover();
         }
 
-        if (!this.main.isOnMapView() || this.main.worldInterface == null) {
+        WorldInterface world = this.main.worldInterface;
+
+        if (world == null || !this.main.isConsoleShown()) {
+            return;
+        }
+
+        // An open selection box follows the pointer over the console too, held inside the play view (getPointerClip).
+        boolean boxOpen = world.isDragSelecting();
+
+        if (!boxOpen && !this.main.isOnMapView()) {
             return;
         }
 
         try {
             ClientCamera camera = this.main.requireSession().getCamera();
+            float pointerX = this.main.pointerHorizontal;
+            float pointerY = this.main.pointerVertical;
 
-            this.main.worldInterface.handlePointerMove(Math.round(camera.screenToWorldX(this.main.pointerHorizontal)),
-                                                       Math.round(camera.screenToWorldY(this.main.pointerVertical)),
-                                                       this.main.pointerHorizontal,
-                                                       -1);
+            if (boxOpen) {
+                PointerClip play = this.main.gameViewport.getPlayClip();
+
+                pointerX = Math.max(play.getLeft(), Math.min(pointerX, play.getRight() - 1));
+                pointerY = Math.max(play.getTop(), Math.min(pointerY, play.getBottom() - 1));
+            }
+
+            world.handlePointerMove(Math.round(camera.screenToWorldX(pointerX)), Math.round(camera.screenToWorldY(pointerY)), pointerX, -1);
         } catch (IOException exception) {
             this.main.setAssetWarning(POINTER_WARNING_PREFIX + exception.getMessage());
         }
@@ -965,11 +986,15 @@ final class GameClientState implements InputListener {
 
                 this.pendingDoubleClick = false;
 
-                // The selection is limited to the game view (GameViewport).
+                // The selection is limited to the game view (GameViewport); the box ends at the pointer held inside the play view.
                 GameViewport viewport = this.main.gameViewport;
+                PointerClip play = viewport.getPlayClip();
+                float pointerX = Math.max(play.getLeft(), Math.min(this.main.pointerHorizontal, play.getRight() - 1));
+                float pointerY = Math.max(play.getTop(), Math.min(this.main.pointerVertical, play.getBottom() - 1));
                 int left = Math.round(camera.screenToWorldX(viewport.getGameLeft()));
                 int top = Math.round(camera.getY());
-                CommandInput.Result result = this.main.worldInterface.handleLeftRelease(mapX, mapY,
+                CommandInput.Result result = this.main.worldInterface.handleLeftRelease(Math.round(camera.screenToWorldX(pointerX)),
+                                                                                        Math.round(camera.screenToWorldY(pointerY)),
                                                                                         shift,
                                                                                         KeyModifier.CONTROL.isIn(modifiers),
                                                                                         KeyModifier.ALT.isIn(modifiers),
