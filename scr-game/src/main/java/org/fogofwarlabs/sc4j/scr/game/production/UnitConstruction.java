@@ -190,8 +190,7 @@ public final class UnitConstruction {
      * @param unit             the incomplete unit
      * @param instructionLimit the order, morph, creation, completion, animation, sprite and hit point budget
      * @return {@code true} if the unit was canceled, {@code false} otherwise
-     * @throws IllegalStateException if the order pool is missing for a unit that is not a grounded building, or if a reverting Cocoon or Lurker Egg
-     *                               has no sprite
+     * @throws IllegalStateException if the order pool is missing for a unit that is not a grounded building, or if a reverting Cocoon or Lurker Egg has no sprite
      * @throws NullPointerException  if the world was built without game data
      */
     public boolean cancelBuildingUnit(@NotNull Unit unit, int instructionLimit) {
@@ -424,8 +423,7 @@ public final class UnitConstruction {
      * @param positionX        the building center X
      * @param positionY        the building center Y
      * @param instructionLimit the order issue and build queue reset budget
-     * @return {@code true} if the builder is not a Drone that is building or landing uninterruptibly and the cost and supply test passes,
-     * {@code false} otherwise
+     * @return {@code true} if the builder is not a Drone that is building or landing uninterruptibly and the cost and supply test passes, {@code false} otherwise
      * @throws UnsupportedOperationException if the order is not a construction order
      * @throws NullPointerException          if the world was built without game data
      */
@@ -954,8 +952,7 @@ public final class UnitConstruction {
      *
      * @param building         the incomplete building
      * @param instructionLimit the animation, morph, hit point and completion budget
-     * @throws IllegalStateException         if the building's sprite, the creation context, the owner or the creep storage is missing, or the order
-     *                                       state is outside the order's states
+     * @throws IllegalStateException         if the building's sprite, the creation context, the owner or the creep storage is missing, or the order state is outside the order's states
      * @throws NullPointerException          if the world was built without game data
      * @throws UnsupportedOperationException if the unit accounting is not initialized
      */

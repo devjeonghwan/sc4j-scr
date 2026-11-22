@@ -1390,8 +1390,7 @@ public final class UnitSpells {
      * @param owner            the owner of the new hallucination
      * @param instructionLimit the creation and order budget
      * @return the hallucination, or {@code null} if construction failed
-     * @throws UnsupportedOperationException if the unit creation context is missing or a source hangar count exceeds its list, or the unit pool or
-     *                                       the unit accounting is not initialized
+     * @throws UnsupportedOperationException if the unit creation context is missing or a source hangar count exceeds its list, or the unit pool or the unit accounting is not initialized
      * @throws IllegalStateException         if the source has no sprite
      */
     private @Nullable Unit createHallucination(@NotNull Unit source, int owner, int instructionLimit) {
@@ -2450,8 +2449,7 @@ public final class UnitSpells {
      * @param notifiedPlayer   the player shown the pending creation message on failure
      * @param instructionLimit the creation and completion budget
      * @return the created spell unit, or {@code null} if construction failed
-     * @throws UnsupportedOperationException if the unit creation context or the owner player record is missing, or the unit accounting is not
-     *                                       initialized
+     * @throws UnsupportedOperationException if the unit creation context or the owner player record is missing, or the unit accounting is not initialized
      * @throws IllegalStateException         if the created unit has no sprite
      * @throws NullPointerException          if the world was built without game data
      */
