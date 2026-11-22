@@ -2141,8 +2141,7 @@ public final class Main {
                 /**
                  * Returns the frame rate limit of the frame just run. It is read after {@link #runFrame} returned a presented frame.
                  *
-                 * @return the frames per second the host paces to, or {@code 0} to present without waiting (for example while the
-                 *         display's vertical sync paces the frames)
+                 * @return the frames per second the host paces to, or {@code 0} to present without waiting (for example while the display's vertical sync paces the frames)
                  */
                 @Override
                 public int getFrameRateLimit() {
