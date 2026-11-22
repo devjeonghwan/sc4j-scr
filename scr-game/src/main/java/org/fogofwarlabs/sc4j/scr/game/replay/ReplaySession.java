@@ -335,8 +335,9 @@ public final class ReplaySession {
 
         // A live game's session supplies its own outgoing turn and turn limits; replay playback starts single-player ones.
         OutgoingTurnBuffer outgoingTurn = game.isReplayPlayback() ? new OutgoingTurnBuffer(LiveGame.MAXIMUM_TURN_BYTES) : null;
+        LoopbackTurns loopbackTurns = outgoingTurn == null ? null : new LoopbackTurns(outgoingTurn);
 
-        this.loopbackTurns    = outgoingTurn == null ? null : new LoopbackTurns(outgoingTurn);
+        this.loopbackTurns    = loopbackTurns;
         this.loopbackPlayerId = ReplayInitialization.findNativeReplayLocalPlayer(replay.getHeader());
         this.syncRing         = outgoingTurn == null ? null : new SyncRing(this.loopbackPlayerId, false);
         this.latency          = 0;
@@ -345,7 +346,9 @@ public final class ReplaySession {
         // The session start is the game start, which stores the turn-wait budget.
         this.timing.resetTurnBudget();
 
-        if (outgoingTurn != null) {
+        if (outgoingTurn != null && loopbackTurns != null) {
+            outgoingTurn.setTurnSender(loopbackTurns, LiveGame.LATENCY_TURNS);
+
             this.game.getInterfaceLink().setOutgoingTurn(outgoingTurn);
             this.game.getInterfaceLink().setSessionTurnLimits(LiveGame.LATENCY_TURNS, LiveGame.MAXIMUM_TURN_BYTES);
 

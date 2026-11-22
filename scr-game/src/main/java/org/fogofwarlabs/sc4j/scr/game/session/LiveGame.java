@@ -221,6 +221,40 @@ public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester
     }
 
     /**
+     * The turn sender of a network game: its transport.
+     */
+    private static final class TransportTurnSender implements OutgoingTurnBuffer.TurnSender {
+        private final @NotNull LockstepTransport transport;
+
+        /**
+         * Creates a {@link TransportTurnSender} instance.
+         *
+         * @param transport the network turn stream
+         */
+        private TransportTurnSender(@NotNull LockstepTransport transport) {
+            this.transport = transport;
+        }
+
+        /**
+         * @return the local turns sent and not yet received back
+         */
+        @Override
+        public int getTurnsInTransit() {
+            return this.transport.getTurnsInTransit();
+        }
+
+        /**
+         * Sends the local player's next turn.
+         *
+         * @param turn the turn bytes
+         */
+        @Override
+        public void sendTurn(byte @NotNull [] turn) {
+            this.transport.sendTurn(turn);
+        }
+    }
+
+    /**
      * Reads the latency setting a Latency command sets: its byte without the silent bit, at most {@link #MAXIMUM_LATENCY}.
      *
      * @param value the command's unsigned latency byte
@@ -431,6 +465,8 @@ public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester
         this.chatRecords   = new ArrayList<>();
         this.outgoingTurn  = new OutgoingTurnBuffer(MAXIMUM_TURN_BYTES);
         this.loopbackTurns = new LoopbackTurns(this.outgoingTurn);
+
+        this.outgoingTurn.setTurnSender(this.loopbackTurns, LATENCY_TURNS);
 
         if (this.isLocalObserver()) {
             this.outgoingTurn.useObserverTurns();
@@ -859,12 +895,13 @@ public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester
     }
 
     /**
-     * Queues a local command into the outgoing turn.
+     * Queues a local command into the outgoing turn ({@link OutgoingTurnBuffer#queue}); a command that does not fit sends the turn early.
      *
      * @param typeId  the command type byte
      * @param payload the command bytes after the type byte
      * @return {@code true} if queued, {@code false} otherwise (a command the replay excludes: pause, resume, keep-alive,
-     * save/load, latency and the other excluded types, which this session handles outside the command stream)
+     * save/load, latency and the other excluded types, which this session handles outside the command stream; or a command
+     * that does not fit while too many turns are in transit)
      */
     public boolean submit(int typeId, byte @NotNull [] payload) {
         if (!ReplayWriter.isRecorded(typeId, payload.length)) {
@@ -875,9 +912,8 @@ public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester
 
         command[0] = (byte) typeId;
         System.arraycopy(payload, 0, command, 1, payload.length);
-        this.outgoingTurn.queue(command);
 
-        return true;
+        return this.outgoingTurn.queue(command);
     }
 
     /**
@@ -1258,7 +1294,7 @@ public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester
     }
 
     /**
-     * Attaches a network turn stream and configures the local turns kept in transit.
+     * Attaches a network turn stream and configures the local turns kept in transit; the outgoing turn sends its extra turns over it.
      *
      * @param transport      the turn stream
      * @param turnsInTransit the local turns kept in transit
@@ -1271,6 +1307,8 @@ public final class LiveGame implements ScrModCommandSubmitter, ScrPauseRequester
         this.baseTurnsInTransit = turnsInTransit;
         this.turnsInTransit     = turnsInTransit + this.latency;
         this.turnRate           = transport.getTurnRate().getTurnsPerSecond();
+
+        this.outgoingTurn.setTurnSender(new TransportTurnSender(transport), turnsInTransit);
 
         if (keepAlive) {
             this.outgoingTurn.useKeepAlive();
