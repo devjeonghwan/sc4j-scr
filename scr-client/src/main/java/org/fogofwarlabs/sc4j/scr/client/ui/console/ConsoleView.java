@@ -338,10 +338,6 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
      */
     private static final int PORTRAIT_CONTROL = 1;
     /**
-     * The minimap area control of the {@code minimap} dialog.
-     */
-    private static final int MINIMAP_AREA_CONTROL = 1;
-    /**
      * The gap between a cost icon and its number (icon width + {@code 2}).
      */
     private static final int COST_NUMBER_GAP = 2;
@@ -1179,7 +1175,8 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
 
     /**
      * Finds the rectangle of a console dialog as it was last drawn, placed by the console placement, in interface units from the game screen's
-     * top: the console's rows moved down by the view extension, as {@link GameViewport#toScreenY} places the game screen.
+     * top: the console's rows moved down by the view extension, as {@link GameViewport#toScreenY} places the game screen. The minimap dialog is
+     * sized by the minimap size of the placement ({@link ScrConsolePlacement#setMinimapSize}).
      *
      * @param dialog    the dialog
      * @param rectangle receives the left, top, width and height
@@ -1225,12 +1222,10 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
                 continue;
             }
 
-            boolean minimapArea = dialog == ScrConsolePlacement.Dialog.MINIMAP && control == MINIMAP_AREA_CONTROL && shownPlacement != null;
-
             rectangle[RECTANGLE_LEFT_INDEX]   = shown.getX();
             rectangle[RECTANGLE_TOP_INDEX]    = shown.getY() + this.getViewExtensionRows();
-            rectangle[RECTANGLE_WIDTH_INDEX]  = minimapArea ? shownPlacement.getMinimapSize() : shown.getWidth();
-            rectangle[RECTANGLE_HEIGHT_INDEX] = minimapArea ? shownPlacement.getMinimapSize() : shown.getHeight();
+            rectangle[RECTANGLE_WIDTH_INDEX]  = shown.getWidth();
+            rectangle[RECTANGLE_HEIGHT_INDEX] = shown.getHeight();
 
             return true;
         }
@@ -4625,7 +4620,7 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
         }
 
         MinimapImage image = this.minimapImage;
-        DialogLayout.Control area = console.getMinimap().getControl(MINIMAP_AREA_CONTROL);
+        DialogLayout.Control area = console.getMinimap().getControl(ScrConsolePlacement.MINIMAP_AREA_CONTROL);
         float minimapScale = this.getMinimapScale();
         float left = getMinimapLeft(area, image, minimapScale);
         float top = getMinimapTop(area, image, minimapScale);
@@ -4873,7 +4868,7 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
             return null;
         }
 
-        DialogLayout.Control area = console.getMinimap().getControl(MINIMAP_AREA_CONTROL);
+        DialogLayout.Control area = console.getMinimap().getControl(ScrConsolePlacement.MINIMAP_AREA_CONTROL);
         float minimapScale = this.getMinimapScale();
         float left = getMinimapLeft(area, image, minimapScale);
         float top = getMinimapTop(area, image, minimapScale);
@@ -4902,7 +4897,7 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
             return false;
         }
 
-        DialogLayout.Control area = console.getMinimap().getControl(MINIMAP_AREA_CONTROL);
+        DialogLayout.Control area = console.getMinimap().getControl(ScrConsolePlacement.MINIMAP_AREA_CONTROL);
         float minimapScale = this.getMinimapScale();
 
         placement[MINIMAP_SCREEN_LEFT_INDEX]  = console.toScreenX(getMinimapLeft(area, image, minimapScale));
@@ -4926,7 +4921,7 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
             return null;
         }
 
-        DialogLayout.Control area = console.getMinimap().getControl(MINIMAP_AREA_CONTROL);
+        DialogLayout.Control area = console.getMinimap().getControl(ScrConsolePlacement.MINIMAP_AREA_CONTROL);
         float minimapScale = this.getMinimapScale();
         float left = getMinimapLeft(area, image, minimapScale);
         float top = getMinimapTop(area, image, minimapScale);
@@ -5559,38 +5554,44 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
     /**
      * Places one dialog and its controls: a moved dialog or control at its place in the classic screen, which stands where the dialog's anchor
      * puts it in the interface width ({@link ScrConsolePlacement.Anchor#computeClassicLeft}), a hidden one past the interface's right edge, where
-     * it is neither drawn nor hit; the controls of a hidden dialog are hidden with it.
+     * it is neither drawn nor hit; the controls of a hidden dialog are hidden with it. The minimap dialog first grows or shrinks with its area to
+     * the minimap size of the placement, its bottom-left corner kept ({@link DialogLayout#createResizedLayout}), so that a moved dialog keeps its
+     * top left and an unmoved one the bottom of its area.
      *
      * @param layout         the dialog
      * @param dialog         the dialog's name in the placement
      * @param placement      the placement
      * @param interfaceWidth the interface width
-     * @return the placed dialog, or {@code layout} when neither it nor a control of it is placed
+     * @return the placed dialog, or {@code layout} when neither it nor a control of it is placed and its size is the installed one
      */
-    private static @NotNull DialogLayout placeDialog(@NotNull DialogLayout layout,
-                                                     ScrConsolePlacement.@NotNull Dialog dialog,
-                                                     @NotNull ScrConsolePlacement placement,
-                                                     float interfaceWidth) {
+    static @NotNull DialogLayout placeDialog(@NotNull DialogLayout layout,
+                                             ScrConsolePlacement.@NotNull Dialog dialog,
+                                             @NotNull ScrConsolePlacement placement,
+                                             float interfaceWidth) {
+        int minimapSize = placement.getMinimapSize();
+        DialogLayout sized = dialog == ScrConsolePlacement.Dialog.MINIMAP && minimapSize != ScrConsolePlacement.MINIMAP_SIZE
+                             ? layout.createResizedLayout(ScrConsolePlacement.MINIMAP_AREA_CONTROL, minimapSize, minimapSize)
+                             : layout;
         int classicLeft = placement.getDialogAnchor(dialog).computeClassicLeft(interfaceWidth);
         int hiddenLeft = (int) Math.ceil(interfaceWidth);
         int[] controls = placement.getPlacedControls(dialog);
-        int left = layout.getX();
-        int top = layout.getY();
+        int left = sized.getX();
+        int top = sized.getY();
 
         if (placement.isDialogHidden(dialog)) {
-            return layout.createPlacedLayout(hiddenLeft, top, identifier -> null);
+            return sized.createPlacedLayout(hiddenLeft, top, identifier -> null);
         }
 
         if (placement.isDialogMoved(dialog)) {
             left = placement.getDialogLeft(dialog) + classicLeft;
             top  = placement.getDialogTop(dialog);
         } else if (controls.length == 0) {
-            return layout;
+            return sized;
         }
 
         int dialogTop = top;
 
-        return layout.createPlacedLayout(left, top, identifier -> {
+        return sized.createPlacedLayout(left, top, identifier -> {
             if (placement.isControlHidden(dialog, identifier)) {
                 return new int[]{hiddenLeft, dialogTop};
             }

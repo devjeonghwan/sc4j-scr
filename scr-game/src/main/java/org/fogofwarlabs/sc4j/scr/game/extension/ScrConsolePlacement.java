@@ -16,7 +16,8 @@ import java.util.Map;
  * <p>
  * The classic screen of a dialog's positions stands centered in an interface wider than {@value #CLASSIC_WIDTH} units, or at its left or right
  * edge ({@link #setDialogAnchor}), so that a layout at an edge follows the interface width; the mask and the surfaces stay centered. The minimap
- * area, {@value #MINIMAP_SIZE} units on each side, may be drawn at another size from its top left ({@link #setMinimapSize}).
+ * area, {@value #MINIMAP_SIZE} units on each side, may be drawn at another size from its top left ({@link #setMinimapSize}); the minimap dialog
+ * grows or shrinks with it.
  * <p>
  * The change count grows with every move, every hidden or restored dialog, every hidden or restored control, every anchor and minimap size change
  * and every mask change.
@@ -30,6 +31,10 @@ public final class ScrConsolePlacement {
      * The side of the minimap area in interface units, the installed size of the minimap.
      */
     public static final int MINIMAP_SIZE = 128;
+    /**
+     * The identifier of the minimap area control in the minimap dialog's definition.
+     */
+    public static final int MINIMAP_AREA_CONTROL = 1;
 
     /**
      * A console dialog.
@@ -271,6 +276,10 @@ public final class ScrConsolePlacement {
     /**
      * Sets the side of the drawn minimap area: the minimap, its view frame and its pings are drawn and hit scaled by
      * {@code minimapSize / }{@value #MINIMAP_SIZE} from the area's top left.
+     * <p>
+     * The minimap dialog grows or shrinks with the area, by {@code minimapSize - }{@value #MINIMAP_SIZE} in width and height, and its other
+     * controls keep their offsets from the dialog's top left. A moved dialog keeps its top left; at its installed place the dialog keeps its
+     * bottom-left corner, so that the area stays inside the console.
      *
      * @param minimapSize the side in interface units
      * @throws IllegalArgumentException if the side is not positive
