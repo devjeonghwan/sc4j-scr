@@ -299,8 +299,7 @@ public final class UnitDamage {
      * @param target           the hit unit
      * @param instructionLimit the image and order instruction budget
      * @throws NullPointerException          if the world was built without game data
-     * @throws UnsupportedOperationException if the player upgrade levels are missing, or the damage type and size read past the damage
-     *                                       multiplier table
+     * @throws UnsupportedOperationException if the player upgrade levels are missing, or the damage type and size read past the damage multiplier table
      */
     public void dealWeaponHit(int weapon, @NotNull Unit source, @NotNull Unit target, int instructionLimit) {
         this.dealWeaponDamage(weapon,
@@ -323,8 +322,7 @@ public final class UnitDamage {
      * @param heading          the hit direction used for shield overlays
      * @param instructionLimit the image and order instruction budget
      * @throws NullPointerException          if the world was built without game data
-     * @throws UnsupportedOperationException if the player upgrade levels are missing, or the damage type and size read past the damage
-     *                                       multiplier table
+     * @throws UnsupportedOperationException if the player upgrade levels are missing, or the damage type and size read past the damage multiplier table
      */
     public void dealWeaponDamage(int weapon,
                                  int damage,
@@ -843,8 +841,7 @@ public final class UnitDamage {
      * @param source           the attacking unit, or {@code null}
      * @param revealSource     whether the attacker's position is revealed
      * @param instructionLimit the order instruction budget
-     * @throws IllegalStateException         if a unit damaged by another player's unit has no computer record and no sprite, or an attacker in
-     *                                       a Bunker has no Bunker
+     * @throws IllegalStateException         if a unit damaged by another player's unit has no computer record and no sprite, or an attacker in a Bunker has no Bunker
      * @throws UnsupportedOperationException if the unit finder is missing
      */
     public void onDamage(@NotNull Unit unit, @Nullable Unit source, boolean revealSource, int instructionLimit) {

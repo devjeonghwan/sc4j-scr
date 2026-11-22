@@ -330,8 +330,7 @@ final class LiveGameTest {
             }
 
             /**
-             * @return the waiting state of the all-turns barrier (the awaited and overdue participants, the drop countdown), or {@code null}
-             *         for a transport that never drops a participant
+             * @return the waiting state of the all-turns barrier (the awaited and overdue participants, the drop countdown), or {@code null} for a transport that never drops a participant
              */
             @Override
             public @NotNull WaitingPeers getWaitingPeers() {
