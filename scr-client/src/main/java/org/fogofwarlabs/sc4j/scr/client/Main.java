@@ -31,6 +31,7 @@ import org.fogofwarlabs.sc4j.scr.client.configuration.*;
 import org.fogofwarlabs.sc4j.scr.client.cursor.GameCursor;
 import org.fogofwarlabs.sc4j.scr.client.cursor.PointerSpeed;
 import org.fogofwarlabs.sc4j.scr.client.debug.*;
+import org.fogofwarlabs.sc4j.scr.client.extension.ScrClientExtensionUtils;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueGameRequest;
 import org.fogofwarlabs.sc4j.scr.client.glue.lobby.CreateGameScreen;
@@ -4976,7 +4977,8 @@ public final class Main {
     }
 
     /**
-     * Creates a {@link ConsoleCommandRegistry} instance for debug, camera, replay, console, preview, capture and LAN cheat commands.
+     * Creates a {@link ConsoleCommandRegistry} instance for debug, camera, replay, console, preview, capture and LAN cheat commands, then the
+     * commands of the mod's client extensions ({@link ScrClientExtensionUtils#registerCommands}).
      *
      * @return the created {@link ConsoleCommandRegistry} instance
      */
@@ -5050,6 +5052,7 @@ public final class Main {
                                         })
                                         .availability("live games with the game console.")
                                         .example("/uihotkey b"));
+        ScrClientExtensionUtils.registerCommands(registry);
 
         return registry;
     }
