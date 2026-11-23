@@ -87,7 +87,7 @@ public final class HdAnimations {
             ScrModGraphics graphics = addedImage.getGraphics();
 
             return graphics == null || graphics.getAnimationPath(this.quality.getAssetSet()) == null ? this.getSharedImage(addedImage.getBaseImage())
-                                                                                                    : image;
+                                                                                                     : image;
         }
 
         return this.skin.getSharedImage(image);
