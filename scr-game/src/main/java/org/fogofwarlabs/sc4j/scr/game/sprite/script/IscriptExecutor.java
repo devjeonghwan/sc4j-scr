@@ -13,6 +13,7 @@ import org.fogofwarlabs.sc4j.scr.data.type.constant.ImageIds;
 import org.fogofwarlabs.sc4j.scr.data.type.constant.SpriteIds;
 import org.fogofwarlabs.sc4j.scr.game.frame.GameExecutionScope;
 import org.fogofwarlabs.sc4j.scr.game.movement.FlingyMotionUtils;
+import org.fogofwarlabs.sc4j.scr.game.presentation.UnitSounds;
 import org.fogofwarlabs.sc4j.scr.game.sprite.*;
 import org.fogofwarlabs.sc4j.scr.game.sprite.script.instruction.ScrImageTarget;
 import org.fogofwarlabs.sc4j.scr.game.sprite.script.instruction.ScrPreviewSupport;
@@ -2054,13 +2055,13 @@ public final class IscriptExecutor {
     }
 
     /**
-     * Queues a sound event at a position for the interface.
+     * Plays a sound at a map position ({@link UnitSounds#playAt}).
      *
      * @param soundId   the {@code sfxdata.dat} index
      * @param positionX the horizontal map position
      * @param positionY the vertical map position
      */
     public void playSound(int soundId, int positionX, int positionY) {
-        this.game.getInterfaceLink().getSoundEvents().add(soundId, positionX, positionY, ScrUnitIds.NONE);
+        this.game.getUnitSounds().playAt(soundId, positionX, positionY);
     }
 }

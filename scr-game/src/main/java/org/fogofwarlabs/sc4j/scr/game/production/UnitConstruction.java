@@ -332,7 +332,7 @@ public final class UnitConstruction {
                                                               IscriptExecutor.ANIMATION_ALMOST_BUILT,
                                                               1,
                                                               instructionLimit);
-            this.game.getInterfaceLink().getSoundEvents().add(SoundIds.ZERG_BUILDING_PLACEMENT, positionX, positionY, building.getUnitId());
+            this.game.getUnitSounds().play(SoundIds.ZERG_BUILDING_PLACEMENT, building);
 
             return;
         }
@@ -408,7 +408,7 @@ public final class UnitConstruction {
         }
 
         creep.removeProvider(this.game, unitType, positionX, positionY, false);
-        this.game.getInterfaceLink().getSoundEvents().add(SoundIds.ZERG_BUILDING_PLACEMENT, positionX, positionY, ScrUnitIds.ZERG_DRONE);
+        this.game.getUnitSounds().play(SoundIds.ZERG_BUILDING_PLACEMENT, building);
     }
 
 
@@ -597,11 +597,7 @@ public final class UnitConstruction {
         builder.setOrderTargetUnit(building);
         builder.setPrimaryOrderState(PROBE_STATE_WARPING);
 
-        Sprite builderSprite = builder.requireSprite();
-
-        this.game.getInterfaceLink().getSoundEvents().add(SoundIds.PROTOSS_BUILDING_WARP_START,
-                                                          builderSprite.getX(), builderSprite.getY(),
-                                                          builder.getUnitId());
+        this.game.getUnitSounds().play(SoundIds.PROTOSS_BUILDING_WARP_START, builder);
     }
 
     /**
