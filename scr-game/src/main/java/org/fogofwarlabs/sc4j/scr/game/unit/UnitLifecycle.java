@@ -253,7 +253,7 @@ public final class UnitLifecycle {
         } else if (hallucination && !destroyed) {
             // A hallucination that did not expire through a lifetime-expiry flag plays its death sound, leaves the Hallucination Death sprite one
             // elevation above it with the hallucination's visibility, then is hidden and destroyed.
-            this.game.getInterfaceLink().getSoundEvents().add(SoundIds.HALLUCINATION_DEATH, sprite.getX(), sprite.getY(), type);
+            this.game.getUnitSounds().play(SoundIds.HALLUCINATION_DEATH, unit);
 
             SpriteEffect effect = this.game.getIscriptExecutor().createSpriteEffect(SpriteIds.HALLUCINATION_DEATH1,
                                                                                     sprite.getX(), sprite.getY(),
