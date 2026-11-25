@@ -485,7 +485,7 @@ public final class ClientSession implements AutoCloseable {
                                                      boolean hasGameSeed, int gameSeed, @Nullable String locale) throws IOException {
         ClientSession session = startLive(storage, gameData, gameDirectory, mapPath, setup, hasGameSeed, gameSeed, locale);
 
-        if (isMapArchive(mapPath)) {
+        if (FileBrowserScreen.isMapFile(mapPath)) {
             session.mapArchive       = mapPath.toAbsolutePath().normalize();
             session.mapCompatibility = setup.isMapCompatibility();
             session.openedMapArchive = setup.getMapArchive();
@@ -681,7 +681,7 @@ public final class ClientSession implements AutoCloseable {
         Path mapPath = setup.getMapPath();
         ClientSession session = startLive(storage, gameData, gameDirectory, mapPath == null ? file : mapPath, liveGame, locale);
 
-        if (mapPath != null && isMapArchive(mapPath)) {
+        if (mapPath != null && FileBrowserScreen.isMapFile(mapPath)) {
             session.mapArchive       = mapPath.toAbsolutePath().normalize();
             session.mapCompatibility = setup.isMapCompatibility();
         }
@@ -820,18 +820,6 @@ public final class ClientSession implements AutoCloseable {
         LOGGER.warning("SIMULATION STOP: " + cause + stack);
 
         return cause.getClass().getSimpleName() + location + ": " + cause.getMessage();
-    }
-
-    /**
-     * Checks whether a map file is an original or expansion map archive by its lower-case file name extension.
-     *
-     * @param mapPath the map file
-     * @return {@code true} if the file name ends with a map archive extension, {@code false} otherwise
-     */
-    private static boolean isMapArchive(@NotNull Path mapPath) {
-        String name = mapPath.getFileName() == null ? "" : mapPath.getFileName().toString().toLowerCase(Locale.ROOT);
-
-        return name.endsWith(FileBrowserScreen.ORIGINAL_MAP_EXTENSION) || name.endsWith(FileBrowserScreen.EXPANSION_MAP_EXTENSION);
     }
 
     /**
