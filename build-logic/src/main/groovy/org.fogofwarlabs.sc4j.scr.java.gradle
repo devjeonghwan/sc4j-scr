@@ -5,7 +5,7 @@
 // video default). JavaCPP names macOS macosx and has no Windows arm64 build.
 def operatingSystemName = System.getProperty('os.name').toLowerCase(Locale.ROOT)
 def nativePlatform = operatingSystemName.contains('windows') ? 'windows' : operatingSystemName.contains('linux') ? 'linux' :
-                     operatingSystemName.startsWith('mac') ? 'macos' : null
+                                                                           operatingSystemName.startsWith('mac') ? 'macos' : null
 if (nativePlatform == null) {
     throw new GradleException('Not supported operating system: ' + System.getProperty('os.name'))
 }
@@ -136,7 +136,7 @@ plugins.withId('application') {
             unixText = unixText.replace('# Add default JVM options here.', unixPreparation + '# Add default JVM options here.')
             def unixJava = 'if [ -x "$APP_HOME/../java/bin/java" ] ; then\n    JAVA_HOME=$APP_HOME/../java\nfi\n\n'
             unixScript.text = unixText.replace('# Determine the Java command to use to start the JVM.',
-                unixJava + '# Determine the Java command to use to start the JVM.')
+                                               unixJava + '# Determine the Java command to use to start the JVM.')
         }
     }
     // Every application distribution carries LICENSE, NOTICE and licenses/ at its root; the install task fails when its folder misses one of
