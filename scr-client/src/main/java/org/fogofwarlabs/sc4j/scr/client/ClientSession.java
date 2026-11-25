@@ -853,7 +853,7 @@ public final class ClientSession implements AutoCloseable {
 
     private boolean closed;
     private @Nullable ReplayRuntime runtime;
-    private @Nullable WindowsHostTiming hostTiming;
+    private @Nullable HostTiming hostTiming;
     /**
      * The client's watchdog of the simulation frames, or {@code null} when the frames are not watched.
      */
@@ -2120,7 +2120,7 @@ public final class ClientSession implements AutoCloseable {
 
 
     /**
-     * Starts the common replay runtime with measured Windows host timing.
+     * Starts the common replay runtime with the measured host timing ({@link HostTiming}).
      * Retains startup failures for inspection without publishing an executable world.
      *
      * @throws IllegalStateException if the session is closed or startup was already requested
@@ -2130,7 +2130,7 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
-     * Starts the common replay runtime with measured Windows host timing; a restart applies the vision before it to the new world before it runs
+     * Starts the common replay runtime with the measured host timing; a restart applies the vision before it to the new world before it runs
      * ({@link LocalVision#restartReplay}). Retains startup failures for inspection without publishing an executable world.
      *
      * @param previousVision the vision of the replay before a restart, or {@code null} for a first start
@@ -2145,7 +2145,7 @@ public final class ClientSession implements AutoCloseable {
         this.selectedPlacement = null;
 
         try {
-            this.hostTiming = new WindowsHostTiming();
+            this.hostTiming = HostTiming.create();
 
             // One set of sound channels per session: a seek restart reuses it instead of creating it again.
             if (this.soundPlayback == null) {
@@ -3324,7 +3324,7 @@ public final class ClientSession implements AutoCloseable {
      */
     public int @Nullable [] updateColorCycle(boolean colorCycling, boolean minimized) {
         ReplayRuntime current = this.runtime;
-        WindowsHostTiming timing = this.hostTiming;
+        HostTiming timing = this.hostTiming;
 
         if (current == null || timing == null) {
             return null;
