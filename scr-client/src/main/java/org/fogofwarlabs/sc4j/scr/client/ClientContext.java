@@ -70,10 +70,10 @@ public final class ClientContext implements AutoCloseable {
      * Creates a {@link ClientContext} instance with the acquired client resources, the run's Beacon.Link, its chat translation and its release
      * status. The context closes the provider and the audio when it is closed or when the creation fails.
      *
-     * @param installLayout the selected client directories
-     * @param resources     the resource provider of the StarCraft: Remastered installation
-     * @param locale        the text locale, for example {@code koKR}
-     * @param audio         the client audio, or {@code null} to play no sound
+     * @param installLayout   the selected client directories
+     * @param resources       the resource provider of the StarCraft: Remastered installation
+     * @param locale          the text locale, for example {@code koKR}
+     * @param audio           the client audio, or {@code null} to play no sound
      * @param beaconLink      the Beacon.Link sessions of the multiplayer screens
      * @param chatTranslation the translation of other players' chat texts
      * @param releaseStatus   the running SC4J version and how it stands against the latest SC4J release

@@ -4500,11 +4500,12 @@ public final class Main {
         if (this.consoleView != null) {
             // Chat translation takes the texts of human players and of whispers from outside the game.
             this.consoleView.installMessageLines(this.consoleModel.getPresentation(), this.chatTranslation,
-                                                 GameLocaleUtils.toLocale(this.requireSession().getLocale()), sender -> {
-                Player player = state.getPlayerTable().getPlayer(sender);
+                                                 GameLocaleUtils.toLocale(this.requireSession().getLocale()),
+                                                 sender -> {
+                                                     Player player = state.getPlayerTable().getPlayer(sender);
 
-                return player != null && player.getType() == PlayerTypes.HUMAN;
-            });
+                                                     return player != null && player.getType() == PlayerTypes.HUMAN;
+                                                 });
         }
 
         if (this.requireSession().isLive()) {
