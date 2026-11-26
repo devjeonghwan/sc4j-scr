@@ -46,7 +46,7 @@
     {
       "key": "translateChat",
       "type": "boolean",
-      "default": false,
+      "default": true,
       "label": {"en": "Translate chat", "ko": "채팅 번역"},
       "description": {
         "en": "Shows other players' chat in the text language",

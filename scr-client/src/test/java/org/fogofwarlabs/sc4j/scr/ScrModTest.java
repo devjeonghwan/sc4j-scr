@@ -226,7 +226,7 @@ final class ScrModTest {
         Assertions.assertEquals("koKR", locale.findOption(Locale.KOREA));
         Assertions.assertNotNull(translateChat);
         Assertions.assertEquals(SettingType.BOOLEAN, translateChat.getType());
-        Assertions.assertEquals(false, translateChat.getDefaultValue(), "Chat translation is off by default.");
+        Assertions.assertEquals(true, translateChat.getDefaultValue(), "Chat translation is on by default.");
 
         for (String image : manifest.getImages().getEntries()) {
             try (InputStream input = ScrModTest.class.getClassLoader().getResourceAsStream(image)) {
