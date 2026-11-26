@@ -67,7 +67,7 @@ public final class ClientContext implements AutoCloseable {
     private static final @NotNull Logger LOGGER = Logger.of(ClientContext.class);
 
     /**
-     * Creates a {@link ClientContext} instance with the acquired client resources, the run's Beacon.Link, its chat translation and its release
+     * Creates a {@link ClientContext} instance with the acquired client resources, the run's Beacon.Link, its text translation and its release
      * status. The context closes the provider and the audio when it is closed or when the creation fails.
      *
      * @param installLayout   the selected client directories
@@ -75,14 +75,14 @@ public final class ClientContext implements AutoCloseable {
      * @param locale          the text locale, for example {@code koKR}
      * @param audio           the client audio, or {@code null} to play no sound
      * @param beaconLink      the Beacon.Link sessions of the multiplayer screens
-     * @param chatTranslation the translation of other players' chat texts
+     * @param textTranslation the translation of other players' chat texts and of map texts
      * @param releaseStatus   the running SC4J version and how it stands against the latest SC4J release
      * @return the created {@link ClientContext} instance
      * @throws IOException if the storage, the renderer or the fonts cannot be loaded
      */
     public static @NotNull ClientContext open(@NotNull InstallLayout installLayout, @NotNull ScrResourceProvider resources,
                                               @NotNull String locale, @Nullable ClientAudio audio,
-                                              @NotNull BeaconLinkAccess beaconLink, @NotNull ChatTranslation chatTranslation,
+                                              @NotNull BeaconLinkAccess beaconLink, @NotNull TextTranslation textTranslation,
                                               @NotNull ReleaseStatus releaseStatus) throws IOException {
         CascStorage storage;
 
@@ -110,7 +110,7 @@ public final class ClientContext implements AutoCloseable {
             renderer.setTextFonts(gameFonts);
 
             return new ClientContext(installLayout, resources, storage, renderer, gameFonts, glueFonts, new GameCursor(storage, renderer), audio,
-                                     beaconLink, chatTranslation, releaseStatus);
+                                     beaconLink, textTranslation, releaseStatus);
         } catch (IOException | RuntimeException exception) {
             if (glueFonts != null) {
                 glueFonts.close();
@@ -152,7 +152,7 @@ public final class ClientContext implements AutoCloseable {
 
     private final @Nullable ClientAudio audio;
     private final @NotNull BeaconLinkAccess beaconLink;
-    private final @NotNull ChatTranslation chatTranslation;
+    private final @NotNull TextTranslation textTranslation;
     private final @NotNull ReleaseStatus releaseStatus;
     /**
      * The player of the run: the run's account, else the local ID chosen on the ID screen or a guest before one is chosen.
@@ -221,7 +221,7 @@ public final class ClientContext implements AutoCloseable {
      * @param cursor            the drawn cursor
      * @param audio             the client audio, or {@code null} without sound
      * @param beaconLink        the Beacon.Link sessions of the multiplayer screens
-     * @param chatTranslation   the translation of other players' chat texts
+     * @param textTranslation   the translation of other players' chat texts and of map texts
      * @param releaseStatus     the running SC4J version and how it stands against the latest SC4J release
      */
     private ClientContext(@NotNull InstallLayout installLayout,
@@ -230,7 +230,7 @@ public final class ClientContext implements AutoCloseable {
                           @NotNull InterfaceFonts gameFonts, @NotNull InterfaceFonts glueFonts,
                           @NotNull GameCursor cursor,
                           @Nullable ClientAudio audio,
-                          @NotNull BeaconLinkAccess beaconLink, @NotNull ChatTranslation chatTranslation,
+                          @NotNull BeaconLinkAccess beaconLink, @NotNull TextTranslation textTranslation,
                           @NotNull ReleaseStatus releaseStatus) {
         this.installLayout = installLayout;
 
@@ -250,7 +250,7 @@ public final class ClientContext implements AutoCloseable {
 
         this.audio           = audio;
         this.beaconLink      = beaconLink;
-        this.chatTranslation = chatTranslation;
+        this.textTranslation = textTranslation;
         this.releaseStatus   = releaseStatus;
         this.player          = ClientPlayer.of(beaconLink.getAccount());
         this.music           = new Music(storage, audio);
@@ -281,10 +281,10 @@ public final class ClientContext implements AutoCloseable {
     }
 
     /**
-     * @return the translation of other players' chat texts
+     * @return the translation of other players' chat texts and of map texts
      */
-    public @NotNull ChatTranslation getChatTranslation() {
-        return this.chatTranslation;
+    public @NotNull TextTranslation getTextTranslation() {
+        return this.textTranslation;
     }
 
     /**

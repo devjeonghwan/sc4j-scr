@@ -11,6 +11,7 @@ import org.fogofwarlabs.sc4j.engine.player.Player;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.Picture;
 import org.fogofwarlabs.sc4j.engine.resource.graphics.SpriteSheet;
 import org.fogofwarlabs.sc4j.engine.terrain.TerrainGrid;
+import org.fogofwarlabs.sc4j.scr.client.TextTranslation;
 import org.fogofwarlabs.sc4j.scr.content.ScrResources;
 import org.fogofwarlabs.sc4j.scr.core.GameSettings;
 import org.fogofwarlabs.sc4j.scr.data.format.chk.ChkUnit;
@@ -49,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Shows a running SC:R game to the client: the SC:R {@link GameView}. The engine part reads the SC:R state the engine systems of the game expose
@@ -260,8 +262,11 @@ public final class ScrGameView implements GameView {
     private final @NotNull List<org.fogofwarlabs.sc4j.engine.entity.@NotNull Unit> unitList;
     private @Nullable ScrUnitView @NotNull [] unitViews;
 
+    private @NotNull TextTranslation textTranslation;
+    private @NotNull Locale textTarget;
+
     /**
-     * Creates a {@link ScrGameView} instance without local player.
+     * Creates a {@link ScrGameView} instance without local player that shows the map's texts as they are.
      *
      * @param game the SC:R game
      */
@@ -272,6 +277,9 @@ public final class ScrGameView implements GameView {
         this.units       = new ArrayList<>();
         this.unitList    = Collections.unmodifiableList(this.units);
         this.unitViews   = new ScrUnitView[0];
+
+        this.textTranslation = TextTranslation.OFF;
+        this.textTarget      = Locale.ROOT;
     }
 
     /**
@@ -383,13 +391,16 @@ public final class ScrGameView implements GameView {
     }
 
     /**
-     * Returns the shown name of a unit type: the map's name for it, if the map renames it.
+     * Returns the shown name of a unit type: the map's name for it, if the map renames it, in the text language once its translation came
+     * ({@link #setTextTranslation}).
      *
      * @param unitType the units.dat type
-     * @return the map's name, or {@code null} if the map keeps the type's own name
+     * @return the map's name as shown, or {@code null} if the map keeps the type's own name
      */
     public @Nullable String getUnitDisplayName(int unitType) {
-        return this.game.getUnitDisplayName(unitType);
+        String name = this.game.getUnitDisplayName(unitType);
+
+        return name == null ? null : this.textTranslation.resolveMapText(name, this.textTarget);
     }
 
     /**
@@ -851,6 +862,17 @@ public final class ScrGameView implements GameView {
      */
     public void setLocalPlayerIndex(int localPlayer) {
         this.localPlayer = localPlayer;
+    }
+
+    /**
+     * Sets the translation of the map's texts the view shows, such as the map's unit names.
+     *
+     * @param translation the translation of map texts
+     * @param target      the language to translate into
+     */
+    public void setTextTranslation(@NotNull TextTranslation translation, @NotNull Locale target) {
+        this.textTranslation = translation;
+        this.textTarget      = target;
     }
 
 

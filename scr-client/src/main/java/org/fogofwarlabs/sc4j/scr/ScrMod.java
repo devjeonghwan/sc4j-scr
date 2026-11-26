@@ -3,7 +3,7 @@ package org.fogofwarlabs.sc4j.scr;
 import org.fogofwarlabs.sc4j.base.exception.Exceptions;
 import org.fogofwarlabs.sc4j.engine.mod.*;
 import org.fogofwarlabs.sc4j.engine.mod.identity.ModIdentity;
-import org.fogofwarlabs.sc4j.scr.client.ChatTranslation;
+import org.fogofwarlabs.sc4j.scr.client.TextTranslation;
 import org.fogofwarlabs.sc4j.scr.client.Main;
 import org.fogofwarlabs.sc4j.scr.client.configuration.InstallLayout;
 import org.fogofwarlabs.sc4j.scr.core.LcgRandom;
@@ -37,8 +37,8 @@ import java.util.List;
  * (the only folder the map list shows), replays, desync dumps ({@code desyncs}), saved games, single player IDs ({@code characters}) and
  * caches live in {@code <install>/userdata/mods/scr/}, while the log is the runtime's. The installation's build version is added to the
  * mod identity. The text language is the setting {@value #LOCALE_SETTING} when the installation has it, English otherwise. The setting
- * {@value #TRANSLATE_CHAT_SETTING} shows other players' chat translated into the text language by the run's translator
- * ({@link ModContext#getTranslator}).
+ * {@value #TRANSLATE_CHAT_SETTING} shows other players' chat and the setting {@value #TRANSLATE_MAP_TEXT_SETTING} the texts of the map
+ * translated into the text language by the run's translator ({@link ModContext#getTranslator}).
  */
 public final class ScrMod implements Mod {
     /**
@@ -57,6 +57,11 @@ public final class ScrMod implements Mod {
     public static final @NotNull String TRANSLATE_CHAT_SETTING = "translateChat";
 
     /**
+     * The setting that turns the translation of the map's texts on.
+     */
+    public static final @NotNull String TRANSLATE_MAP_TEXT_SETTING = "translateMapText";
+
+    /**
      * The only StarCraft: Remastered build the mod runs with.
      */
     public static final @NotNull String SUPPORTED_BUILD = "1.23.10.13515";
@@ -73,7 +78,7 @@ public final class ScrMod implements Mod {
         private final @NotNull Path clientRoot;
         private final @NotNull List<@NotNull String> clientArguments;
         private final @NotNull ScrResourceProvider resources;
-        private final @NotNull ChatTranslation chatTranslation;
+        private final @NotNull TextTranslation textTranslation;
 
         /**
          * Creates a {@link ClientApplication} instance.
@@ -81,14 +86,14 @@ public final class ScrMod implements Mod {
          * @param clientRoot      the client root, the mod's storage folder
          * @param clientArguments the client launch options derived from the settings, before the run's own options
          * @param resources       the registered resource provider, which the client reads
-         * @param chatTranslation the translation of other players' chat texts
+         * @param textTranslation the translation of other players' chat texts and of map texts
          */
         private ClientApplication(@NotNull Path clientRoot, @NotNull List<@NotNull String> clientArguments, @NotNull ScrResourceProvider resources,
-                                  @NotNull ChatTranslation chatTranslation) {
+                                  @NotNull TextTranslation textTranslation) {
             this.clientRoot      = clientRoot;
             this.clientArguments = List.copyOf(clientArguments);
             this.resources       = resources;
-            this.chatTranslation = chatTranslation;
+            this.textTranslation = textTranslation;
         }
 
         /**
@@ -121,7 +126,7 @@ public final class ScrMod implements Mod {
             }
 
             try {
-                Main.launch(InstallLayout.of(this.clientRoot), this.resources, launch.getBeaconLink(), this.chatTranslation,
+                Main.launch(InstallLayout.of(this.clientRoot), this.resources, launch.getBeaconLink(), this.textTranslation,
                             describeBuild(launch.getIdentity()), arguments.toArray(String[]::new));
             } catch (IOException exception) {
                 throw Exceptions.newUncheckedIOException(exception);
@@ -202,8 +207,9 @@ public final class ScrMod implements Mod {
      * @param registration receives the mod's registrations
      * @throws ModException if the mod cannot register what it needs
      * @implSpec Adds the installation's build version to the identity, registers the installation's resource provider (it opens the storage
-     * on the first load), the client application with the run's translator when {@value #TRANSLATE_CHAT_SETTING} is on, the SC:R
-     * simulation, the native replay format and the native save format of each {@link SaveGameKind}.
+     * on the first load), the client application with the run's translator for the texts that {@value #TRANSLATE_CHAT_SETTING} and
+     * {@value #TRANSLATE_MAP_TEXT_SETTING} turn on, the SC:R simulation, the native replay format and the native save format of each
+     * {@link SaveGameKind}.
      */
     @Override
     public void register(@NotNull ModRegistration registration) throws ModException {
@@ -220,7 +226,8 @@ public final class ScrMod implements Mod {
         String requestedLocale = settings.hasValue(LOCALE_SETTING) ? settings.getChoice(LOCALE_SETTING) : GameLocaleUtils.FALLBACK;
         String locale = GameLocaleUtils.selectInstalled(requestedLocale, game);
         List<String> clientArguments = new ArrayList<>(List.of(DATA_OPTION, game.toString(), LOCALE_OPTION, locale));
-        ChatTranslation chatTranslation = new ChatTranslation(initialized.getTranslator(), settings.getBoolean(TRANSLATE_CHAT_SETTING));
+        TextTranslation textTranslation = new TextTranslation(initialized.getTranslator(), settings.getBoolean(TRANSLATE_CHAT_SETTING),
+                                                              settings.getBoolean(TRANSLATE_MAP_TEXT_SETTING));
 
         if (!locale.equals(requestedLocale)) {
             initialized.getLogger().info("SC:R LOCALE: {0} is not installed in {1}; using {2}.", requestedLocale, game, locale);
@@ -232,7 +239,7 @@ public final class ScrMod implements Mod {
 
         registration.addIdentityData(build.getBytes(StandardCharsets.UTF_8));
         registration.registerResourceProvider(provider);
-        registration.registerApplication(new ClientApplication(initialized.getStorage().getRoot(), clientArguments, provider, chatTranslation));
+        registration.registerApplication(new ClientApplication(initialized.getStorage().getRoot(), clientArguments, provider, textTranslation));
         Game.register(registration.getSimulation());
         registration.registerReplayFormat(identity -> new ScrReplayFormat());
 

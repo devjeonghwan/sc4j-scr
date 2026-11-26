@@ -210,7 +210,7 @@ public final class BeaconLinkGlueScenario implements AutoCloseable {
                                                   locale,
                                                   new ClientAudio(new AudioMixer(new SilentAudioDevice(System::nanoTime)), new SoundSettings()),
                                                   new BeaconLinkAccess(this.beaconLink),
-                                                  ChatTranslation.OFF,
+                                                  TextTranslation.OFF,
                                                   releaseStatus);
 
         this.client = opened;

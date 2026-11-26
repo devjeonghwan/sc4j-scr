@@ -6,7 +6,7 @@ import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.PlayerStatus;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.RecordingCommunitySession;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChannelChat;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
-import org.fogofwarlabs.sc4j.scr.client.ChatTranslation;
+import org.fogofwarlabs.sc4j.scr.client.TextTranslation;
 import org.fogofwarlabs.sc4j.scr.client.RecordingTranslator;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueScreen;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrControlType;
@@ -113,10 +113,10 @@ final class LobbyChatLogTest {
         LobbyChatLog next = LobbyChatLog.createChatPageLog(LobbyChatLog.Page.GLOBAL);
 
         chat.open();
-        left.listen(chat, ChatTranslation.OFF, Locale.ENGLISH, null);
+        left.listen(chat, TextTranslation.OFF, Locale.ENGLISH, null);
 
         // The next screen opens and listens before the left screen closes.
-        next.listen(chat, ChatTranslation.OFF, Locale.ENGLISH, null);
+        next.listen(chat, TextTranslation.OFF, Locale.ENGLISH, null);
         left.stopListening(chat);
 
         int leftLines = left.getLineCount();
@@ -144,7 +144,7 @@ final class LobbyChatLogTest {
 
         community.setChannelSetup(channel -> channel.addMember(zeratul));
         chat.open();
-        log.listen(chat, new ChatTranslation(translator, true), Locale.KOREAN, self.getPlayer());
+        log.listen(chat, new TextTranslation(translator, true, false), Locale.KOREAN, self.getPlayer());
 
         RecordingCommunitySession.Channel channel = community.findChannel(ChannelChat.findDefaultChannel(ChannelChat.SHARED_CHANNEL, List.of()));
 
@@ -173,7 +173,7 @@ final class LobbyChatLogTest {
         LobbyChatLog log = LobbyChatLog.createChatPageLog(LobbyChatLog.Page.CHANNEL);
 
         chat.open();
-        log.listen(chat, new ChatTranslation(translator, false), Locale.KOREAN, null);
+        log.listen(chat, new TextTranslation(translator, false, false), Locale.KOREAN, null);
         community.receiveWhisper(zeratul, "gg");
 
         Assertions.assertEquals(List.of(), translator.getRequests());

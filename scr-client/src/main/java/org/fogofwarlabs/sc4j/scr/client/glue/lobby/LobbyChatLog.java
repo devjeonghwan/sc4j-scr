@@ -10,7 +10,7 @@ import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChannelChat;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChatEntry;
 import org.fogofwarlabs.sc4j.engine.net.beaconlink.community.chat.ChatEntryKind;
 import org.fogofwarlabs.sc4j.engine.resource.dialog.DialogControl;
-import org.fogofwarlabs.sc4j.scr.client.ChatTranslation;
+import org.fogofwarlabs.sc4j.scr.client.TextTranslation;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueContext;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueScreen;
@@ -21,7 +21,6 @@ import org.fogofwarlabs.sc4j.scr.client.ui.dialog.WebScrollBar;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrControlType;
 import org.fogofwarlabs.sc4j.scr.data.resource.dialog.ScrDialogControlUtils;
 import org.fogofwarlabs.sc4j.scr.render.ui.TrueTypeText;
-import org.fogofwarlabs.sc4j.translate.Translation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -161,18 +159,17 @@ final class LobbyChatLog {
     }
 
     /**
-     * One paragraph of the log: the sender's prefix (empty for a line without a sender), the text as it shows, their colors and the future of
-     * the text's translation until it is taken.
+     * One paragraph of the log: the sender's prefix (empty for a line without a sender), the text as it shows, their colors and the answer
+     * for the text's translation until the translation is taken.
      */
     private static final class Line {
         private final @NotNull String prefix;
         private @NotNull String text;
         private final int prefixColor;
         private final int textColor;
-        private @Nullable CompletableFuture<@NotNull Translation> translation;
+        private TextTranslation.@Nullable Answer translation;
 
-        private Line(@NotNull String prefix, @NotNull String text, int prefixColor, int textColor,
-                     @Nullable CompletableFuture<@NotNull Translation> translation) {
+        private Line(@NotNull String prefix, @NotNull String text, int prefixColor, int textColor, TextTranslation.@Nullable Answer translation) {
             this.prefix      = prefix;
             this.text        = text;
             this.prefixColor = prefixColor;
@@ -184,18 +181,12 @@ final class LobbyChatLog {
          * Takes the translation once it came: a translated text shows in place of the text from now on.
          */
         private void takeTranslation() {
-            CompletableFuture<Translation> future = this.translation;
-
-            if (future == null || !future.isDone()) {
-                return;
-            }
-
-            String translated = ChatTranslation.findTranslatedText(future);
-
-            this.translation = null;
+            TextTranslation.Answer answer = this.translation;
+            String translated = answer == null ? null : answer.findTranslatedText();
 
             if (translated != null) {
-                this.text = translated;
+                this.text        = translated;
+                this.translation = null;
             }
         }
 
@@ -577,7 +568,7 @@ final class LobbyChatLog {
 
     /**
      * Adds this log to the chat's logs with the chat translation, the text language and the account's player of the glue context
-     * ({@link #listen(ChannelChat, ChatTranslation, Locale, LinkPlayer)}).
+     * ({@link #listen(ChannelChat, TextTranslation, Locale, LinkPlayer)}).
      *
      * @param chat    the chat
      * @param context the glue context
@@ -585,7 +576,7 @@ final class LobbyChatLog {
     void listen(@NotNull ChannelChat chat, @NotNull GlueContext context) {
         LinkAccount account = context.getBeaconLink().getAccount();
 
-        this.listen(chat, context.getChatTranslation(), context.getTextLocale(), account == null ? null : account.getPlayer());
+        this.listen(chat, context.getTextTranslation(), context.getTextLocale(), account == null ? null : account.getPlayer());
     }
 
     /**
@@ -598,12 +589,12 @@ final class LobbyChatLog {
      * @param target      the language to translate into
      * @param self        the run's player, or {@code null} for a run without one
      */
-    void listen(@NotNull ChannelChat chat, @NotNull ChatTranslation translation, @NotNull Locale target, @Nullable LinkPlayer self) {
+    void listen(@NotNull ChannelChat chat, @NotNull TextTranslation translation, @NotNull Locale target, @Nullable LinkPlayer self) {
         Consumer<ChatEntry> log = entry -> {
             String name = entry.getPlayerName();
             int nameLength = entry.getKind() == ChatEntryKind.EMOTE && name != null && entry.getText().startsWith(name) ? name.length() : 0;
-            CompletableFuture<Translation> translated = isOtherPlayerText(entry, self) ? translation.translate(entry.getText(), nameLength, target)
-                                                                                       : null;
+            TextTranslation.Answer translated = isOtherPlayerText(entry, self) ? translation.translateChat(entry.getText(), nameLength, target)
+                                                                               : null;
 
             this.add(new Line(entry.getPrefix(),
                               entry.getText(),
