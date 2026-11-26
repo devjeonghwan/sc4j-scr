@@ -16,9 +16,12 @@ import java.util.function.IntPredicate;
 /**
  * Draws the texts of other players and of the map in the message area in another language. While chat translation is on, a line that shows
  * another player's text asks for the translation of its text at once; while map-text translation is on, so does a line that shows trigger
- * text ({@link MessageLines.TextListener}). The line shows its own bytes until the translation comes; then each rotating line of the message
- * shows the matching piece of the sender prefix and the translated text, wrapped and colored as the message area wraps and colors a written
- * message. Pieces beyond the message's rotating lines are not shown, and a rotating line without a piece shows nothing.
+ * text ({@link MessageLines.TextListener}). Each paragraph of a message, its text up to and including a line feed, is asked for by itself,
+ * so a text laid out in lines keeps its rows, its blank lines and the alignment and color codes each line starts with. A rotating line shows
+ * its own bytes until the translation of its paragraph comes; then each rotating line of the paragraph shows the matching piece of the
+ * sender prefix and the translated paragraph, wrapped and colored as the message area wraps and colors a written message. Pieces beyond the
+ * paragraph's rotating lines are not shown, and a rotating line of the paragraph without a piece shows nothing. Of a message that takes more
+ * pieces than the rotating lines, the paragraphs of the pieces still shown are translated.
  * <p>
  * While map-text translation is on, a rotating line whose bytes a memory write changed is translated by itself once its bytes stayed the
  * same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the same. Lines that
@@ -26,7 +29,6 @@ import java.util.function.IntPredicate;
  * <p>
  * The substitution is for drawing only: the message lines keep their bytes, styles and deadlines. A rotating line whose bytes or deadline
  * differ from the ones written with the message, such as after a later message or a map's write to the line, shows its bytes from then on.
- * A message that takes more pieces than the rotating lines is not translated.
  * <p>
  * Every method runs on the thread that owns the message lines; a translation's future is read there once it is done.
  */
@@ -41,6 +43,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
      */
     private static final int LINE_TEXT_LIMIT = MessageLines.LINE_SIZE - 1;
     private static final char TERMINATOR = '\0';
+    private static final byte LINE_FEED = '\n';
 
     /**
      * The text a rotating line shows in place of its bytes, with its style code and starting color.
@@ -86,9 +89,10 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
     }
 
     /**
-     * One translated message: its sender prefix, the answer for its text and the style and color of its first piece.
+     * One translated paragraph of a message: the part of the sender prefix in it, the answer for its text and the style and color of its
+     * first shown piece.
      */
-    private static final class Message {
+    private static final class Paragraph {
         private final @NotNull String prefix;
         private final TextTranslation.@NotNull Answer answer;
         private final int style;
@@ -96,7 +100,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
 
         private @Nullable List<@NotNull Substitute> pieces;
 
-        private Message(@NotNull String prefix, TextTranslation.@NotNull Answer answer, int style, int color) {
+        private Paragraph(@NotNull String prefix, TextTranslation.@NotNull Answer answer, int style, int color) {
             this.prefix = prefix;
             this.answer = answer;
             this.style  = style;
@@ -106,7 +110,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
         }
 
         /**
-         * Returns the pieces of the translated message, wrapped on the first call after the translation came.
+         * Returns the pieces of the translated paragraph, wrapped on the first call after the translation came.
          *
          * @param layout the message area's layout
          * @return the pieces, or {@code null} while the translation has not come or when the text was not translated
@@ -153,20 +157,20 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
     }
 
     /**
-     * A rotating line that shows a piece of a translated message: the message, the piece's index and the line's bytes and deadline as the
-     * message wrote them.
+     * A rotating line that shows a piece of a translated paragraph: the paragraph, the piece's index in it and the line's bytes and deadline
+     * as the message wrote them.
      */
     private static final class Line {
-        private final @NotNull Message message;
+        private final @NotNull Paragraph paragraph;
         private final int piece;
         private final byte @NotNull [] bytes;
         private final int deadline;
 
-        private Line(@NotNull Message message, int piece, byte @NotNull [] bytes, int deadline) {
-            this.message  = message;
-            this.piece    = piece;
-            this.bytes    = bytes;
-            this.deadline = deadline;
+        private Line(@NotNull Paragraph paragraph, int piece, byte @NotNull [] bytes, int deadline) {
+            this.paragraph = paragraph;
+            this.piece     = piece;
+            this.bytes     = bytes;
+            this.deadline  = deadline;
         }
     }
 
@@ -239,13 +243,13 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
                 return null;
             }
 
-            List<Substitute> pieces = entry.message.findPieces(this.layout);
+            List<Substitute> pieces = entry.paragraph.findPieces(this.layout);
 
             if (pieces == null) {
                 return null;
             }
 
-            return entry.piece < pieces.size() ? pieces.get(entry.piece) : new Substitute("", entry.message.style, 0);
+            return entry.piece < pieces.size() ? pieces.get(entry.piece) : new Substitute("", entry.paragraph.style, 0);
         }
 
         MemoryLine memory = this.memoryLines[line];
@@ -294,38 +298,92 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
      * @param textStart the index of the text in the line, after the sender prefix
      * @param firstLine the rotating line of the first piece; each next piece is on the next rotating line
      * @param lineCount the number of pieces
-     * @implSpec Asks for the translation of the text when its kind is translated and remembers the message's rotating lines with their
-     * bytes and deadlines.
+     * @implSpec Asks for the translation of each paragraph with a piece still shown when the text's kind is translated, and remembers the
+     * paragraph's shown rotating lines with their bytes and deadlines. A paragraph ends after a piece that ends with a line feed.
      */
     @Override
     public void onTextWritten(MessageLines.@NotNull TextSource source, int sender, byte @NotNull [] line, int textStart, int firstLine,
                               int lineCount) {
-        if (lineCount > MessageLines.ROTATING_LINES || textStart >= line.length) {
+        if (textStart >= line.length) {
             return;
         }
 
-        String text = LegacyTextUtils.decode(line, textStart, line.length - textStart);
-        TextTranslation.Answer answer;
-
-        if (source == MessageLines.TextSource.TRIGGER_TEXT) {
-            answer = this.translation.translateMapText(text, this.target);
-        } else if (sender == MessageLines.NO_SENDER_SLOT || this.translatedSenders.test(sender)) {
-            answer = this.translation.translateChat(text, 0, this.target);
-        } else {
-            answer = null;
+        if (source != MessageLines.TextSource.TRIGGER_TEXT && sender != MessageLines.NO_SENDER_SLOT && !this.translatedSenders.test(sender)) {
+            return;
         }
+
+        int[] ends = this.layout.breakLines(line);
+
+        if (ends.length != lineCount) {
+            return;
+        }
+
+        int firstShownPiece = Math.max(0, lineCount - MessageLines.ROTATING_LINES);
+        int paragraphStart = 0;
+        int paragraphPiece = 0;
+
+        for (int piece = 0; piece < lineCount; piece++) {
+            int end = ends[piece];
+
+            if (piece + 1 < lineCount && (end == 0 || line[end - 1] != LINE_FEED)) {
+                continue;
+            }
+
+            if (piece >= firstShownPiece) {
+                int shownPiece = Math.max(paragraphPiece, firstShownPiece);
+
+                this.showParagraph(source, line, textStart, paragraphStart, end, firstLine, paragraphPiece, shownPiece, piece + 1);
+            }
+
+            paragraphStart = end;
+            paragraphPiece = piece + 1;
+        }
+    }
+
+    /**
+     * Asks for the translation of one paragraph of a written message and remembers its shown rotating lines. A paragraph without text, or
+     * with white space only, keeps its bytes.
+     *
+     * @param source         the kind of the text
+     * @param line           the formatted line bytes
+     * @param textStart      the index of the text in the line, after the sender prefix
+     * @param start          the index of the paragraph's first byte
+     * @param end            the index after the paragraph's last byte
+     * @param firstLine      the rotating line of the message's first piece
+     * @param paragraphPiece the index of the paragraph's first piece in the message
+     * @param shownPiece     the index of the paragraph's first piece that is still shown
+     * @param endPiece       the index after the paragraph's last piece
+     */
+    private void showParagraph(MessageLines.@NotNull TextSource source, byte @NotNull [] line, int textStart, int start, int end, int firstLine,
+                               int paragraphPiece, int shownPiece, int endPiece) {
+        int paragraphTextStart = Math.max(start, Math.min(end, textStart));
+
+        if (paragraphTextStart >= end) {
+            return;
+        }
+
+        String text = LegacyTextUtils.decode(line, paragraphTextStart, end - paragraphTextStart);
+
+        if (text.isBlank()) {
+            return;
+        }
+
+        TextTranslation.Answer answer = source == MessageLines.TextSource.TRIGGER_TEXT
+                                        ? this.translation.translateMapText(text, this.target)
+                                        : this.translation.translateChat(text, 0, this.target);
 
         if (answer == null) {
             return;
         }
 
-        String prefix = LegacyTextUtils.decode(line, 0, textStart);
-        Message message = new Message(prefix, answer, this.lines.getStyle(firstLine), this.lines.getColor(firstLine));
+        int firstShownLine = (firstLine + shownPiece) % MessageLines.ROTATING_LINES;
+        String prefix = LegacyTextUtils.decode(line, start, paragraphTextStart - start);
+        Paragraph paragraph = new Paragraph(prefix, answer, this.lines.getStyle(firstShownLine), this.lines.getColor(firstShownLine));
 
-        for (int piece = 0; piece < lineCount; piece++) {
+        for (int piece = shownPiece; piece < endPiece; piece++) {
             int shownLine = (firstLine + piece) % MessageLines.ROTATING_LINES;
 
-            this.shown[shownLine] = new Line(message, piece, this.lines.getLine(shownLine), this.lines.getDeadline(shownLine));
+            this.shown[shownLine] = new Line(paragraph, piece - paragraphPiece, this.lines.getLine(shownLine), this.lines.getDeadline(shownLine));
         }
     }
 

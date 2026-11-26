@@ -6,6 +6,7 @@ import org.fogofwarlabs.sc4j.scr.game.presentation.MessageLines;
 import org.fogofwarlabs.sc4j.translate.ProtectedSpan;
 import org.fogofwarlabs.sc4j.translate.TranslationRequest;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +40,45 @@ final class MessageLineTranslationsTest {
 
         return ends;
     };
+
+    /**
+     * The layout that ends a piece after each line feed.
+     */
+    private static final MessageLines.@NotNull TextLayout LINE_FEED_PIECES = text -> {
+        int count = 0;
+
+        for (int index = 0; index < text.length; index++) {
+            if (text[index] == '\n' || index == text.length - 1) {
+                count++;
+            }
+        }
+
+        int[] ends = new int[count];
+        int piece = 0;
+
+        for (int index = 0; index < text.length; index++) {
+            if (text[index] == '\n' || index == text.length - 1) {
+                ends[piece++] = index + 1;
+            }
+        }
+
+        return ends;
+    };
+    /**
+     * A menu a map lays out in eleven centered rows with blank rows between them and a color code at the start of each row.
+     */
+    private static final @NotNull String SPEED_MENU = "\u0013\u00071배속\r\n\r\n\r\n\r\n\u0013\u0003게임 배속을 선택하세요!\r\n" +
+                                                      "\u0013\u00074배속" + " ".repeat(86) + "\u0007    2배속\r\n\r\n" +
+                                                      "\u0013\u00044배속은 렉 때문에 적용이 잘 안될 수 있습니다.\r\n\r\n\r\n\u0013\u00073배속";
+    /**
+     * The rows of {@link #SPEED_MENU} counted from its first row.
+     */
+    private static final int FIRST_SPEED_ROW = 0;
+    private static final int TITLE_ROW = 4;
+    private static final int SPEED_PAIR_ROW = 5;
+    private static final int WARNING_ROW = 7;
+    private static final int LAST_SPEED_ROW = 10;
+    private static final int MESSAGE_ROWS = 13;
 
     /**
      * The first message line of a game, then the line the next piece takes.
@@ -77,6 +117,17 @@ final class MessageLineTranslationsTest {
         lines.setTextListener(translations);
 
         return translations;
+    }
+
+    private static int getRowLine(int row) {
+        return (FIRST_LINE + row) % MessageLines.ROTATING_LINES;
+    }
+
+    private static @Nullable String findRowText(@NotNull MessageLineTranslations translations, @NotNull MessageLines lines, int row) {
+        int line = getRowLine(row);
+        MessageLineTranslations.Substitute substitute = translations.findSubstitute(line, lines.getLine(line), HOST_CLOCK);
+
+        return substitute == null ? null : substitute.getText();
     }
 
     private static void writeMemory(@NotNull MessageLines lines, int line, @NotNull String text) {
@@ -331,5 +382,73 @@ final class MessageLineTranslationsTest {
         Assertions.assertNull(translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE),
                                                           HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS));
         Assertions.assertEquals(List.of(), translator.getRequests());
+    }
+
+    @Test
+    void a_trigger_text_laid_out_in_lines_is_asked_for_line_by_line_and_keeps_its_rows() {
+        MessageLines lines = createLines(LINE_FEED_PIECES);
+        RecordingTranslator translator = new RecordingTranslator();
+        MessageLineTranslations translations = install(lines, LINE_FEED_PIECES, new TextTranslation(translator, false, true), EVERY_SENDER);
+        String pairSpaces = " ".repeat(86);
+
+        lines.writeTriggerText(SPEED_MENU.getBytes(StandardCharsets.UTF_8), true, 0);
+
+        Assertions.assertEquals(List.of("\u0013\u0007101배속\r\n",
+                                        "\u0013\u0003게임 배속을 선택하세요!\r\n",
+                                        "\u0013\u0007101배속" + pairSpaces + "\u0007    102배속\r\n",
+                                        "\u0013\u0004101배속은 렉 때문에 적용이 잘 안될 수 있습니다.\r\n",
+                                        "\u0013\u0007101배속"),
+                                translator.getRequests().stream().map(TranslationRequest::getText).toList(),
+                                "Each line with letters is asked for by itself with its own digit placeholders; blank lines are not asked for.");
+
+        translator.answer(1, "\u0013\u0003Choose the game speed!\r\n");
+
+        Assertions.assertEquals("\u0013\u0003Choose the game speed!\r\n", findRowText(translations, lines, TITLE_ROW));
+        Assertions.assertNull(findRowText(translations, lines, FIRST_SPEED_ROW), "A line shows its bytes until its own translation comes.");
+
+        translator.answer(0, "\u0013\u0007101x speed\r\n");
+        translator.answer(2, "\u0013\u0007101x speed" + pairSpaces + "\u0007    102x speed\r\n");
+        translator.answer(3, "\u0013\u0004101x speed may not apply well because of lag.\r\n");
+        translator.answer(4, "\u0013\u0007101x speed");
+
+        Assertions.assertEquals("\u0013\u00071x speed\r\n", findRowText(translations, lines, FIRST_SPEED_ROW));
+        Assertions.assertEquals("\u0013\u00074x speed" + pairSpaces + "\u0007    2x speed\r\n", findRowText(translations, lines, SPEED_PAIR_ROW));
+        Assertions.assertEquals("\u0013\u00044x speed may not apply well because of lag.\r\n", findRowText(translations, lines, WARNING_ROW));
+        Assertions.assertEquals("\u0013\u00073x speed", findRowText(translations, lines, LAST_SPEED_ROW));
+
+        for (int row = FIRST_SPEED_ROW + 1; row < TITLE_ROW; row++) {
+            Assertions.assertNull(findRowText(translations, lines, row), "A blank row shows its bytes.");
+        }
+
+        Assertions.assertEquals(5, translator.getRequests().size(), "The answers ask for nothing more.");
+    }
+
+    @Test
+    void a_trigger_text_longer_than_the_rotating_lines_translates_the_rows_still_shown() {
+        MessageLines lines = createLines(LINE_FEED_PIECES);
+        RecordingTranslator translator = new RecordingTranslator();
+        MessageLineTranslations translations = install(lines, LINE_FEED_PIECES, new TextTranslation(translator, false, true), EVERY_SENDER);
+        StringBuilder text = new StringBuilder();
+
+        for (int row = 0; row < MESSAGE_ROWS; row++) {
+            text.append("Ligne ").append((char) ('a' + row)).append(row + 1 < MESSAGE_ROWS ? "\n" : "");
+        }
+
+        lines.writeTriggerText(text.toString().getBytes(StandardCharsets.UTF_8), true, 0);
+
+        int hiddenRows = MESSAGE_ROWS - MessageLines.ROTATING_LINES;
+
+        Assertions.assertEquals(MessageLines.ROTATING_LINES, translator.getRequests().size(), "Only the rows still shown are asked for.");
+        Assertions.assertEquals("Ligne " + (char) ('a' + hiddenRows) + "\n", translator.getRequests().getFirst().getText());
+
+        for (int request = 0; request < MessageLines.ROTATING_LINES; request++) {
+            translator.answer(request, translator.getRequests().get(request).getText().replace("Ligne", "Line"));
+        }
+
+        for (int row = hiddenRows; row < MESSAGE_ROWS; row++) {
+            String expected = "Line " + (char) ('a' + row) + (row + 1 < MESSAGE_ROWS ? "\n" : "");
+
+            Assertions.assertEquals(expected, findRowText(translations, lines, row));
+        }
     }
 }
