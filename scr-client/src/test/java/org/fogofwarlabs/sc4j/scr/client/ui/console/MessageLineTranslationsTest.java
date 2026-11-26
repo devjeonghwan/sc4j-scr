@@ -385,6 +385,29 @@ final class MessageLineTranslationsTest {
     }
 
     @Test
+    void a_status_row_written_by_memory_is_asked_for_as_a_template() {
+        MessageLines lines = createLines(SINGLE_LINE);
+        RecordingTranslator translator = new RecordingTranslator();
+        MessageLineTranslations translations = install(lines, SINGLE_LINE, new TextTranslation(translator, false, true), EVERY_SENDER);
+        int settled = HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS;
+
+        writeMemory(lines, MEMORY_LINE, "\u0013\u0004:+: \u001FWave: \u00047 \u0002| \u0011시대: \u0004고대시대 \u0002| \u0008적군 수: \u000412/300 \u0004:+:");
+
+        Assertions.assertNull(translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), HOST_CLOCK));
+        Assertions.assertNull(translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), settled));
+        Assertions.assertEquals("\u0013\u0004:+: \u001FWave: \u0004101 \u0002| \u0011시대: \u0004고대시대 \u0002| \u0008적군 수: \u0004102/103 \u0004:+:",
+                                translator.getRequests().getFirst().getText());
+
+        translator.answer(0, "\u0013\u0004:+: \u001FWave: \u0004101 \u0002| \u0011Era: \u0004Ancient \u0002| \u0008Enemies: \u0004102/103 \u0004:+:");
+
+        MessageLineTranslations.Substitute substitute = translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), settled);
+
+        Assertions.assertNotNull(substitute);
+        Assertions.assertEquals("\u0013\u0004:+: \u001FWave: \u00047 \u0002| \u0011Era: \u0004Ancient \u0002| \u0008Enemies: \u000412/300 \u0004:+:",
+                                substitute.getText());
+    }
+
+    @Test
     void a_trigger_text_laid_out_in_lines_is_asked_for_line_by_line_and_keeps_its_rows() {
         MessageLines lines = createLines(LINE_FEED_PIECES);
         RecordingTranslator translator = new RecordingTranslator();

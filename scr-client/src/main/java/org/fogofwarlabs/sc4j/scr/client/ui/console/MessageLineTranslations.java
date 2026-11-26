@@ -25,7 +25,7 @@ import java.util.function.IntPredicate;
  * <p>
  * While map-text translation is on, a rotating line whose bytes a memory write changed is translated by itself once its bytes stayed the
  * same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the same. Lines that
- * are mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isMostlyLetters}).
+ * are mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isTranslatable}).
  * <p>
  * The substitution is for drawing only: the message lines keep their bytes, styles and deadlines. A rotating line whose bytes or deadline
  * differ from the ones written with the message, such as after a later message or a map's write to the line, shows its bytes from then on.

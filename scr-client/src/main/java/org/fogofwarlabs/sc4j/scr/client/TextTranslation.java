@@ -23,7 +23,8 @@ import java.util.concurrent.CompletableFuture;
  * A map text is asked for once: the answers of the most recent map texts are kept by their exact text, so a text shown on every frame costs
  * a map lookup. Before a map text is asked for, each run of digits becomes a placeholder number, so texts that differ only in their numbers,
  * such as a counter, share one translation; the digits are put back into the translation. When the placeholders do not all come back
- * exactly once, the exact text is asked for instead. Map texts that are mostly symbols, such as text art, are not asked for.
+ * exactly once, the exact text is asked for instead. Map texts that are mostly symbols or isolated letters, such as text art, are not
+ * asked for ({@link #isTranslatable}).
  * <p>
  * The translator answers on a worker thread; every method of this class and of its answers runs on the client's UI thread, which reads a
  * future only once it is done.
@@ -58,7 +59,7 @@ public final class TextTranslation {
     private static final int PLACEHOLDER_LENGTH = 3;
     private static final int DECIMAL_RADIX = 10;
     /**
-     * The least share of letters among the visible characters of a map text that is asked for, in percent.
+     * The least share of letters among the counted characters of a map text that is asked for ({@link #isTranslatable}), in percent.
      */
     private static final int MINIMUM_LETTER_PERCENT = 50;
     private static final int PERCENT = 100;
@@ -145,33 +146,69 @@ public final class TextTranslation {
     }
 
     /**
-     * Tests whether a map text is worth a translation: it has visible characters and at least {@value #MINIMUM_LETTER_PERCENT} percent of
-     * them are letters, so text art and symbol rows are left as they are.
+     * Tests whether a map text is worth a translation, so text art and symbol rows are left as they are. Digits are left out, as they
+     * become placeholders, and so are white space and control characters; of the other characters a run of one repeated character
+     * counts once. The text is worth a translation when at least {@value #MINIMUM_LETTER_PERCENT} percent of the counted characters are
+     * letters and it has words: runs of at least two letters that are not all the same letter, at least as many as the runs of a single
+     * letter. A text that is one letter by itself is also worth a translation.
      *
      * @param text the text
-     * @return {@code true} if the text is mostly letters, {@code false} otherwise
+     * @return {@code true} if the text is worth a translation, {@code false} otherwise
      */
-    public static boolean isMostlyLetters(@NotNull String text) {
-        int visible = 0;
+    public static boolean isTranslatable(@NotNull String text) {
+        int counted = 0;
         int letters = 0;
+        int words = 0;
+        int singleLetters = 0;
+        int previous = -1;
+        int runFirst = -1;
+        int runLength = 0;
+        boolean runMixed = false;
 
-        for (int index = 0; index < text.length(); ) {
-            int codePoint = text.codePointAt(index);
+        for (int index = 0; index <= text.length(); ) {
+            int codePoint = index < text.length() ? text.codePointAt(index) : -1;
 
-            index += Character.charCount(codePoint);
+            index += codePoint < 0 ? 1 : Character.charCount(codePoint);
 
-            if (codePoint <= FIRST_PRINTABLE_CHARACTER || Character.isWhitespace(codePoint)) {
+            boolean letter = codePoint >= 0 && Character.isLetter(codePoint);
+
+            if (letter && runLength > 0) {
+                runLength++;
+                runMixed |= codePoint != runFirst;
+            } else if (letter) {
+                runFirst  = codePoint;
+                runLength = 1;
+                runMixed  = false;
+            } else if (runLength > 0) {
+                if (runLength == 1) {
+                    singleLetters++;
+                } else if (runMixed) {
+                    words++;
+                }
+
+                runLength = 0;
+            }
+
+            if (codePoint <= FIRST_PRINTABLE_CHARACTER || Character.isWhitespace(codePoint) || Character.isDigit(codePoint)) {
+                previous = -1;
+
                 continue;
             }
 
-            visible++;
+            if (codePoint != previous) {
+                counted++;
 
-            if (Character.isLetter(codePoint)) {
-                letters++;
+                if (letter) {
+                    letters++;
+                }
             }
+
+            previous = codePoint;
         }
 
-        return visible > 0 && letters * PERCENT >= visible * MINIMUM_LETTER_PERCENT;
+        boolean worded = words > 0 ? words >= singleLetters : singleLetters == 1 && counted == 1;
+
+        return worded && letters * PERCENT >= counted * MINIMUM_LETTER_PERCENT;
     }
 
     /**
@@ -380,7 +417,7 @@ public final class TextTranslation {
      *
      * @param text   the text
      * @param target the language to translate into
-     * @return the answer, which never translates a text that is not mostly letters ({@link #isMostlyLetters}), or {@code null} while
+     * @return the answer, which never translates a text that is not worth a translation ({@link #isTranslatable}), or {@code null} while
      *         map-text translation is off
      */
     public @Nullable Answer translateMapText(@NotNull String text, @NotNull Locale target) {
@@ -403,7 +440,7 @@ public final class TextTranslation {
 
         List<String> runs = findDigitRuns(text);
 
-        if (!isMostlyLetters(text)) {
+        if (!isTranslatable(text)) {
             answer = new Answer(this, text, target, null, null);
         } else if (runs.isEmpty() || runs.size() > DIGIT_PLACEHOLDER_LIMIT) {
             answer = new Answer(this, text, target, null, this.requestCached(text, target));
