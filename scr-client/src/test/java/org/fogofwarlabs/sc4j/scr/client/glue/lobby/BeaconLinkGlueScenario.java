@@ -19,6 +19,7 @@ import org.fogofwarlabs.sc4j.scr.client.*;
 import org.fogofwarlabs.sc4j.scr.client.audio.ClientAudio;
 import org.fogofwarlabs.sc4j.scr.client.audio.SoundSettings;
 import org.fogofwarlabs.sc4j.scr.client.configuration.InstallLayout;
+import org.fogofwarlabs.sc4j.scr.client.extension.ScrTextPresenter;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueCanvas;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueFolders;
 import org.fogofwarlabs.sc4j.scr.client.glue.GlueInterface;
@@ -210,7 +211,7 @@ public final class BeaconLinkGlueScenario implements AutoCloseable {
                                                   locale,
                                                   new ClientAudio(new AudioMixer(new SilentAudioDevice(System::nanoTime)), new SoundSettings()),
                                                   new BeaconLinkAccess(this.beaconLink),
-                                                  TextTranslation.OFF,
+                                                  ScrTextPresenter.UNCHANGED,
                                                   releaseStatus);
 
         this.client = opened;

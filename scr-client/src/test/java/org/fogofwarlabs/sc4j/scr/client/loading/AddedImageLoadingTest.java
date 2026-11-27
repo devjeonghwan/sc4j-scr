@@ -7,6 +7,7 @@ import org.fogofwarlabs.sc4j.engine.client.host.WindowSettings;
 import org.fogofwarlabs.sc4j.engine.client.scene.LoadingService;
 import org.fogofwarlabs.sc4j.scr.client.*;
 import org.fogofwarlabs.sc4j.scr.client.configuration.InstallLayout;
+import org.fogofwarlabs.sc4j.scr.client.extension.ScrTextPresenter;
 import org.fogofwarlabs.sc4j.scr.client.world.ScrGameView;
 import org.fogofwarlabs.sc4j.scr.client.world.WorldSceneExtraction;
 import org.fogofwarlabs.sc4j.scr.client.world.WorldSkin;
@@ -109,7 +110,7 @@ final class AddedImageLoadingTest {
 
             try (ClientContext client = ClientContext.open(InstallLayout.of(root),
                                                            ScrResourceProvider.open(ExternalInput.INSTALLATION.getPath(), ScrIscriptImporter::readLibrary),
-                                                           LOCALE, null, BeaconLinkAccess.NONE, TextTranslation.OFF,
+                                                           LOCALE, null, BeaconLinkAccess.NONE, ScrTextPresenter.UNCHANGED,
                                                            ReleaseStatus.of(ReleaseVersion.CURRENT, ReleaseState.UNKNOWN, null))) {
                 // As at the client start: the image set's task is created before the game data registers the images a mod adds (a mod's content
                 // extension registers them while the client data task loads the game data) and runs after the client data task.
