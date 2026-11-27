@@ -2431,8 +2431,8 @@ public final class ClientSession implements AutoCloseable {
             return null;
         }
 
-        float worldHorizontal = this.camera.screenToWorldX(horizontal);
-        float worldVertical = this.camera.screenToWorldY(vertical);
+        int worldHorizontal = this.camera.getMapPixelX(horizontal);
+        int worldVertical = this.camera.getMapPixelY(vertical);
         float padding = INSPECTION_PADDING_PIXELS / this.camera.getZoom();
         float closestDistance = Float.POSITIVE_INFINITY;
         ScrUnitTypeView units = this.state.requireGameData().getUnitTypes();
