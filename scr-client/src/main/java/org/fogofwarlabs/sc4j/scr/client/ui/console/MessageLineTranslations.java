@@ -25,7 +25,8 @@ import java.util.function.IntPredicate;
  * <p>
  * While map-text translation is on, a rotating line or the system line whose bytes a memory write changed is translated by itself once its
  * bytes stayed the same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the
- * same; a text the game writes to the system line shows its bytes. A rotating line or the system line that already shows a text when this
+ * same. A text the game writes to the system line shows its bytes, and the system line stays watched, so a map that has the game write the
+ * line and then writes its own bytes over it in each frame shows the translation of its bytes. A rotating line or the system line that already shows a text when this
  * instance is created, such as a text a map wrote in the first frames before the console existed, is watched the same way. Lines that
  * are mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isTranslatable}).
  * <p>
@@ -203,6 +204,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
 
     private final @Nullable Line @NotNull [] shown;
     private final @Nullable MemoryLine @NotNull [] memoryLines;
+    private byte @NotNull [] systemLineText;
 
     /**
      * Creates a {@link MessageLineTranslations} instance without translated lines.
@@ -224,6 +226,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
 
         this.shown       = new Line[MessageLines.LINE_COUNT];
         this.memoryLines = new MemoryLine[MessageLines.LINE_COUNT];
+        this.systemLineText = new byte[0];
 
         if (translation.isMapTextEnabled()) {
             for (int line = 0; line < MessageLines.LINE_COUNT; line++) {
@@ -264,7 +267,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
 
         MemoryLine memory = this.memoryLines[line];
 
-        if (memory == null) {
+        if (memory == null || (line == MessageLines.SYSTEM_LINE && Arrays.equals(bytes, this.systemLineText))) {
             return null;
         }
 
@@ -402,10 +405,17 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
      * is written to the system line.
      *
      * @param line the rotating line or {@link MessageLines#SYSTEM_LINE}
-     * @implSpec Forgets what the line showed in place of its bytes.
+     * @implSpec Forgets what a rotating line showed in place of its bytes; of the system line, keeps the text the game wrote, which shows
+     * its bytes, and keeps watching the line.
      */
     @Override
     public void onLineWritten(int line) {
+        if (line == MessageLines.SYSTEM_LINE) {
+            this.systemLineText = this.lines.getLine(line);
+
+            return;
+        }
+
         this.shown[line]       = null;
         this.memoryLines[line] = null;
     }

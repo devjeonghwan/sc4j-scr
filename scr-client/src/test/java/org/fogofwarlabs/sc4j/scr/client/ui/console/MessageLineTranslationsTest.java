@@ -93,6 +93,7 @@ final class MessageLineTranslationsTest {
     private static final int SECOND_PLAYER = 1;
     private static final int NAME_COLOR = 0x11223344;
     private static final int HOST_CLOCK = 500;
+    private static final int FRAME_MILLISECONDS = 42;
     private static final int CHAT_TEXT_STYLE = 2;
     private static final int TRIGGER_TEXT_STYLE = 2;
     private static final @NotNull Locale TARGET = Locale.ENGLISH;
@@ -434,6 +435,34 @@ final class MessageLineTranslationsTest {
         Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), settled),
                               "A text the game writes shows its bytes.");
         Assertions.assertEquals(1, translator.getRequests().size());
+    }
+
+    @Test
+    void the_system_line_a_map_writes_over_the_games_text_in_each_frame_is_translated() {
+        MessageLines lines = createLines(SINGLE_LINE);
+        RecordingTranslator translator = new RecordingTranslator();
+        MessageLineTranslations translations = install(lines, SINGLE_LINE, new TextTranslation(translator, false, true), EVERY_SENDER);
+        int settled = HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS;
+
+        for (int time = HOST_CLOCK; time < settled + FRAME_MILLISECONDS; time += FRAME_MILLISECONDS) {
+            lines.writeSystemLine("Invalid location.".getBytes(StandardCharsets.UTF_8), time);
+            writeMemory(lines, MessageLines.SYSTEM_LINE, "Tenez bon\0");
+
+            Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), time));
+        }
+
+        Assertions.assertEquals(List.of("Tenez bon"), translator.getRequests().stream().map(TranslationRequest::getText).toList());
+
+        translator.answer(0, "Hold on");
+        lines.writeSystemLine("Invalid location.".getBytes(StandardCharsets.UTF_8), settled);
+        writeMemory(lines, MessageLines.SYSTEM_LINE, "Tenez bon\0");
+
+        MessageLineTranslations.Substitute substitute = translations.findSubstitute(MessageLines.SYSTEM_LINE,
+                                                                                    lines.getLine(MessageLines.SYSTEM_LINE),
+                                                                                    settled);
+
+        Assertions.assertNotNull(substitute);
+        Assertions.assertEquals("Hold on", substitute.getText());
     }
 
     @Test
