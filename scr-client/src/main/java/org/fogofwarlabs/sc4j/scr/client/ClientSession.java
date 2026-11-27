@@ -3401,6 +3401,15 @@ public final class ClientSession implements AutoCloseable {
     }
 
     /**
+     * Requests a restart of the live game ({@link LiveGame#requestRestartGame}).
+     *
+     * @throws IllegalStateException if this session has no live game
+     */
+    public void requestRestartGame() {
+        this.requireLiveGame().requestRestartGame();
+    }
+
+    /**
      * Queues the live game's selected network latency.
      *
      * @param latency the latency {@code 0} low, {@code 1} high, {@code 2} extra high
