@@ -454,6 +454,36 @@ public final class TextTranslation {
     }
 
     /**
+     * Returns the translation of a map text when it is already known, without asking for it: the text was answered before, or it differs
+     * from an answered text only in its digits.
+     *
+     * @param text   the text
+     * @param target the language to translate into
+     * @return the translated text, or {@code null} when it is not known yet, the text is not translated or map-text translation is off
+     */
+    public @Nullable String findKnownMapText(@NotNull String text, @NotNull Locale target) {
+        if (!this.mapTextEnabled || !target.equals(this.cachedTarget)) {
+            return null;
+        }
+
+        Answer answer = this.answers.get(text);
+
+        if (answer == null) {
+            List<String> runs = findDigitRuns(text);
+            String asked = runs.isEmpty() || runs.size() > DIGIT_PLACEHOLDER_LIMIT ? text : createTemplate(text);
+            CompletableFuture<Translation> future = this.requests.get(asked);
+
+            if (future == null || !future.isDone() || !isTranslatable(text)) {
+                return null;
+            }
+
+            answer = this.translateMapText(text, target);
+        }
+
+        return answer == null ? null : answer.findTranslatedText();
+    }
+
+    /**
      * Returns the text a map text shows: its translation once it came, the text itself until then and while map-text translation is off.
      *
      * @param text   the text

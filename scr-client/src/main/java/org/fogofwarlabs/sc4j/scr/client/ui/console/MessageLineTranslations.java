@@ -25,10 +25,11 @@ import java.util.function.IntPredicate;
  * <p>
  * While map-text translation is on, a rotating line or the system line whose bytes a memory write changed is translated by itself once its
  * bytes stayed the same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the
- * same. A text the game writes to the system line shows its bytes, and the system line stays watched, so a map that has the game write the
- * line and then writes its own bytes over it in each frame shows the translation of its bytes. A rotating line or the system line that already shows a text when this
- * instance is created, such as a text a map wrote in the first frames before the console existed, is watched the same way. Lines that
- * are mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isTranslatable}).
+ * same; changed bytes whose translation is already known, such as a row whose numbers changed, show it at once. A text the game writes to
+ * the system line shows its bytes, and the system line stays watched, so a map that has the game write the line and then writes its own
+ * bytes over it in each frame shows the translation of its bytes. A rotating line or the system line that already shows a text when this
+ * instance is created, such as a text a map wrote in the first frames before the console existed, is watched the same way. Lines that are
+ * mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isTranslatable}).
  * <p>
  * The substitution is for drawing only: the message lines keep their bytes, styles and deadlines. A rotating line whose bytes or deadline
  * differ from the ones written with the message, such as after a later message or a map's write to the line, shows its bytes from then on.
@@ -272,12 +273,18 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
         }
 
         if (!Arrays.equals(bytes, memory.bytes)) {
+            String known = this.translation.findKnownMapText(LegacyTextUtils.decode(bytes, 0, bytes.length), this.target);
+
             memory.bytes      = bytes;
             memory.changeTime = hostTime;
             memory.answer     = null;
-            memory.substitute = null;
+            memory.substitute = known == null ? null : new Substitute(known, this.lines.getStyle(line), this.lines.getColor(line));
 
-            return null;
+            return memory.substitute;
+        }
+
+        if (memory.substitute != null) {
+            return memory.substitute;
         }
 
         if (memory.answer == null) {

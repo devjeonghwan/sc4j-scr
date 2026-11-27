@@ -438,6 +438,39 @@ final class MessageLineTranslationsTest {
     }
 
     @Test
+    void a_memory_line_whose_numbers_changed_shows_the_known_translation_at_once() {
+        MessageLines lines = createLines(SINGLE_LINE);
+        RecordingTranslator translator = new RecordingTranslator();
+        MessageLineTranslations translations = install(lines, SINGLE_LINE, new TextTranslation(translator, false, true), EVERY_SENDER);
+        int settled = HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS;
+
+        writeMemory(lines, MEMORY_LINE, "Vague 3 sur 10");
+        Assertions.assertNull(translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), HOST_CLOCK));
+        Assertions.assertNull(translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), settled));
+
+        translator.answer(0, "Wave 101 of 102");
+
+        MessageLineTranslations.Substitute first = translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), settled);
+
+        Assertions.assertNotNull(first);
+        Assertions.assertEquals("Wave 3 of 10", first.getText());
+
+        writeMemory(lines, MEMORY_LINE, "Vague 4 sur 10");
+
+        MessageLineTranslations.Substitute changed = translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), settled + 1);
+
+        Assertions.assertNotNull(changed, "A row whose translation is known does not wait for its bytes to settle.");
+        Assertions.assertEquals("Wave 4 of 10", changed.getText());
+        Assertions.assertEquals(1, translator.getRequests().size());
+
+        writeMemory(lines, MEMORY_LINE, "Vague finale");
+
+        Assertions.assertNull(translations.findSubstitute(MEMORY_LINE, lines.getLine(MEMORY_LINE), settled + 2),
+                              "A text not answered yet shows its bytes until it settles.");
+        Assertions.assertEquals(1, translator.getRequests().size());
+    }
+
+    @Test
     void the_system_line_a_map_writes_over_the_games_text_in_each_frame_is_translated() {
         MessageLines lines = createLines(SINGLE_LINE);
         RecordingTranslator translator = new RecordingTranslator();
