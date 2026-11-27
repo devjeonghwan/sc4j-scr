@@ -4805,7 +4805,8 @@ public final class Main {
     /**
      * Prepares the painter of the plugins' draw lists for this frame, made again when the interface renderer changed, and supplies the game screen
      * of the frame to the game's local display: the interface size, the real pixels per interface unit (those of the SD interface layer while one
-     * is drawn), the graphics, the font measure and the console rectangles (none while a plugin hides the console).
+     * is drawn), the graphics, the font measure and the console rectangles (none while a plugin hides the console). The painter shows the texts
+     * through the text presenter.
      *
      * @return the painter, or {@code null} without an interface renderer
      */
@@ -4839,6 +4840,7 @@ public final class Main {
                               : quality == HdRenderAssets.Quality.HD2 ? AssetResolver.AssetSet.HD2 : AssetResolver.AssetSet.HD);
         }
 
+        painter.setTextPresenter(this.textPresenter, GameLocaleUtils.toLocale(this.requireSession().getLocale()));
         display.setTextMeasure(painter);
         display.setConsoleRectangles(this.consoleView != null && !this.requireSession().getView().isConsoleHidden() ? this.consoleView : null);
 
