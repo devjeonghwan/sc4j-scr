@@ -71,13 +71,13 @@ public final class ClientContext implements AutoCloseable {
      * Creates a {@link ClientContext} instance with the acquired client resources, the run's Beacon.Link, its text presenter and its release
      * status. The context closes the provider and the audio when it is closed or when the creation fails.
      *
-     * @param installLayout   the selected client directories
-     * @param resources       the resource provider of the StarCraft: Remastered installation
-     * @param locale          the text locale, for example {@code koKR}
-     * @param audio           the client audio, or {@code null} to play no sound
-     * @param beaconLink      the Beacon.Link sessions of the multiplayer screens
-     * @param textPresenter   how the client shows map texts and the texts of other players
-     * @param releaseStatus   the running SC4J version and how it stands against the latest SC4J release
+     * @param installLayout the selected client directories
+     * @param resources     the resource provider of the StarCraft: Remastered installation
+     * @param locale        the text locale, for example {@code koKR}
+     * @param audio         the client audio, or {@code null} to play no sound
+     * @param beaconLink    the Beacon.Link sessions of the multiplayer screens
+     * @param textPresenter how the client shows map texts and the texts of other players
+     * @param releaseStatus the running SC4J version and how it stands against the latest SC4J release
      * @return the created {@link ClientContext} instance
      * @throws IOException if the storage, the renderer or the fonts cannot be loaded
      */
@@ -249,13 +249,13 @@ public final class ClientContext implements AutoCloseable {
         this.dialogs           = new DialogStack<>();
         this.sheetFrameRecords = new SheetFrameRecords(storage);
 
-        this.audio           = audio;
-        this.beaconLink      = beaconLink;
+        this.audio         = audio;
+        this.beaconLink    = beaconLink;
         this.textPresenter = textPresenter;
-        this.releaseStatus   = releaseStatus;
-        this.player          = ClientPlayer.of(beaconLink.getAccount());
-        this.music           = new Music(storage, audio);
-        this.musicRotation   = new MusicRotation();
+        this.releaseStatus = releaseStatus;
+        this.player        = ClientPlayer.of(beaconLink.getAccount());
+        this.music         = new Music(storage, audio);
+        this.musicRotation = new MusicRotation();
 
         this.globalRandom = new LcgRandom(GLOBAL_RANDOM_SEED);
         this.globalRandom.setEnabled(GLOBAL_RANDOM_DISABLED);

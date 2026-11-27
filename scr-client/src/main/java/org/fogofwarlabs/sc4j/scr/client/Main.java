@@ -599,12 +599,12 @@ public final class Main {
      * Starts the client below a given root with the run's Beacon.Link, which the multiplayer menu offers next to LAN, the presenter of map
      * texts and of other players' texts and the run's build identity: as {@link #launch(InstallLayout, ScrResourceProvider, String[])}.
      *
-     * @param layout          the client root and its folders
-     * @param resources       the mod's resource provider, which the client context reads and closes
-     * @param beaconLink      the run's Beacon.Link, or {@code null} if the run offers none
-     * @param textPresenter   how the client shows map texts and the texts of other players
-     * @param build           the run's build identity, which the desync dumps of network games name
-     * @param arguments       the launch options; {@code --help} describes available options
+     * @param layout        the client root and its folders
+     * @param resources     the mod's resource provider, which the client context reads and closes
+     * @param beaconLink    the run's Beacon.Link, or {@code null} if the run offers none
+     * @param textPresenter how the client shows map texts and the texts of other players
+     * @param build         the run's build identity, which the desync dumps of network games name
+     * @param arguments     the launch options; {@code --help} describes available options
      * @throws IOException if the data directory holds no data pack, the startup storage is missing or invalid, a screenshot cannot be written or a bounded replay load fails
      */
     public static void launch(@NotNull InstallLayout layout, @NotNull ScrResourceProvider resources,
@@ -1270,11 +1270,11 @@ public final class Main {
     /**
      * Creates a {@link Main} instance with the run's Beacon.Link, its text presenter and its build identity.
      *
-     * @param options         the configured launch and live client settings
-     * @param resources       the mod's resource provider, or {@code null} to open one from the game directory
-     * @param beaconLink      the run's Beacon.Link, or {@code null} if the run offers none
-     * @param textPresenter   how the client shows map texts and the texts of other players
-     * @param build           the run's build identity, which the desync dumps of network games name
+     * @param options       the configured launch and live client settings
+     * @param resources     the mod's resource provider, or {@code null} to open one from the game directory
+     * @param beaconLink    the run's Beacon.Link, or {@code null} if the run offers none
+     * @param textPresenter how the client shows map texts and the texts of other players
+     * @param build         the run's build identity, which the desync dumps of network games name
      */
     Main(@NotNull ClientOptions options, @Nullable ScrResourceProvider resources, @Nullable BeaconLink beaconLink,
          @NotNull ScrTextPresenter textPresenter, @NotNull String build) {
@@ -1373,11 +1373,11 @@ public final class Main {
 
         this.seekSequenceEnded = false;
 
-        this.resources       = resources;
-        this.beaconLink      = new BeaconLinkAccess(beaconLink);
+        this.resources     = resources;
+        this.beaconLink    = new BeaconLinkAccess(beaconLink);
         this.textPresenter = textPresenter;
-        this.build           = build;
-        this.clientContext   = null;
+        this.build         = build;
+        this.clientContext = null;
 
         this.consoleView = null;
 
@@ -7192,7 +7192,7 @@ public final class Main {
 
             if (objectives != null) {
                 String text = this.textPresenter.presentMapText(this.requireSession().getMapString(index),
-                                                                  GameLocaleUtils.toLocale(this.requireSession().getLocale()));
+                                                                GameLocaleUtils.toLocale(this.requireSession().getLocale()));
 
                 objectives.setReplacedText(StatText.stripColors(text));
             }

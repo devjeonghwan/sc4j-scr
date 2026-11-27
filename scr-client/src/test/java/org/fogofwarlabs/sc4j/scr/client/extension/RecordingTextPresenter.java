@@ -3,11 +3,7 @@ package org.fogofwarlabs.sc4j.scr.client.extension;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A text presenter for tests that records the map texts and chat texts it is given and shows the texts it was told to show.
