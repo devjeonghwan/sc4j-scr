@@ -437,6 +437,51 @@ final class MessageLineTranslationsTest {
     }
 
     @Test
+    void lines_written_before_the_translations_existed_are_translated_once_their_bytes_settle() {
+        MessageLines lines = createLines(SINGLE_LINE);
+        RecordingTranslator translator = new RecordingTranslator();
+        int settled = HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS;
+
+        writeMemory(lines, MessageLines.SYSTEM_LINE, "Tenez bon");
+        lines.writeTriggerText("Gardez la base".getBytes(StandardCharsets.UTF_8), 0);
+
+        MessageLineTranslations translations = install(lines, SINGLE_LINE, new TextTranslation(translator, false, true), EVERY_SENDER);
+
+        Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), HOST_CLOCK));
+        Assertions.assertNull(translations.findSubstitute(FIRST_LINE, lines.getLine(FIRST_LINE), HOST_CLOCK));
+        Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), settled));
+        Assertions.assertNull(translations.findSubstitute(FIRST_LINE, lines.getLine(FIRST_LINE), settled));
+        Assertions.assertEquals(List.of("Tenez bon", "Gardez la base"), translator.getRequests().stream().map(TranslationRequest::getText).toList());
+
+        translator.answer(0, "Hold on");
+        translator.answer(1, "Guard the base");
+
+        MessageLineTranslations.Substitute status = translations.findSubstitute(MessageLines.SYSTEM_LINE,
+                                                                                lines.getLine(MessageLines.SYSTEM_LINE),
+                                                                                settled);
+        MessageLineTranslations.Substitute message = translations.findSubstitute(FIRST_LINE, lines.getLine(FIRST_LINE), settled);
+
+        Assertions.assertNotNull(status);
+        Assertions.assertNotNull(message);
+        Assertions.assertEquals("Hold on", status.getText());
+        Assertions.assertEquals("Guard the base", message.getText());
+    }
+
+    @Test
+    void lines_written_before_the_translations_existed_keep_their_bytes_with_map_text_translation_off() {
+        MessageLines lines = createLines(SINGLE_LINE);
+        RecordingTranslator translator = new RecordingTranslator();
+
+        writeMemory(lines, MessageLines.SYSTEM_LINE, "Tenez bon");
+
+        MessageLineTranslations translations = install(lines, SINGLE_LINE, new TextTranslation(translator, true, false), EVERY_SENDER);
+
+        Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE),
+                                                          HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS));
+        Assertions.assertEquals(List.of(), translator.getRequests());
+    }
+
+    @Test
     void a_trigger_text_laid_out_in_lines_is_asked_for_line_by_line_and_keeps_its_rows() {
         MessageLines lines = createLines(LINE_FEED_PIECES);
         RecordingTranslator translator = new RecordingTranslator();

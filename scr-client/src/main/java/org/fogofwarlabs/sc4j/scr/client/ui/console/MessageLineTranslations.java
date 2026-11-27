@@ -25,7 +25,8 @@ import java.util.function.IntPredicate;
  * <p>
  * While map-text translation is on, a rotating line or the system line whose bytes a memory write changed is translated by itself once its
  * bytes stayed the same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the
- * same; a text the game writes to the system line shows its bytes. Lines that
+ * same; a text the game writes to the system line shows its bytes. A rotating line or the system line that already shows a text when this
+ * instance is created, such as a text a map wrote in the first frames before the console existed, is watched the same way. Lines that
  * are mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isTranslatable}).
  * <p>
  * The substitution is for drawing only: the message lines keep their bytes, styles and deadlines. A rotating line whose bytes or deadline
@@ -223,6 +224,14 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
 
         this.shown       = new Line[MessageLines.LINE_COUNT];
         this.memoryLines = new MemoryLine[MessageLines.LINE_COUNT];
+
+        if (translation.isMapTextEnabled()) {
+            for (int line = 0; line < MessageLines.LINE_COUNT; line++) {
+                if ((line < MessageLines.ROTATING_LINES || line == MessageLines.SYSTEM_LINE) && lines.getLine(line).length > 0) {
+                    this.memoryLines[line] = new MemoryLine();
+                }
+            }
+        }
     }
 
     /**
