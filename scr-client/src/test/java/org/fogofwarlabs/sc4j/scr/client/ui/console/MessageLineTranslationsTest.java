@@ -408,6 +408,35 @@ final class MessageLineTranslationsTest {
     }
 
     @Test
+    void the_system_line_written_by_memory_is_translated_until_the_game_writes_it() {
+        MessageLines lines = createLines(SINGLE_LINE);
+        RecordingTranslator translator = new RecordingTranslator();
+        MessageLineTranslations translations = install(lines, SINGLE_LINE, new TextTranslation(translator, false, true), EVERY_SENDER);
+        int settled = HOST_CLOCK + MessageLineTranslations.MEMORY_TEXT_SETTLE_MILLISECONDS;
+
+        writeMemory(lines, MessageLines.SYSTEM_LINE, "Tenez bon");
+
+        Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), HOST_CLOCK));
+        Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), settled));
+        Assertions.assertEquals("Tenez bon", translator.getRequests().getFirst().getText());
+
+        translator.answer(0, "Hold on");
+
+        MessageLineTranslations.Substitute substitute = translations.findSubstitute(MessageLines.SYSTEM_LINE,
+                                                                                    lines.getLine(MessageLines.SYSTEM_LINE),
+                                                                                    settled);
+
+        Assertions.assertNotNull(substitute);
+        Assertions.assertEquals("Hold on", substitute.getText());
+
+        lines.writeSystemLine("Invalid location.".getBytes(StandardCharsets.UTF_8), HOST_CLOCK);
+
+        Assertions.assertNull(translations.findSubstitute(MessageLines.SYSTEM_LINE, lines.getLine(MessageLines.SYSTEM_LINE), settled),
+                              "A text the game writes shows its bytes.");
+        Assertions.assertEquals(1, translator.getRequests().size());
+    }
+
+    @Test
     void a_trigger_text_laid_out_in_lines_is_asked_for_line_by_line_and_keeps_its_rows() {
         MessageLines lines = createLines(LINE_FEED_PIECES);
         RecordingTranslator translator = new RecordingTranslator();

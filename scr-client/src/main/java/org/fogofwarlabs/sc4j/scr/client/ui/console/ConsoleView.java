@@ -4163,8 +4163,13 @@ public final class ConsoleView implements AutoCloseable, LocalDisplay.ConsoleRec
         byte[] status = lines.getLine(MessageLines.SYSTEM_LINE);
 
         if (status.length > 0) {
+            // A map text written into the system line shows its translation once it came, as the rotating lines do.
+            MessageLineTranslations.Substitute substitute = translations == null
+                                                            ? null
+                                                            : translations.findSubstitute(MessageLines.SYSTEM_LINE, status, hostTime);
+
             InterfaceText.draw(this.renderer, console,
-                               font, LegacyTextUtils.decode(status, 0, status.length),
+                               font, substitute == null ? LegacyTextUtils.decode(status, 0, status.length) : substitute.getText(),
                                0, MessageAreaUtils.STATUS_ROW, console.getInterfaceWidth(), MessageAreaUtils.ROW_STEP,
                                CTEXT_FORMAT,
                                MessageLines.STYLE_SYSTEM_LINE,

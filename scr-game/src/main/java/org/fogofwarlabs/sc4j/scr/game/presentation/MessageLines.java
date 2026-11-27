@@ -242,8 +242,8 @@ public final class MessageLines {
     }
 
     /**
-     * Receives the writes to the rotating lines: every line that shows a text of another player or of the map as it is written, with the
-     * rotating lines its pieces took, every piece written through this class, and every byte a memory write changes.
+     * Receives the writes to the rotating lines and the system line: every line that shows a text of another player or of the map as it is
+     * written, with the rotating lines its pieces took, every piece written through this class, and every byte a memory write changes.
      */
     public interface TextListener {
         /**
@@ -259,16 +259,17 @@ public final class MessageLines {
         void onTextWritten(@NotNull TextSource source, int sender, byte @NotNull [] line, int textStart, int firstLine, int lineCount);
 
         /**
-         * Called when a piece of any message is written to a rotating line, before {@link #onTextWritten} reports the message.
+         * Called when a piece of any message is written to a rotating line, before {@link #onTextWritten} reports the message, and when a
+         * text is written to the system line.
          *
-         * @param line the rotating line
+         * @param line the rotating line or {@link #SYSTEM_LINE}
          */
         void onLineWritten(int line);
 
         /**
-         * Called when a memory write ({@link #writeByte}) changes a byte of a rotating line.
+         * Called when a memory write ({@link #writeByte}) changes a byte of a rotating line or of the system line.
          *
-         * @param line the rotating line
+         * @param line the rotating line or {@link #SYSTEM_LINE}
          */
         void onLineMemoryWritten(int line);
     }
@@ -612,7 +613,7 @@ public final class MessageLines {
     }
 
     /**
-     * Sets the receiver of the writes to the rotating lines.
+     * Sets the receiver of the writes to the rotating lines and the system line.
      *
      * @param textListener the receiver, or {@code null}
      */
@@ -1181,6 +1182,12 @@ public final class MessageLines {
         this.deadlines[SYSTEM_LINE] = hostTicks + DEFAULT_DURATION_MILLISECONDS;
         this.styles[SYSTEM_LINE]    = STYLE_SYSTEM_LINE;
         this.colors[SYSTEM_LINE]    = 0;
+
+        TextListener listener = this.textListener;
+
+        if (listener != null) {
+            listener.onLineWritten(SYSTEM_LINE);
+        }
     }
 
     /**
@@ -1218,8 +1225,8 @@ public final class MessageLines {
     }
 
     /**
-     * Stores one message byte as a memory write does, without changing its deadline or style. A changed byte of a rotating line is reported
-     * to the {@link TextListener}.
+     * Stores one message byte as a memory write does, without changing its deadline or style. A changed byte of a rotating line or of the
+     * system line is reported to the {@link TextListener}.
      *
      * @param offset the byte offset from the first line, below {@link #LINE_COUNT} times {@link #LINE_SIZE}
      * @param value  the byte
@@ -1231,8 +1238,10 @@ public final class MessageLines {
 
         TextListener listener = this.textListener;
 
-        if (listener != null && previous != (byte) value && offset < ROTATING_LINES * LINE_SIZE) {
-            listener.onLineMemoryWritten(offset / LINE_SIZE);
+        int line = offset / LINE_SIZE;
+
+        if (listener != null && previous != (byte) value && (line < ROTATING_LINES || line == SYSTEM_LINE)) {
+            listener.onLineMemoryWritten(line);
         }
     }
 

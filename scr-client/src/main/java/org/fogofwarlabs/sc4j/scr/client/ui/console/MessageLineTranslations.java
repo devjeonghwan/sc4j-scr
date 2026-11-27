@@ -23,8 +23,9 @@ import java.util.function.IntPredicate;
  * paragraph's rotating lines are not shown, and a rotating line of the paragraph without a piece shows nothing. Of a message that takes more
  * pieces than the rotating lines, the paragraphs of the pieces still shown are translated.
  * <p>
- * While map-text translation is on, a rotating line whose bytes a memory write changed is translated by itself once its bytes stayed the
- * same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the same. Lines that
+ * While map-text translation is on, a rotating line or the system line whose bytes a memory write changed is translated by itself once its
+ * bytes stayed the same for {@value #MEMORY_TEXT_SETTLE_MILLISECONDS} milliseconds, and shows its translation only while its bytes stay the
+ * same; a text the game writes to the system line shows its bytes. Lines that
  * are mostly symbols, such as text art, keep their bytes ({@link TextTranslation#isTranslatable}).
  * <p>
  * The substitution is for drawing only: the message lines keep their bytes, styles and deadlines. A rotating line whose bytes or deadline
@@ -175,7 +176,7 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
     }
 
     /**
-     * A rotating line whose bytes a memory write changed: its bytes as last drawn, the time they were first drawn, the answer for them once
+     * A rotating line or the system line whose bytes a memory write changed: its bytes as last drawn, the time they were first drawn, the answer for them once
      * they settled and the substitute once the translation came.
      */
     private static final class MemoryLine {
@@ -220,15 +221,15 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
         this.target            = target;
         this.translatedSenders = translatedSenders;
 
-        this.shown       = new Line[MessageLines.ROTATING_LINES];
-        this.memoryLines = new MemoryLine[MessageLines.ROTATING_LINES];
+        this.shown       = new Line[MessageLines.LINE_COUNT];
+        this.memoryLines = new MemoryLine[MessageLines.LINE_COUNT];
     }
 
     /**
-     * Finds the text a rotating line shows in place of its bytes. A line whose bytes or deadline changed since its message was written
+     * Finds the text a rotating line or the system line shows in place of its bytes. A line whose bytes or deadline changed since its message was written
      * shows its bytes from then on; a line changed by a memory write shows its translation only while its bytes stay the same.
      *
-     * @param line     the rotating line
+     * @param line     the rotating line or {@link MessageLines#SYSTEM_LINE}
      * @param bytes    the line's bytes up to the first zero ({@link MessageLines#getLine}), not empty
      * @param hostTime the host clock of the drawn frame in milliseconds
      * @return the substitute, or {@code null} when the line shows its bytes
@@ -388,9 +389,10 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
     }
 
     /**
-     * Called when a piece of any message is written to a rotating line, before {@link #onTextWritten} reports the message.
+     * Called when a piece of any message is written to a rotating line, before {@link #onTextWritten} reports the message, and when a text
+     * is written to the system line.
      *
-     * @param line the rotating line
+     * @param line the rotating line or {@link MessageLines#SYSTEM_LINE}
      * @implSpec Forgets what the line showed in place of its bytes.
      */
     @Override
@@ -400,9 +402,9 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
     }
 
     /**
-     * Called when a memory write changes a byte of a rotating line.
+     * Called when a memory write changes a byte of a rotating line or of the system line.
      *
-     * @param line the rotating line
+     * @param line the rotating line or {@link MessageLines#SYSTEM_LINE}
      * @implSpec Forgets the message the line showed and, while map-text translation is on, watches the line's bytes from then on.
      */
     @Override
