@@ -373,10 +373,20 @@ public final class GlueContext {
     }
 
     /**
-     * @return the translation of other players' chat texts
+     * @return the translation of other players' chat texts and of map texts
      */
-    public @NotNull ChatTranslation getChatTranslation() {
-        return this.client.getChatTranslation();
+    public @NotNull TextTranslation getTextTranslation() {
+        return this.client.getTextTranslation();
+    }
+
+    /**
+     * Returns the text a map text shows in the text language ({@link TextTranslation#resolveMapText}).
+     *
+     * @param text the map text
+     * @return the translation once it came, the text itself until then and while map-text translation is off
+     */
+    public @NotNull String resolveMapText(@NotNull String text) {
+        return this.getTextTranslation().resolveMapText(text, this.getTextLocale());
     }
 
     /**

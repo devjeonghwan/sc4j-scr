@@ -224,21 +224,54 @@ public final class MessageLines {
     }
 
     /**
-     * Receives every line that shows the text of another player as it is written, with the rotating lines its pieces took: a chat line of
-     * a player slot other than the local player, and a received whisper.
+     * The kinds of texts a {@link TextListener} receives.
      */
-    @FunctionalInterface
-    public interface OtherPlayerTextListener {
+    public enum TextSource {
         /**
-         * Called when a line with the text of another player is written.
+         * A chat line of a player slot other than the local player.
+         */
+        CHAT,
+        /**
+         * A received whisper.
+         */
+        WHISPER,
+        /**
+         * Trigger text: a map string or text that a trigger displays, such as Display Text Message and Transmission.
+         */
+        TRIGGER_TEXT
+    }
+
+    /**
+     * Receives the writes to the rotating lines and the system line: every line that shows a text of another player or of the map as it is
+     * written, with the rotating lines its pieces took, every piece written through this class, and every byte a memory write changes.
+     */
+    public interface TextListener {
+        /**
+         * Called when a line with the text of another player or of the map is written.
          *
-         * @param sender    the sender slot, or {@link #NO_SENDER_SLOT} for a whisper from a player outside the game
+         * @param source    the kind of the text
+         * @param sender    the sender slot, or {@link #NO_SENDER_SLOT} for a whisper from a player outside the game and for trigger text
          * @param line      the formatted line bytes
-         * @param textStart the index of the player's text in the line, after the sender prefix
+         * @param textStart the index of the text in the line, after the sender prefix
          * @param firstLine the rotating line of the first piece; each next piece is on the next rotating line
          * @param lineCount the number of pieces
          */
-        void onOtherPlayerTextWritten(int sender, byte @NotNull [] line, int textStart, int firstLine, int lineCount);
+        void onTextWritten(@NotNull TextSource source, int sender, byte @NotNull [] line, int textStart, int firstLine, int lineCount);
+
+        /**
+         * Called when a piece of any message is written to a rotating line, before {@link #onTextWritten} reports the message, and when a
+         * text is written to the system line.
+         *
+         * @param line the rotating line or {@link #SYSTEM_LINE}
+         */
+        void onLineWritten(int line);
+
+        /**
+         * Called when a memory write ({@link #writeByte}) changes a byte of a rotating line or of the system line.
+         *
+         * @param line the rotating line or {@link #SYSTEM_LINE}
+         */
+        void onLineMemoryWritten(int line);
     }
 
     /**
@@ -327,7 +360,7 @@ public final class MessageLines {
     private boolean multiplayerSession;
     private @Nullable IntUnaryOperator nameColors;
     private @Nullable ChatListener chatListener;
-    private @Nullable OtherPlayerTextListener otherPlayerTextListener;
+    private @Nullable TextListener textListener;
     private @Nullable IntFunction<@Nullable String> teamForceNames;
     private boolean replayPlayback;
 
@@ -359,14 +392,14 @@ public final class MessageLines {
 
         this.nextLine = INITIAL_NEXT_LINE;
 
-        this.statusTexts             = null;
-        this.localPlayer             = -1;
-        this.multiplayerSession      = false;
-        this.nameColors              = null;
-        this.chatListener            = null;
-        this.otherPlayerTextListener = null;
-        this.teamForceNames          = null;
-        this.replayPlayback          = false;
+        this.statusTexts        = null;
+        this.localPlayer        = -1;
+        this.multiplayerSession = false;
+        this.nameColors         = null;
+        this.chatListener       = null;
+        this.textListener       = null;
+        this.teamForceNames     = null;
+        this.replayPlayback     = false;
 
         this.layout             = null;
         this.hostClock          = null;
@@ -454,6 +487,15 @@ public final class MessageLines {
      */
     public int getNextLine() {
         return this.nextLine & BYTE_MASK;
+    }
+
+    /**
+     * @return the rotating line the next written piece takes
+     */
+    private int getWriteLine() {
+        int current = this.nextLine & BYTE_MASK;
+
+        return current < ROTATING_LINES ? current : 0;
     }
 
     /**
@@ -571,12 +613,12 @@ public final class MessageLines {
     }
 
     /**
-     * Sets the receiver of the lines that show the text of another player.
+     * Sets the receiver of the writes to the rotating lines and the system line.
      *
-     * @param otherPlayerTextListener the receiver, or {@code null}
+     * @param textListener the receiver, or {@code null}
      */
-    public void setOtherPlayerTextListener(@Nullable OtherPlayerTextListener otherPlayerTextListener) {
-        this.otherPlayerTextListener = otherPlayerTextListener;
+    public void setTextListener(@Nullable TextListener textListener) {
+        this.textListener = textListener;
     }
 
     /**
@@ -800,13 +842,19 @@ public final class MessageLines {
     }
 
     /**
-     * Writes trigger text with the supplied duration and trigger flag.
+     * Writes trigger text with the supplied duration and trigger flag and reports it to the {@link TextListener}.
      *
      * @param text                 the resolved text bytes
      * @param durationMilliseconds the display duration in milliseconds
      */
     public void writeTriggerText(byte @NotNull [] text, int durationMilliseconds) {
-        this.writeMessage(text, durationMilliseconds, STYLE_TRIGGER_TEXT, TRIGGER_TEXT_FLAG, 0);
+        int firstLine = this.getWriteLine();
+        int lineCount = this.writeMessage(text, durationMilliseconds, STYLE_TRIGGER_TEXT, TRIGGER_TEXT_FLAG, 0);
+        TextListener listener = this.textListener;
+
+        if (listener != null && lineCount > 0) {
+            listener.onTextWritten(TextSource.TRIGGER_TEXT, NO_SENDER_SLOT, text, 0, firstLine, lineCount);
+        }
     }
 
     /**
@@ -902,14 +950,14 @@ public final class MessageLines {
         }
 
         if (sender >= PlayerTable.PLAYABLE_PLAYER_SLOTS) {
-            this.writeChatLine(text, STYLE_CHAT_TEXT, 0, sender, 0, false);
+            this.writeChatLine(text, STYLE_CHAT_TEXT, 0, sender, 0, null);
 
             return;
         }
 
         byte[] name = this.replayPlayback ? TerminatedStringUtils.copyPrintableText(this.playerNames[sender], REPLAY_CHAT_NAME_LIMIT)
                                           : TerminatedStringUtils.cutTextWithoutControlBytes(this.playerNames[sender], CHAT_NAME_SIZE);
-        boolean otherPlayer = sender != this.localPlayer;
+        TextSource source = sender != this.localPlayer ? TextSource.CHAT : null;
 
         if (this.replayPlayback) {
             byte[] line = new byte[name.length + REPLAY_CHAT_PREFIX_SIZE + text.length];
@@ -919,7 +967,7 @@ public final class MessageLines {
             line[name.length + REPLAY_CHAT_SPACE_OFFSET] = ' ';
             System.arraycopy(text, 0, line, name.length + REPLAY_CHAT_PREFIX_SIZE, text.length);
 
-            this.writeChatLine(line, STYLE_CHAT_TEXT, 0, sender, name.length + REPLAY_CHAT_PREFIX_SIZE, otherPlayer);
+            this.writeChatLine(line, STYLE_CHAT_TEXT, 0, sender, name.length + REPLAY_CHAT_PREFIX_SIZE, source);
 
             return;
         }
@@ -942,7 +990,7 @@ public final class MessageLines {
         IntUnaryOperator colorSource = this.nameColors;
 
         this.writeChatLine(line, STYLE_CHAT_TEXT, colorSource == null ? 0 : colorSource.applyAsInt(sender),
-                           sender, textOffset + CHAT_PREFIX_SIZE, otherPlayer);
+                           sender, textOffset + CHAT_PREFIX_SIZE, source);
     }
 
     /**
@@ -974,7 +1022,8 @@ public final class MessageLines {
     private void writeWhisper(@NotNull String format, @NotNull String name, byte @NotNull [] text, int sender, boolean received) {
         byte[] prefix = format.replace("%s", name).getBytes(StandardCharsets.UTF_8);
 
-        this.writeChatLine(joinWithSeparator(prefix, text), STYLE_WHISPER, 0, sender, prefix.length + SEPARATOR_SIZE, received);
+        this.writeChatLine(joinWithSeparator(prefix, text), STYLE_WHISPER, 0, sender, prefix.length + SEPARATOR_SIZE,
+                           received ? TextSource.WHISPER : null);
     }
 
     /**
@@ -1009,16 +1058,16 @@ public final class MessageLines {
     /**
      * Writes a formatted chat or whisper line and reports its transmission sound and listener events.
      *
-     * @param line        the line bytes
-     * @param style       the color code of the line ({@link #STYLE_CHAT_TEXT} or {@link #STYLE_WHISPER})
-     * @param color       the packed {@code 0xRRGGBBAA} starting color, or {@code 0}
-     * @param sender      the sender slot, or {@link #NO_SENDER_SLOT} for a player outside the game
-     * @param textStart   the index of the sender's text in the line
-     * @param otherPlayer whether the text is another player's ({@link OtherPlayerTextListener})
+     * @param line      the line bytes
+     * @param style     the color code of the line ({@link #STYLE_CHAT_TEXT} or {@link #STYLE_WHISPER})
+     * @param color     the packed {@code 0xRRGGBBAA} starting color, or {@code 0}
+     * @param sender    the sender slot, or {@link #NO_SENDER_SLOT} for a player outside the game
+     * @param textStart the index of the sender's text in the line
+     * @param source    the kind of the text the {@link TextListener} receives, or {@code null} for a text it does not receive, such as the
+     *                  local player's
      */
-    private void writeChatLine(byte @NotNull [] line, int style, int color, int sender, int textStart, boolean otherPlayer) {
-        int current = this.nextLine & BYTE_MASK;
-        int firstLine = current < ROTATING_LINES ? current : 0;
+    private void writeChatLine(byte @NotNull [] line, int style, int color, int sender, int textStart, @Nullable TextSource source) {
+        int firstLine = this.getWriteLine();
         int lineCount = this.writeMessage(line, DEFAULT_DURATION_MILLISECONDS, style, 0, color);
 
         this.transmissionSounds++;
@@ -1029,10 +1078,10 @@ public final class MessageLines {
             listener.onChatWritten(line, style, color);
         }
 
-        OtherPlayerTextListener textListener = this.otherPlayerTextListener;
+        TextListener textListener = this.textListener;
 
-        if (textListener != null && otherPlayer && lineCount > 0) {
-            textListener.onOtherPlayerTextWritten(sender, line, textStart, firstLine, lineCount);
+        if (textListener != null && source != null && lineCount > 0) {
+            textListener.onTextWritten(source, sender, line, textStart, firstLine, lineCount);
         }
     }
 
@@ -1094,6 +1143,10 @@ public final class MessageLines {
 
             this.deadlines[line] = deadline;
 
+            if (this.textListener != null) {
+                this.textListener.onLineWritten(line);
+            }
+
             start = end;
         }
     }
@@ -1129,6 +1182,12 @@ public final class MessageLines {
         this.deadlines[SYSTEM_LINE] = hostTicks + DEFAULT_DURATION_MILLISECONDS;
         this.styles[SYSTEM_LINE]    = STYLE_SYSTEM_LINE;
         this.colors[SYSTEM_LINE]    = 0;
+
+        TextListener listener = this.textListener;
+
+        if (listener != null) {
+            listener.onLineWritten(SYSTEM_LINE);
+        }
     }
 
     /**
@@ -1166,13 +1225,24 @@ public final class MessageLines {
     }
 
     /**
-     * Stores one message byte without changing its deadline or style.
+     * Stores one message byte as a memory write does, without changing its deadline or style. A changed byte of a rotating line or of the
+     * system line is reported to the {@link TextListener}.
      *
      * @param offset the byte offset from the first line, below {@link #LINE_COUNT} times {@link #LINE_SIZE}
      * @param value  the byte
      */
     public void writeByte(int offset, int value) {
+        byte previous = this.lines[offset];
+
         this.lines[offset] = (byte) value;
+
+        TextListener listener = this.textListener;
+
+        int line = offset / LINE_SIZE;
+
+        if (listener != null && previous != (byte) value && (line < ROTATING_LINES || line == SYSTEM_LINE)) {
+            listener.onLineMemoryWritten(line);
+        }
     }
 
     private void markUnknown(@NotNull String reason) {
@@ -1205,11 +1275,10 @@ public final class MessageLines {
         }
 
         int deadline = this.hostClock.getAsInt() + durationMilliseconds;
-        int firstLine = this.nextLine & BYTE_MASK;
+        int line = this.getWriteLine();
 
         this.write(text, deadline);
 
-        int line = firstLine < ROTATING_LINES ? firstLine : 0;
         int[] ends = this.layout.breakLines(text);
         int pieceStyle = style;
         int pieceColor = color;

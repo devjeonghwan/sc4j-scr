@@ -203,11 +203,12 @@ final class ScrModTest {
     }
 
     @Test
-    void manifest_names_this_entry_and_declares_the_installation_locale_and_chat_translation_settings() throws IOException, ManifestException {
+    void manifest_names_this_entry_and_declares_the_installation_locale_and_translation_settings() throws IOException, ManifestException {
         ModManifest manifest = readManifest();
         DirectorySetting folder = (DirectorySetting) manifest.getSettings().findDefinition(ScrMod.GAME_FOLDER_SETTING);
         ChoiceSetting locale = (ChoiceSetting) manifest.getSettings().findDefinition(ScrMod.LOCALE_SETTING);
         SettingDefinition translateChat = manifest.getSettings().findDefinition(ScrMod.TRANSLATE_CHAT_SETTING);
+        SettingDefinition translateMapText = manifest.getSettings().findDefinition(ScrMod.TRANSLATE_MAP_TEXT_SETTING);
 
         Assertions.assertEquals("scr", manifest.getId());
         Assertions.assertEquals(ScrMod.class.getName(), manifest.getEntry());
@@ -227,6 +228,9 @@ final class ScrModTest {
         Assertions.assertNotNull(translateChat);
         Assertions.assertEquals(SettingType.BOOLEAN, translateChat.getType());
         Assertions.assertEquals(true, translateChat.getDefaultValue(), "Chat translation is on by default.");
+        Assertions.assertNotNull(translateMapText);
+        Assertions.assertEquals(SettingType.BOOLEAN, translateMapText.getType());
+        Assertions.assertEquals(true, translateMapText.getDefaultValue(), "Map-text translation is on by default.");
 
         for (String image : manifest.getImages().getEntries()) {
             try (InputStream input = ScrModTest.class.getClassLoader().getResourceAsStream(image)) {
