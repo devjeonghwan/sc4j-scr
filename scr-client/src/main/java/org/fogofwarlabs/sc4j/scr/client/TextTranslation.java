@@ -7,11 +7,7 @@ import org.fogofwarlabs.sc4j.translate.Translator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -417,8 +413,7 @@ public final class TextTranslation {
      *
      * @param text   the text
      * @param target the language to translate into
-     * @return the answer, which never translates a text that is not worth a translation ({@link #isTranslatable}), or {@code null} while
-     *         map-text translation is off
+     * @return the answer, which never translates a text that is not worth a translation ({@link #isTranslatable}), or {@code null} while map-text translation is off
      */
     public @Nullable Answer translateMapText(@NotNull String text, @NotNull Locale target) {
         if (!this.mapTextEnabled) {

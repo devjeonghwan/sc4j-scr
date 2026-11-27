@@ -392,14 +392,14 @@ public final class MessageLines {
 
         this.nextLine = INITIAL_NEXT_LINE;
 
-        this.statusTexts             = null;
-        this.localPlayer             = -1;
-        this.multiplayerSession      = false;
-        this.nameColors              = null;
-        this.chatListener            = null;
-        this.textListener            = null;
-        this.teamForceNames          = null;
-        this.replayPlayback          = false;
+        this.statusTexts        = null;
+        this.localPlayer        = -1;
+        this.multiplayerSession = false;
+        this.nameColors         = null;
+        this.chatListener       = null;
+        this.textListener       = null;
+        this.teamForceNames     = null;
+        this.replayPlayback     = false;
 
         this.layout             = null;
         this.hostClock          = null;

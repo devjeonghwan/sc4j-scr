@@ -225,8 +225,8 @@ public final class MessageLineTranslations implements MessageLines.TextListener 
         this.target            = target;
         this.translatedSenders = translatedSenders;
 
-        this.shown       = new Line[MessageLines.LINE_COUNT];
-        this.memoryLines = new MemoryLine[MessageLines.LINE_COUNT];
+        this.shown          = new Line[MessageLines.LINE_COUNT];
+        this.memoryLines    = new MemoryLine[MessageLines.LINE_COUNT];
         this.systemLineText = new byte[0];
 
         if (translation.isMapTextEnabled()) {
